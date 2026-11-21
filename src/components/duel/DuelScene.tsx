@@ -660,8 +660,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // Body mass is a combat-style trade-off, never a weapon eligibility gate.
   // Resolve once per saved weight so the HUD and every combat branch share it.
   const playerWeightProfile = useMemo(
-    () => getWeightCombatProfile(player.bodyWeightLb),
-    [player.bodyWeightLb],
+    () => getWeightCombatProfile(playerProfile.appearance.bodyWeightLb),
+    [playerProfile.appearance.bodyWeightLb],
   );
   // C-TRAIT — the mode's trait grant (C3b) travels on the row's `palmae`, so the
   // modifiers are built from the MODE-RESOLVED row: Sand resolves to the row
