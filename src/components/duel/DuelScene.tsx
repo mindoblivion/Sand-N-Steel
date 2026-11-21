@@ -51,7 +51,7 @@ import {
   crowdTurnsNow,
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
-import { getWeaponByType } from '../../data/itemsDB';
+import { getWeaponByType, weaponSupportsOffhandShield } from '../../data/itemsDB';
 import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
@@ -708,7 +708,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     stats: pStats,
     loadout: {
       weapon: playerWeapon,
-      ...(playerWeapon.type !== 'spear' && playerProfile.equipped.shield
+      ...(weaponSupportsOffhandShield(playerWeapon.type) && playerProfile.equipped.shield
         ? { shield: getEffectiveArmorStats(playerProfile.equipped.shield, resolveTemperLevel(playerProfile, playerProfile.equipped.shield.id)) }
         : {}),
     },
