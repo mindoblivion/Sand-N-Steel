@@ -1170,7 +1170,8 @@ const RomanWarriorGLB: React.FC<{
     ? <WeaponGLBRenderer modelUrl={weaponModelPath} weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
   const shieldModelPath = fighter.loadout.shield?.modelPath ?? weaponItem?.shieldModelPath;
-  const shieldNode = weaponType === 'spear' ? null : (
+  const hasShield = weaponType !== 'spear' && (fighter.loadout.shield != null || weaponItem?.shieldModelPath != null);
+  const shieldNode = !hasShield ? null : (
     <ShieldModel
       ref={shieldGroupRef}
       isLefty={isLefty}
