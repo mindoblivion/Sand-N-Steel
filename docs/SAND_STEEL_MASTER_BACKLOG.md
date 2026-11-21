@@ -197,3 +197,15 @@ Main advanced to `6efe2b39d7c332a3b4160645feb91402650b8b30` after PR #522 reconc
 - Superseded PRs #515 and #516 are closed. Issue #329 remains the Android device acceptance ledger.
 
 No new device or visual acceptance is claimed by this documentation update.
+
+
+## Mainline reconciliation — after PR #530 (2026-11-20)
+
+Main advanced from `af4ca8e551947781ef0e0104bce68207c1103e0d` to `d10eacb0668121c1cc9d9fa708a5278180a7dcf3` when PR #530 merged. The merged change reconciles the active PR references and evidence in this backlog; it changes documentation only and does not alter runtime code.
+
+- PR #530 head `de415827c7124d68439ae23b10d64e5a5677f2fc`: Main quality gate #799 and Environment gate #1296 both passed before merge.
+- Current open engineering PRs remain #528 (rival race clocks), #529 (Ferrum retreat), and #496 (loading-image signature validation).
+- #528 and #529 are current-main rebases with passing automated gates; keep them draft pending visual/Samsung acceptance.
+- #496 remains intentionally blocked until genuine WebP/PNG binaries replace the mislabeled JPEG-byte assets. Do not weaken signature validation.
+
+This update records the post-merge baseline only. It does not claim new device, visual, or gameplay acceptance.
