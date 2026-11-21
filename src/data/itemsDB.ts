@@ -563,8 +563,6 @@ export const ALL_ARMORS: ArmorItem[] = [
     trimColor: '#f59e0b',
     bonusAgility: 2,
   },
-  // Independent shields are inserted after the six legacy armor entries so their saved indices remain stable.
-  ...MATERIAL_SHIELDS,
   // ── Progression P0 — armor material ladder (bronze → iron → steel → gilded) ──
   // APPENDED, never reordered: registry order is load-bearing for the slot filters
   // below. Rarity follows the price band the rest of the catalogue uses (uncommon
@@ -721,7 +719,7 @@ export const ALL_ARMORS: ArmorItem[] = [
 ];
 
 /** The complete item database: every weapon and every armor piece. */
-export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS];
+export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS, ...MATERIAL_SHIELDS];
 
 /** Typed views of the database: `weapon` plus one entry per armor slot. */
 export const ITEMS_BY_CATEGORY = {
@@ -730,7 +728,7 @@ export const ITEMS_BY_CATEGORY = {
   chest: ALL_ARMORS.filter((armor) => armor.slot === 'chest'),
   arms: ALL_ARMORS.filter((armor) => armor.slot === 'arms'),
   legs: ALL_ARMORS.filter((armor) => armor.slot === 'legs'),
-  shield: ALL_ARMORS.filter((armor) => armor.slot === 'shield'),
+  shield: MATERIAL_SHIELDS,
 } as const;
 
 export type ItemCategory = keyof typeof ITEMS_BY_CATEGORY;
