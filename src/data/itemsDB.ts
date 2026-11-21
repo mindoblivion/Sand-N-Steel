@@ -437,6 +437,34 @@ export const ALL_WEAPONS: WeaponItem[] = [
 /** Wooden two-handed spear is the second member of the universal starter arsenal. */
 export const STARTING_SPARE_WEAPON: WeaponItem = WOODEN_SPEAR;
 
+/** Independent off-hand shields. These are separate inventory/equipment items. */
+const MATERIAL_SHIELDS: ArmorItem[] = [
+  {
+    id: 'shield_wooden_wicker', slot: 'shield', name: 'Wooden Wicker Shield', rarity: 'common',
+    description: 'A light wicker practice shield bound with rawhide.', defense: 0, staminaRegenBonus: 0,
+    price: 10, sellPrice: 4, color: '#92400e', trimColor: '#d6a679',
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.woodenShield, blockReduction: 0.60,
+  },
+  {
+    id: 'shield_bronze_round', slot: 'shield', name: 'Bronze Round Shield', rarity: 'uncommon',
+    description: 'A bronze-faced round shield with a reinforced central boss.', defense: 0, staminaRegenBonus: 0,
+    price: 55, sellPrice: 24, color: '#b45309', trimColor: '#fbbf24',
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.bronzeShield, blockReduction: 0.64,
+  },
+  {
+    id: 'shield_iron_scuta', slot: 'shield', name: 'Iron Scutum', rarity: 'rare',
+    description: 'A reinforced iron-faced scutum built to catch heavy blows.', defense: 0, staminaRegenBonus: 0,
+    price: 140, sellPrice: 62, color: '#475569', trimColor: '#cbd5e1',
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.ironShield, blockReduction: 0.68,
+  },
+  {
+    id: 'shield_steel_scuta', slot: 'shield', name: 'Steel Scutum', rarity: 'legendary',
+    description: 'A steel-faced scutum with a hardened rim and central boss.', defense: 0, staminaRegenBonus: 0,
+    price: 320, sellPrice: 145, color: '#334155', trimColor: '#e2e8f0',
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.steelShield, blockReduction: 0.72,
+  },
+];
+
 /** EVERY ACQUIRABLE ARMOR PIECE (helm / chest / arms / legs). */
 export const ALL_ARMORS: ArmorItem[] = [
   {
@@ -689,7 +717,7 @@ export const ALL_ARMORS: ArmorItem[] = [
 ];
 
 /** The complete item database: every weapon and every armor piece. */
-export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS];
+export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS, ...MATERIAL_SHIELDS];
 
 /** Typed views of the database: `weapon` plus one entry per armor slot. */
 export const ITEMS_BY_CATEGORY = {
@@ -698,6 +726,7 @@ export const ITEMS_BY_CATEGORY = {
   chest: ALL_ARMORS.filter((armor) => armor.slot === 'chest'),
   arms: ALL_ARMORS.filter((armor) => armor.slot === 'arms'),
   legs: ALL_ARMORS.filter((armor) => armor.slot === 'legs'),
+  shield: MATERIAL_SHIELDS,
 } as const;
 
 export type ItemCategory = keyof typeof ITEMS_BY_CATEGORY;
