@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { PlayerAppearance, FighterState } from '../../types/game';
-import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
+import { WOODEN_SWORD_SHIELD, WOODEN_SHIELD } from '../../data/itemsDB';
 import { GladiatorMesh } from './GladiatorMesh';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -84,7 +84,7 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
       defense: 5,
       healthMax: 100,
     },
-    loadout: { weapon: DEFAULT_PLAYER_WEAPON },
+    loadout: { weapon: WOODEN_SWORD_SHIELD, shield: WOODEN_SHIELD },
     comboCount: 0,
     bodyWeightLb: appearance.bodyWeightLb,
     physique: appearance.physique,
