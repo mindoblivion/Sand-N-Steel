@@ -34,7 +34,7 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
   let def = base.defense;
 
   // Add equipment bonuses
-  const { weapon, helm, chest, arms, legs } = profile.equipped;
+  const { weapon, helm, chest, arms, legs, shield } = profile.equipped;
   if (weapon) {
     // P1 — a tempered weapon contributes its effective bonuses; the item
     // object itself is never modified (level 0 is the base item exactly).
@@ -48,7 +48,7 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
     def += effective.bonusDefense || 0;
   }
   let regenBonus = 0;
-  [helm, chest, arms, legs].forEach((armor) => {
+  [helm, chest, arms, legs, shield].forEach((armor) => {
     if (armor) {
       // P1 — same seam for armour: defense and its listed bonuses are read
       // at the piece's own temper level.
