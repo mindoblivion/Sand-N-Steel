@@ -19,7 +19,7 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
-import { resolveTemperLevel, getEffectiveWeaponStats } from '../../utils/tempering';
+import { resolveTemperLevel, getEffectiveWeaponStats, getEffectiveArmorStats } from '../../utils/tempering';
 import { calculateDuelGold } from '../../utils/duelRewards';
 // C-8.70C — the crowd's tuning and its live rule. ONE config, ONE rule module;
 // `combatCalculations.ts` is not touched by this slice (see the two notes at the
