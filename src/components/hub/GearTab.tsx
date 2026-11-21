@@ -574,7 +574,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                       sounds.playClick();
                       onEquipWeapon(wpn);
                     }}
-                    disabled={isEquipped || (arm.slot === 'shield' && profile.equipped.weapon.type === 'spear')}
+                    disabled={isEquipped}
                     className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
                       isEquipped
                         ? 'bg-green-800 text-green-200 cursor-default'
