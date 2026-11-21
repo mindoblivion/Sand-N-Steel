@@ -40,7 +40,7 @@ function inventoryCount(profile: PlayerProfile, itemId: string): number {
 function equippedCount(profile: PlayerProfile, itemId: string): number {
   const equipped = profile.equipped;
   if (!equipped) return 0;
-  return [equipped.weapon, equipped.helm, equipped.chest, equipped.arms, equipped.legs].filter(
+  return [equipped.weapon, equipped.helm, equipped.chest, equipped.arms, equipped.legs, equipped.shield].filter(
     (item) => item?.id === itemId
   ).length;
 }
