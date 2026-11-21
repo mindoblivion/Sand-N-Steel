@@ -174,6 +174,8 @@ export interface WeaponItem {
   icon: string;
   /** Optional real mesh asset for this weapon (see data/itemsDB.ts). */
   modelPath?: string;
+  /** Optional off-hand shield mesh paired with a sword-and-shield loadout. */
+  shieldModelPath?: string;
   bonusStrength?: number;
   bonusAgility?: number;
   bonusStamina?: number;
