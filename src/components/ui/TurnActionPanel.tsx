@@ -38,6 +38,7 @@ import {
   ENTANGLE_HIT_PENALTY,
 } from '../../utils/statefulDoctrinae';
 import { isStaggered } from '../../utils/combatStagger';
+import { getBracePresentation } from '../../utils/bracePresentation';
 import { applyRiposteDamage, isRiposteReady } from '../../utils/combatCounter';
 
 /**
@@ -216,6 +217,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const str = player.stats.strength;
   const oppDef = opponent.stats.defense;
   const weapon = player.loadout.weapon;
+  const bracePresentation = getBracePresentation(weapon.type);
 
   // CH-3a — the damage signature resolution will hand calculateAttackDamage:
   // attacker damageDealtMult ÷ defender damageTakenMult, with the same
@@ -494,7 +496,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             <div className="flex items-center justify-between mb-1">
               <span className="font-serif font-black text-xs sm:text-sm text-cyan-200 flex items-center gap-1">
                 <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Shield Guard</span>
+                <span>{bracePresentation.title}</span>
               </span>
               <span className="text-[9px] font-mono bg-cyan-950/80 border border-cyan-700/60 px-1 py-0.2 rounded text-cyan-300">
                 +{shieldRecovery} SP
@@ -502,7 +504,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
 
             <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
-              Brace to absorb {blockAbsorbPct}% of incoming damage.
+              {bracePresentation.description} Absorbs {blockAbsorbPct}% of incoming damage.
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-cyan-900/40">
