@@ -2268,6 +2268,7 @@ export function App() {
       equipped: {
         ...profile.equipped,
         weapon: wpn,
+        ...(wpn.type === 'spear' ? { shield: undefined } : {}),
       },
     };
     setProfile(updated);
