@@ -1,5 +1,5 @@
 import { PlayerProfile, FighterStats, ArmaturaId } from '../types/game';
-import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON, WOODEN_SWORD_SHIELD, WOODEN_SHIELD } from '../data/itemsDB';
+import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON, WOODEN_SWORD_SHIELD, WOODEN_SHIELD, weaponSupportsOffhandShield } from '../data/itemsDB';
 import { getArmatura } from '../data/armaturae';
 import { armaturaKit } from '../utils/characterCreation';
 import {
@@ -173,7 +173,10 @@ export function createNewProfile(
   return {
     ...profile,
     baseStats: { ...row.stats },
-    equipped: { weapon: kit.weapon, shield: WOODEN_SHIELD },
+    equipped: {
+      weapon: kit.weapon,
+      ...(weaponSupportsOffhandShield(kit.weapon.type) ? { shield: WOODEN_SHIELD } : {}),
+    },
     inventory: kit.inventory,
     armatura: row.id,
   };
