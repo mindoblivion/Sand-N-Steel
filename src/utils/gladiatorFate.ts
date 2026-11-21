@@ -109,7 +109,11 @@ export function createFateDraft(
   return { level, cardIds: chosen.map((card) => card.id) as [string, string, string] };
 }
 
-/** Queues exactly one persisted draft for each newly crossed level. */
+/**
+ * Queues exactly one persisted draft for each newly crossed level. The previous
+ * level is the floor on first read, so an old save never receives retroactive
+ * rewards for levels it earned before Fate existed.
+ */
 export function queueFateLevelUps(
   stateInput: unknown,
   levelBefore: number,
