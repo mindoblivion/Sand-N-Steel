@@ -93,6 +93,10 @@ const ARMORER_IDS = [
   'chest_golden_muscled',
   'arms_manica',
   'legs_greaves_bronze',
+  'shield_wooden_wicker',
+  'shield_bronze_round',
+  'shield_iron_scuta',
+  'shield_steel_scuta',
   'arms_manica_iron',
   'arms_manica_steel',
   'arms_galerus_gilded',
@@ -114,6 +118,8 @@ const MERCHANT_IDS = [
   'steel_two_handed_spear',
   'helm_centurion',
   'chest_golden_muscled',
+  'shield_iron_scuta',
+  'shield_steel_scuta',
   'arms_manica_steel',
   'arms_galerus_gilded',
   'legs_greaves_steel',
@@ -167,8 +173,8 @@ describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
     expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set(ALL_ARMORS.map((a) => a.id)));
   });
 
-  test('merchant offers exactly the fifteen rare/legendary goods', () => {
-    expect(getStorefrontStock('merchant')).toHaveLength(15);
+  test('merchant offers exactly the seventeen rare/legendary goods', () => {
+    expect(getStorefrontStock('merchant')).toHaveLength(17);
     expect(new Set(getStorefrontStock('merchant'))).toEqual(new Set(MERCHANT_IDS));
   });
 
@@ -207,7 +213,7 @@ describe('SHOP-1 §D — the merchant deals only in rare and legendary', () => {
       .filter((item) => item.rarity === 'rare' || item.rarity === 'legendary')
       .map((item) => item.id);
     expect(sorted(getStorefrontStock('merchant'))).toEqual(sorted(rareLegendary));
-    expect(rareLegendary).toHaveLength(15);
+    expect(rareLegendary).toHaveLength(17);
   });
 
   test('no common or uncommon item is merchant stock', () => {
