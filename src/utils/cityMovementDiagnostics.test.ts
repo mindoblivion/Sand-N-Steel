@@ -54,6 +54,16 @@ describe('city movement diagnostic snapshots', () => {
     expect(snapshot.collisionLimited).toBe(false);
   });
 
+  test('flags a diagonal collision-recovery step that exceeds normal stride distance', () => {
+    const snapshot = createCityMovementDiagnosticSnapshot({
+      ...base,
+      // The recovery fallback steps on both axes without normalizing its diagonal.
+      nextPosition: [0.38, 0, 0.38],
+    });
+    expect(snapshot.actualDistance).toBeCloseTo(Math.SQRT2 * 0.38, 8);
+    expect(snapshot.unexpectedDisplacement).toBe(true);
+  });
+
   test('detects movement while the player has no movement input', () => {
     const snapshot = createCityMovementDiagnosticSnapshot({
       ...base,
