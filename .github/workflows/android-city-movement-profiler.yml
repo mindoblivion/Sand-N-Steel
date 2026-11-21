@@ -1,0 +1,100 @@
+# Opt-in Android build with a development-only city movement telemetry panel.
+# This is an isolated, unsigned diagnostic APK; never use it as a release artifact.
+name: Build Android city-movement profiler APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/android-city-movement-profiler.yml'
+      - 'android/**'
+      - 'src/components/3d/city/CityHubScene.tsx'
+      - 'src/components/dev/CityMovementDiagnosticsPanel.tsx'
+      - 'src/utils/cityMovementDiagnostics.ts'
+      - 'src/utils/cityMovementDiagnostics.test.ts'
+      - 'src/hooks/useCameraDrag.ts'
+      - 'src/utils/cityCollisions.ts'
+      - 'src/utils/cityMovementSpeed.ts'
+      - 'src/utils/cityFacing.ts'
+      - 'src/utils/joystickDeadZone.ts'
+      - 'src/main.tsx'
+      - 'package.json'
+      - 'bun.lock*'
+      - 'capacitor.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-city-movement-profiler-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  profiler-apk:
+    name: Build isolated city movement diagnostic APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install from the committed lockfile
+        run: bun install --frozen-lockfile
+
+      - name: Run tests
+        run: bun test
+
+      - name: Typecheck
+        run: bun run lint
+
+      # DEV keeps the telemetry behind import.meta.env.DEV; the VITE flag opts
+      # this isolated build into the panel without requiring a browser query string.
+      - name: Build development web assets and sync Capacitor
+        env:
+          NODE_ENV: development
+          VITE_DEV_CITY_MOVEMENT: '1'
+          BUILD_COMMIT: ${{ github.sha }}
+        run: bun run cap:sync
+
+      - name: Build unsigned debug APK
+        working-directory: android
+        run: bash ./gradlew assembleDebug --no-daemon
+
+      - name: Verify isolated profiler application ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$SDK_ROOT" ]]; then
+            echo "::error::Android SDK path is not configured."
+            exit 1
+          fi
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt -print | sort -V | tail -n 1)"
+          if [[ -z "$AAPT" ]]; then
+            echo "::error::Android build-tools aapt executable was not found."
+            exit 1
+          fi
+          PACKAGE="$("$AAPT" dump badging "$APK" | awk -F"'" '/^package: name=/ { print $2; exit }')"
+          if [[ "$PACKAGE" != "com.phatass.sandandsteel.profiler" ]]; then
+            echo "::error::Expected isolated profiler package ID, got '$PACKAGE'."
+            exit 1
+          fi
+          echo "::notice::Verified isolated profiler package ID: $PACKAGE"
+
+      - name: Upload development-only movement profiler APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-movement-profiler-development-apk-do-not-release
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

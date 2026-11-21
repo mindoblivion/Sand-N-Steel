@@ -102,6 +102,7 @@ import { getTerrainY } from '../../../utils/terrainHeight';
 import { checkMoatRespawn } from '../../../utils/drawbridge';
 import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityStrideSpeed } from '../../../utils/cityMovementSpeed';
+import { createCityMovementDiagnosticSnapshot, type CityMovementDiagnosticSnapshot } from '../../../utils/cityMovementDiagnostics';
 import { getCityFacingYaw } from '../../../utils/cityFacing';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
@@ -217,6 +218,10 @@ export interface CityExitPose {
  * renders nothing: a step is published into the scene's own state, which the
  * Canvas's `dpr` prop follows, so there is exactly one holder of the value.
  */
+const CityMovementDiagnosticsPanel = React.lazy(() =>
+  import('../../dev/CityMovementDiagnosticsPanel').then((module) => ({ default: module.CityMovementDiagnosticsPanel })),
+);
+
 const CityAdaptiveDpr: React.FC<{
   tier: QualityPreset;
   suspendedRef: { readonly current: boolean };
@@ -704,6 +709,32 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const playerPosRef = useRef<[number, number, number]>(initialPosition ?? [0, 0, 16]);
   const playerRotYRef = useRef<number>(initialRotationY ?? Math.PI);
   const cameraYawRef = useRef<number>(initialRotationY ?? Math.PI);
+  // Development-only movement telemetry. The opt-in build flag is used by the
+  // isolated profiler APK; the query flag supports local Vite debugging.
+  const movementDiagnosticsEnabled = import.meta.env.DEV && (
+    new URLSearchParams(window.location.search).get('devHarness') === 'city-movement' ||
+    (import.meta.env as ImportMetaEnv & { VITE_DEV_CITY_MOVEMENT?: string }).VITE_DEV_CITY_MOVEMENT === '1'
+  );
+  const [movementDiagnosticsVisible, setMovementDiagnosticsVisible] = useState(movementDiagnosticsEnabled);
+  const movementDiagnosticsRef = useRef<CityMovementDiagnosticSnapshot>({
+    capturedAtMs: 0,
+    position: initialPosition ?? [0, 0, 16],
+    playerYaw: initialRotationY ?? Math.PI,
+    cameraYaw: initialRotationY ?? Math.PI,
+    frameDeltaMs: 0,
+    rawInput: { x: 0, z: 0 },
+    touchInput: { x: 0, z: 0 },
+    keysPressed: { w: false, a: false, s: false, d: false },
+    inputLocked: false,
+    panelLocked: false,
+    touchActive: false,
+    speed: 0,
+    worldDirection: { x: 0, z: 0 },
+    expectedDistance: 0,
+    actualDistance: 0,
+    movementRatio: null,
+    collisionLimited: false,
+  });
     const drawbridgeRaisedRef = useRef<boolean>(false);
   const lastNearbyIdRef = useRef<string | null>(null);
   const lastNearbyVisitorIdRef = useRef<string | null>(null);
@@ -1323,6 +1354,12 @@ const handleEnterBathhouse = useCallback(() => {
         }
       }
 
+      const movementStartPosition = playerPosRef.current;
+      let worldDx = 0;
+      let worldDz = 0;
+      let speed = 0;
+      let expectedDistance = 0;
+
       if (inputX !== 0 || inputZ !== 0) {
         const rawLen = Math.sqrt(inputX * inputX + inputZ * inputZ);
         const normX = inputX / rawLen;
@@ -1338,11 +1375,12 @@ const handleEnterBathhouse = useCallback(() => {
 
         // Transform screen/joystick direction into 3D world space
         // normZ < 0 is joystick UP (Forward into screen), normX > 0 is joystick RIGHT
-        const worldDx = normX * rightX - normZ * forwardX;
-        const worldDz = normX * rightZ - normZ * forwardZ;
+        worldDx = normX * rightX - normZ * forwardX;
+        worldDz = normX * rightZ - normZ * forwardZ;
 
         // Grounded, controlled gladiator stride speed with analog control
-        const speed = resolveCityStrideSpeed(3.8 * mag, bodyWeightLbRef.current);
+        speed = resolveCityStrideSpeed(3.8 * mag, bodyWeightLbRef.current);
+        expectedDistance = speed * delta;
         const nextPos = resolveCityMovement(playerPosRef.current, worldDx, worldDz, speed, delta);
         // Phase 34G: Apply terrain height from the motte ramp/summit.
         // getTerrainY returns 0 on flat city ground, so existing
@@ -1378,6 +1416,34 @@ const handleEnterBathhouse = useCallback(() => {
           isMovingRef.current = false;
           setIsMoving(false);
         }
+      }
+
+      if (movementDiagnosticsEnabled) {
+        movementDiagnosticsRef.current = createCityMovementDiagnosticSnapshot({
+          capturedAtMs: now,
+          currentPosition: movementStartPosition,
+          nextPosition: playerPosRef.current,
+          playerYaw: playerRotYRef.current,
+          cameraYaw: cameraYawRef.current,
+          frameDeltaSeconds: delta,
+          rawInputX: inputX,
+          rawInputZ: inputZ,
+          touchX: touchVectorRef.current.x,
+          touchZ: touchVectorRef.current.z,
+          keysPressed: {
+            w: !!keysPressed.current['w'],
+            a: !!keysPressed.current['a'],
+            s: !!keysPressed.current['s'],
+            d: !!keysPressed.current['d'],
+          },
+          inputLocked: inputLockedRef.current,
+          panelLocked: cityPanelInputLockedRef.current,
+          touchActive: touchIdRef.current !== null,
+          speed,
+          worldDirectionX: worldDx,
+          worldDirectionZ: worldDz,
+          expectedDistance,
+        });
       }
 
       // Check proximity to landmarks (only update state when changed)
@@ -1612,6 +1678,14 @@ const handleEnterBathhouse = useCallback(() => {
 
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
+      {movementDiagnosticsEnabled && movementDiagnosticsVisible && (
+        <Suspense fallback={null}>
+          <CityMovementDiagnosticsPanel
+            snapshotRef={movementDiagnosticsRef}
+            onClose={() => setMovementDiagnosticsVisible(false)}
+          />
+        </Suspense>
+      )}
       {/* 3D WEBGL 3RD-PERSON CITY CANVAS WITH EXPANDED FOV */}
       <WebGLReadyGuard
         sceneName="CityHubMetropolis"
