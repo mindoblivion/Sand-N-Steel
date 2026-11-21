@@ -12,7 +12,7 @@ describe('independent off-hand shield equipment', () => {
       'shield_iron_scuta',
       'shield_steel_scuta',
     ]);
-    expect(shields.map((shield) => shield.blockReduction)).toEqual([0.60, 0.64, 0.68, 0.72]);
+    expect(shields.map((shield) => shield.blockReduction)).toEqual([0.60, 0.72, 0.78, 0.82]);
     expect(shields.every((shield) => Boolean(shield.modelPath))).toBe(true);
     expect(WOODEN_SHIELD.id).toBe('shield_wooden_wicker');
   });
