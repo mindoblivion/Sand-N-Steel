@@ -502,8 +502,7 @@ const DuelCameraRig: React.FC<{
   cameraMode: string;
   impactRef: React.MutableRefObject<ImpactState>;
   shakeMultiplierRef: React.MutableRefObject<number>;
-  disabled?: boolean;
-}> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef, disabled = false }) => {
+}> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef }) => {
   const { camera } = useThree();
   // Reuse the camera target scratch vector; this rig runs every rendered frame.
   const targetCamPos = useMemo(() => new THREE.Vector3(), []);
@@ -513,7 +512,6 @@ const DuelCameraRig: React.FC<{
   const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(false, {
     yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
     pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
-    disabled,
   });
 
   useFrame((state, delta) => {
@@ -4001,10 +3999,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     }
                   />
                 )}
-                {/* D-2 — Ferrum. Rendered only for a bout the fence admits, and
-                    not after it has fled. Aims from beside Marcellin toward the
-                    player using the lion GLB's +Z forward axis. */}
-                {beastCfg && beast.pose !== 'fled' && (
+                {/* D-2 — Ferrum. Rendered for every bout the fence admits,
+                    including its visible retreat after the master is defeated.
+                    Aims from beside Marcellin toward the player using the lion GLB's +Z forward axis. */}
+                {beastCfg && (
                   <BeastFigure
                     position={[1.55, 0, opp.position[2] + 0.55]}
                     rotationY={beastFacingYaw(
@@ -4028,7 +4026,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               cameraMode={cameraMode}
               impactRef={impactRef}
               shakeMultiplierRef={shakeMultiplierRef}
-              disabled={withdrawConfirmOpen}
             />
           </Canvas>
         </WebGLContextErrorBoundary>
