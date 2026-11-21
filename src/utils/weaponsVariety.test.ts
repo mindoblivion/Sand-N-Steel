@@ -24,8 +24,8 @@ const EXISTING_WEAPON_IDS = [
 const NEW_WEAPON_IDS = ['wpn_pilum', 'wpn_hasta', 'shd_scutum_gladius', 'shd_parma_pugio'];
 
 describe('WEAPONS-1 weapons variety', () => {
-  test('the four new weapons sit at indices 12-15 in order', () => {
-    expect(ALL_WEAPONS).toHaveLength(18);
+  test('the four legacy variety weapons retain their indices and material tiers append', () => {
+    expect(ALL_WEAPONS).toHaveLength(24);
     NEW_WEAPON_IDS.forEach((id, i) => {
       expect(ALL_WEAPONS[12 + i].id).toBe(id);
     });
