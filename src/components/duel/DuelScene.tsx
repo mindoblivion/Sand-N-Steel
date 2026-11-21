@@ -52,6 +52,7 @@ import {
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
 import { getWeaponByType } from '../../data/itemsDB';
+import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
   getStaminaCost,
@@ -656,6 +657,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // receives these SAME objects through the HUD, so its cost/hit/damage estimates
   // and the resolution below read one block and can never drift apart.
   const playerMods = useMemo(() => buildPlayerModifiers(playerProfile), [playerProfile]);
+  // Body mass is a combat-style trade-off, never a weapon eligibility gate.
+  // Resolve once per saved weight so the HUD and every combat branch share it.
+  const playerWeightProfile = useMemo(
+    () => getWeightCombatProfile(playerProfile.appearance.bodyWeightLb),
+    [playerProfile.appearance.bodyWeightLb],
+  );
   // C-TRAIT — the mode's trait grant (C3b) travels on the row's `palmae`, so the
   // modifiers are built from the MODE-RESOLVED row: Sand resolves to the row
   // itself, Steel/Invictus append the extra palma, and a grudge row already
@@ -1328,8 +1335,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         getStaminaCost(player.loadout.weapon, true),
         true,
         playerMods,
-        // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
-        1,
+        playerWeightProfile.staminaCostMultiplier,
       ),
       powerStaminaCost: staminaCostWithModifiers(
         getStaminaCost(player.loadout.weapon, false),
@@ -1993,8 +1999,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           getStaminaCost(player.loadout.weapon, isQuick),
           isQuick,
           playerMods,
-          // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
-          1,
+          playerWeightProfile.staminaCostMultiplier,
         );
         setPlayer((prev) => ({
           ...prev,
@@ -2059,8 +2064,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           getStaminaCost(attackerWeapon, isQuick),
           isQuick,
           attackerMods,
-          // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
-          1,
+          isActorPlayer ? playerWeightProfile.staminaCostMultiplier : 1,
         );
 
         // Set the attack animation at dispatch, but charge the player's stamina
@@ -2338,7 +2342,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               * (panoplyCfg && isActorPlayer ? panoplyDamageTakenMult(panoplyCfg, panoplyRef.current) : 1)
               // D-4 — the survivor's Oath: once one brother is down, every blow
               // the remaining one lands carries the pair's +15 %.
-              * (brothersCfg && !isActorPlayer ? survivorDamageMult(brothersCfg, brothersRef.current) : 1);
+              * (brothersCfg && !isActorPlayer ? survivorDamageMult(brothersCfg, brothersRef.current) : 1)
+              // Body mass adds impact only to the player's outgoing blows.
+              * (isActorPlayer ? playerWeightProfile.impactMultiplier : 1);
             // COMBAT-2 — a Riposte multiplies the resolved damage by 1.5: the
             // punish is the point, and the multiplier rides the final number
             // (after block mitigation), never the formula's inputs.
@@ -2872,13 +2878,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (outOfRangeWhiff) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
-      // COMBAT-1 — the 15 Nov cut: body weight scales no turn hold, so the
-      // recovery multiplier is the neutral 1.
       }, turnResolutionMs(
         actionType,
         fightEnded,
         boutMode,
-        1,
+        isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1,
       ));
     },
     [
@@ -2893,6 +2897,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       falseTelegraphCfg,
       commitFalseTelegraph,
       panoplyCfg,
+      playerWeightProfile,
       commitPanoply,
       brothersCfg,
       commitBrothers,
@@ -4058,11 +4063,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         combatLog={combatLog}
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
-        // COMBAT-1 — the 15 Nov cut: body weight scales no combat numbers. The
-        // props are not display-only (the panel's estimates read them), so they
-        // are passed neutral (1), the defaults the HUD and panel already carry.
-        playerWeightImpactMultiplier={1}
-        playerWeightStaminaMultiplier={1}
+        // The panel estimates use the same saved player weight profile as resolution.
+        playerWeightImpactMultiplier={playerWeightProfile.impactMultiplier}
+        playerWeightStaminaMultiplier={playerWeightProfile.staminaCostMultiplier}
         opponentIsBoss={opponent.isBoss === true}
         // COMBAT-5 — the Sidestep button is enabled only while a REAL heavy
         // telegraph is live: a heavy or the Cotta Crossing. The banner text

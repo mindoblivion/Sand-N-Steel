@@ -27,6 +27,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { calculateAttackDamage } from './combatCalculations';
 import { EMPTY_MODIFIERS, staminaCostWithModifiers } from './combatModifiers';
 import { turnResolutionMs } from '../components/duel/DuelScene';
+import { getWeightCombatProfile } from './gladiatorWeight';
 import {
   ARENA_POSITION_MAX_M,
   ARENA_POSITION_MIN_M,
@@ -237,37 +238,64 @@ describe('§5 — an out-of-range swing costs neither stamina nor turn', () => {
   });
 });
 
-// ── §6 — THE WEIGHT STRIP ────────────────────────────────────────────────────
+// ── §6 — BODY-WEIGHT COMBAT TRADE-OFFS ──────────────────────────────────────
 
-describe('§6 — body weight scales nothing in the duel any more', () => {
-  test('no weight profile reaches any combat call in DuelScene', () => {
-    const duel = source('src/components/duel/DuelScene.tsx');
-    expect(duel).not.toContain('getWeightCombatProfile');
-    expect(duel).not.toContain('gladiatorWeight');
-  });
-
-  test('the HUD/panel props are passed neutral', () => {
+describe('§6 — body weight changes player combat style, never weapon eligibility', () => {
+  test('DuelScene resolves one profile from the saved player weight', () => {
     const duel = code('src/components/duel/DuelScene.tsx');
-    expect(duel).toContain('playerWeightImpactMultiplier={1}');
-    expect(duel).toContain('playerWeightStaminaMultiplier={1}');
+    expect(duel).toContain("import { getWeightCombatProfile } from '../../utils/gladiatorWeight'");
+    expect(duel).toContain('getWeightCombatProfile(playerProfile.appearance.bodyWeightLb)');
+    expect(duel).toContain('[playerProfile.appearance.bodyWeightLb]');
   });
 
-  test('the turn hold is passed neutral', () => {
+  test('HUD estimates receive the same impact and stamina multipliers as resolution', () => {
     const duel = code('src/components/duel/DuelScene.tsx');
-    expect(duel).toMatch(/turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*1,\s*\)/);
+    expect(duel).toContain('playerWeightImpactMultiplier={playerWeightProfile.impactMultiplier}');
+    expect(duel).toContain('playerWeightStaminaMultiplier={playerWeightProfile.staminaCostMultiplier}');
+    const panel = code('src/components/ui/TurnActionPanel.tsx');
+    expect(panel).toContain('estimateTraitMult(false) * playerWeightImpactMultiplier');
+    expect(panel).toContain('playerWeightStaminaMultiplier');
   });
 
-  test('identical stamina cost, damage and turn hold across body weights', () => {
-    // The multiplier is 1, so the cost IS the base cost, for either attack.
-    expect(staminaCostWithModifiers(20, false, EMPTY_MODIFIERS, 1)).toBe(20);
-    expect(staminaCostWithModifiers(12, true, EMPTY_MODIFIERS, 1)).toBe(12);
-    // …and 1 is the formula's own neutral: the default equals the explicit 1.
-    expect(calculateAttackDamage(20, 10, false, 5, false, 0, 1)).toBe(
-      calculateAttackDamage(20, 10, false, 5, false, 0, 1, 1),
-    );
-    // …and the hold at multiplier 1 is the shipped weight.
-    expect(turnResolutionMs('quick_attack', false, 'sand', 1)).toBe(880);
-    expect(turnResolutionMs('power_attack', false, 'sand', 1)).toBe(1300);
+  test('player attacks use weight for stamina, impact and recovery; opponent actions stay neutral', () => {
+    const duel = code('src/components/duel/DuelScene.tsx');
+    expect(duel).toContain('isActorPlayer ? playerWeightProfile.impactMultiplier : 1');
+    expect(duel).toContain('isActorPlayer ? playerWeightProfile.staminaCostMultiplier : 1');
+    expect(duel).toContain('isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1');
+    expect(duel).toContain('playerWeightProfile.staminaCostMultiplier');
+  });
+
+  test('180 lb is neutral; 140 lb is lighter/faster; 300 lb is heavier/slower', () => {
+    const light = getWeightCombatProfile(140);
+    const neutral = getWeightCombatProfile(180);
+    const heavy = getWeightCombatProfile(300);
+    expect(neutral.impactMultiplier).toBe(1);
+    expect(neutral.staminaCostMultiplier).toBe(1);
+    expect(neutral.recoveryMultiplier).toBe(1);
+    expect(light.impactMultiplier).toBeLessThan(1);
+    expect(light.staminaCostMultiplier).toBeLessThan(1);
+    expect(light.recoveryMultiplier).toBeLessThan(1);
+    expect(heavy.impactMultiplier).toBe(1.15);
+    expect(heavy.staminaCostMultiplier).toBe(1.15);
+    expect(heavy.recoveryMultiplier).toBe(1.15);
+  });
+
+  test('heavier builds hit harder, spend more stamina and recover more slowly', () => {
+    const heavy = getWeightCombatProfile(300);
+    const neutral = getWeightCombatProfile(180);
+    expect(staminaCostWithModifiers(20, false, EMPTY_MODIFIERS, heavy.staminaCostMultiplier)).toBe(23);
+    expect(staminaCostWithModifiers(12, true, EMPTY_MODIFIERS, heavy.staminaCostMultiplier)).toBe(14);
+    const baseDamage = calculateAttackDamage(20, 10, false, 5, false, 0, 1, 1);
+    const heavyDamage = calculateAttackDamage(20, 10, false, 5, false, 0, 1, heavy.impactMultiplier);
+    expect(heavyDamage).toBeGreaterThan(baseDamage);
+    expect(turnResolutionMs('power_attack', false, 'sand', heavy.recoveryMultiplier))
+      .toBeGreaterThan(turnResolutionMs('power_attack', false, 'sand', neutral.recoveryMultiplier));
+  });
+
+  test('body weight does not enter the weapon-strength eligibility rule', () => {
+    const weightSource = source('src/utils/gladiatorWeight.ts');
+    expect(weightSource).toContain('meetsWeaponStrengthRequirement');
+    expect(weightSource).toContain('Weight is intentionally absent from this predicate');
   });
 });
 
