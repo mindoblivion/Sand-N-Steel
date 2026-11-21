@@ -21,6 +21,10 @@ describe('city movement focus-loss recovery', () => {
 
     expect(sceneSource).toContain("window.addEventListener('blur', resetJoystickInput)");
     expect(sceneSource).toContain("document.addEventListener('visibilitychange', handleVisibilityChange)");
-    expect(sceneSource).toContain("if (document.visibilityState !== 'visible') resetJoystickInput()");
+    // The handler uses a block so it can also reset the RAF clock on resume.
+    expect(sceneSource).toMatch(
+      /if \(document\.visibilityState !== 'visible'\) \{\s*resetJoystickInput\(\);/
+    );
+    expect(sceneSource).toContain("window.addEventListener('focus', handleFocus)");
   });
 });
