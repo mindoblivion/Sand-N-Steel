@@ -48,6 +48,7 @@ import { craftForgeItems } from './utils/forgeCrafting';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
+import { weaponSupportsOffhandShield } from './data/itemsDB';
 import { isTrainingActionScheduled } from './utils/trainingSchedule';
 import { recordPhysicalRecovery, recordPhysicalTraining, type PhysicalTrainingStat } from './utils/physicalDevelopment';
 import { applyIntensiveTraining, intensiveCourseCost, intensiveRefusalLine, intensiveSuccessLine } from './utils/intensiveTraining';
@@ -2268,7 +2269,7 @@ export function App() {
       equipped: {
         ...profile.equipped,
         weapon: wpn,
-        ...(wpn.type === 'spear' ? { shield: undefined } : {}),
+        ...(!weaponSupportsOffhandShield(wpn.type) ? { shield: undefined } : {}),
       },
     };
     setProfile(updated);
@@ -2276,7 +2277,7 @@ export function App() {
   };
 
   const handleEquipArmor = (armor: ArmorItem) => {
-    if (!profile || (armor.slot === 'shield' && profile.equipped.weapon.type === 'spear')) return;
+    if (!profile || (armor.slot === 'shield' && !weaponSupportsOffhandShield(profile.equipped.weapon.type))) return;
     const updated: PlayerProfile = {
       ...profile,
       equipped: {
