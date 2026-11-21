@@ -985,11 +985,11 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     for (const forbidden of ['.glb', '.gltf', 'fetch(', 'load(', 'url(', 'URL']) {
       expect(MODULE_CODE).not.toContain(forbidden);
     }
-    // And the public tree gained no horse file: the inventory matches current shipped models (plus Ferrum's lion.glb).
+    // And the public tree contains no racing horse asset from this phase; civilian.glb is an independently uploaded city character.
     // COMBAT-4 added aurelius_champion.glb (Aurelius's distinct champion model); the pin below is that inventory.
     const models = readdirSync(repo('public/models')).sort();
     expect(models).toEqual([
-      'amazonian.glb', 'arena_roman.glb', 'aurelius_champion.glb', 'dimachaerus.glb', 'lion.glb', 'minotaur.glb', 'netfighter.glb', 'weapons',
+      'amazonian.glb', 'arena_roman.glb', 'aurelius_champion.glb', 'civilian.glb', 'dimachaerus.glb', 'lion.glb', 'minotaur.glb', 'netfighter.glb', 'weapons',
     ]);
   });
 
