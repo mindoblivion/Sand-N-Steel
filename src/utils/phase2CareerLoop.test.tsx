@@ -452,6 +452,44 @@ describe('Phase 2 §D — End-to-end career save & reload roundtrip', () => {
   });
 });
 
+describe('Phase 2 §F — the real App duel-result transaction', () => {
+  const app = loadSource('../App.tsx');
+  const start = app.indexOf(
+    'const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {',
+  );
+  const end = app.indexOf('const handleDuelResultDismiss', start);
+  const result = app.slice(start, end);
+
+  test('the production result handler composes progression into its one saved profile', () => {
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(result).toContain('resolveInjuryAfterDuel(profile, didWin)');
+    expect(result).toContain('if (didWin && rewardSettlementAccepted) {');
+    expect(result).toContain('resolveXpProgression({');
+    expect(result).toContain('xpEarned: stats.xpEarned');
+    expect(result).toContain('xp: nextXp');
+    expect(result).toContain('level: nextLevel');
+    expect(result).toContain('xpToNextLevel: nextXpToNext');
+    expect(result).toContain('unspentStatPoints: nextUnspentPoints');
+    expect(result).toContain('resolveVictoryTier({');
+    expect(result).toContain('currentTier: tierAfterVictory.currentTier');
+    expect(result).toContain('const progression: DuelProgressionSummary');
+    expect(result).toContain('levelAfter: awards.profile.level');
+    expect(result).toContain('const rankAfter = deriveRank(awards.profile);');
+    expect(result).toContain('rankAfter,');
+    expect(result).toContain('setProfile(awards.profile);');
+    expect(result).toContain('saveProfile(awards.profile);');
+    expect(result.split('saveProfile(').length - 1).toBe(1);
+  });
+
+  test('defeat still resolves injury and the duel clock without entering victory XP settlement', () => {
+    expect(result).toContain('resolveInjuryAfterDuel(profile, didWin)');
+    expect(result).toContain('if (didWin && rewardSettlementAccepted) {');
+    expect(result).toContain('const clock = settleDuelClock(settledProfile, duelTimeSteppedRef.current);');
+    expect(result).toContain('const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted');
+  });
+});
+
 describe('Phase 2 §E — Google Play anti-gambling compliance', () => {
   test('Phase 2 modules contain no betting, wagering, or gambling mechanics', () => {
     const sources = [
