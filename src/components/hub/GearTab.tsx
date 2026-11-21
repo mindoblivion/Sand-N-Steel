@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
 import { Layers, Shield, Swords, Check, Wrench, Coins, Hammer } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
-import { getItemById } from '../../data/itemsDB';
+import { getItemById, weaponSupportsOffhandShield } from '../../data/itemsDB';
 import { getTemperSellValue } from '../../utils/tempering';
 import {
   describeForgeCraftRejection,
@@ -680,7 +680,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                         sounds.playClick();
                         onEquipArmor(arm);
                       }}
-                      disabled={isEquipped || (arm.slot === 'shield' && profile.equipped.weapon.type === 'spear')}
+                      disabled={isEquipped || (arm.slot === 'shield' && !weaponSupportsOffhandShield(profile.equipped.weapon.type))}
                       className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
                         isEquipped
                           ? 'bg-green-800 text-green-200 cursor-default'
