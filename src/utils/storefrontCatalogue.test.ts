@@ -14,7 +14,7 @@
  *   §C  forge excludes the starter gladius, and every other weapon is present;
  *   §D  the merchant's thirteen goods are exactly the rare/legendary 13;
  *   §E  forge ∪ armorer = market minus the starter, and the two are disjoint;
- *   §F  the item catalogue itself is untouched — the counts and the
+ *   §F  legacy weapon and armor registries remain stable while shields append — the counts and the
  *       load-bearing `ALL_WEAPONS` order (index 2 is the spare starter);
  *   §G  the scope guard — `shops.ts` derives from `ITEMS_DB` fields (no id or
  *       price table of its own), and exactly three components consume it: the
@@ -32,7 +32,7 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { ALL_ARMORS, ALL_WEAPONS, ITEMS_DB, STARTING_SPARE_WEAPON } from '../data/itemsDB';
+import { ALL_ARMORS, ALL_WEAPONS, ITEMS_DB, ITEMS_BY_CATEGORY, STARTING_SPARE_WEAPON } from '../data/itemsDB';
 import { getStorefrontStock } from '../data/shops';
 
 // ── Sources (for the scope guard) ──────────────────────────────────────────
@@ -103,6 +103,10 @@ const ARMORER_IDS = [
   'helm_champion_gilded',
   'chest_lorica_hamata',
   'chest_champion_gilded',
+  'shield_wooden_wicker',
+  'shield_bronze_round',
+  'shield_iron_scuta',
+  'shield_steel_scuta',
 ];
 
 const MERCHANT_IDS = [
@@ -121,6 +125,8 @@ const MERCHANT_IDS = [
   'helm_champion_gilded',
   'chest_lorica_hamata',
   'chest_champion_gilded',
+  'shield_iron_scuta',
+  'shield_steel_scuta',
 ];
 
 const MARKET_IDS = ITEMS_DB.map((item) => item.id);
@@ -151,7 +157,7 @@ describe('SHOP-1 §A — the resolver is pure and order-preserving', () => {
       getStorefrontStock(id);
     }
     expect(ITEMS_DB.map((item) => `${item.id}:${item.rarity}`)).toEqual(before);
-    expect(ITEMS_DB.length).toBe(ALL_WEAPONS.length + ALL_ARMORS.length);
+    expect(ITEMS_DB.length).toBe(ALL_WEAPONS.length + ALL_ARMORS.length + 4);
   });
 });
 
@@ -162,13 +168,13 @@ describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
     expect(new Set(getStorefrontStock('forge'))).toEqual(new Set(FORGE_IDS));
   });
 
-  test('armorer offers all sixteen armor pieces', () => {
-    expect(getStorefrontStock('armorer')).toHaveLength(16);
-    expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set(ALL_ARMORS.map((a) => a.id)));
+  test('armorer offers all twenty armor and shield pieces', () => {
+    expect(getStorefrontStock('armorer')).toHaveLength(20);
+    expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set([...ALL_ARMORS, ...ITEMS_BY_CATEGORY.shield].map((a) => a.id)));
   });
 
-  test('merchant offers exactly the fifteen rare/legendary goods', () => {
-    expect(getStorefrontStock('merchant')).toHaveLength(15);
+  test('merchant offers exactly the seventeen rare/legendary goods', () => {
+    expect(getStorefrontStock('merchant')).toHaveLength(17);
     expect(new Set(getStorefrontStock('merchant'))).toEqual(new Set(MERCHANT_IDS));
   });
 
@@ -207,7 +213,7 @@ describe('SHOP-1 §D — the merchant deals only in rare and legendary', () => {
       .filter((item) => item.rarity === 'rare' || item.rarity === 'legendary')
       .map((item) => item.id);
     expect(sorted(getStorefrontStock('merchant'))).toEqual(sorted(rareLegendary));
-    expect(rareLegendary).toHaveLength(15);
+    expect(rareLegendary).toHaveLength(17);
   });
 
   test('no common or uncommon item is merchant stock', () => {
@@ -240,7 +246,7 @@ describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
     expect(ALL_WEAPONS).toHaveLength(24);
     expect(ALL_ARMORS).toHaveLength(16);
-    expect(ITEMS_DB).toHaveLength(40);
+    expect(ITEMS_DB).toHaveLength(44);
   });
 
   test('the load-bearing ALL_WEAPONS order is intact', () => {

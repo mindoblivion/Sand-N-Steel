@@ -89,6 +89,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
     profile.equipped.chest?.id,
     profile.equipped.arms?.id,
     profile.equipped.legs?.id,
+    profile.equipped.shield?.id,
     ...profile.inventory.map((i) => i.id),
   ]);
 

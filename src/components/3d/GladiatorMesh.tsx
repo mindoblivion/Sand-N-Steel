@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { getEnemyCharacterAsset } from '../../data/enemyCharacterAssets';
+import { weaponSupportsOffhandShield } from '../../data/itemsDB';
 import { responseHasGlbMagic } from '../../utils/glbHeader';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
@@ -1169,13 +1170,15 @@ const RomanWarriorGLB: React.FC<{
   const weaponNode = useWeaponGLB
     ? <WeaponGLBRenderer modelUrl={weaponModelPath} weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
-  const shieldNode = weaponType === 'spear' ? null : (
+  const shieldModelPath = fighter.loadout.shield?.modelPath ?? weaponItem?.shieldModelPath;
+  const hasShield = weaponSupportsOffhandShield(weaponType) && (fighter.loadout.shield != null || weaponItem?.shieldModelPath != null);
+  const shieldNode = !hasShield ? null : (
     <ShieldModel
       ref={shieldGroupRef}
       isLefty={isLefty}
       goldColor={goldColor}
       shieldScale={effectiveShieldScale}
-      modelUrl={weaponItem?.shieldModelPath}
+      modelUrl={shieldModelPath}
     />
   );
 

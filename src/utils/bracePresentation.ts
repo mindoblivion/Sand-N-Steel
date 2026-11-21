@@ -7,7 +7,10 @@ export interface BracePresentation {
   combatLog: string;
 }
 
-export function getBracePresentation(weaponType: WeaponType): BracePresentation {
+export function getBracePresentation(
+  weaponType: WeaponType,
+  hasShield: boolean = weaponType === 'sword_shield',
+): BracePresentation {
   if (weaponType === 'spear') {
     return {
       title: 'Spear Brace',
@@ -16,7 +19,7 @@ export function getBracePresentation(weaponType: WeaponType): BracePresentation 
     };
   }
 
-  if (weaponType === 'sword_shield') {
+  if (hasShield) {
     return {
       title: 'Shield Guard',
       description: 'Brace behind your shield to absorb the incoming blow.',

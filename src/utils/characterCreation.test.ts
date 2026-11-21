@@ -209,7 +209,7 @@ describe('CH-2 §C — createNewProfile', () => {
     expect('armatura' in live).toBe(false);
     expect('palmae' in live).toBe(false);
     expect(live.baseStats).toEqual({ strength: 10, agility: 10, stamina: 10, defense: 4 });
-    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'wooden_spear']);
+    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'wooden_spear', 'shield_wooden_wicker']);
   });
 
   test('with a class argument it writes that class, its template and its kit', () => {
@@ -221,7 +221,8 @@ describe('CH-2 §C — createNewProfile', () => {
     expect(withClass.armatura).toBe('retiarius');
     expect(withClass.baseStats).toEqual({ strength: 9, agility: 13, stamina: 11, defense: 1 });
     expect(withClass.equipped.weapon.id).toBe('wooden_spear');
-    expect(withClass.inventory.map((item) => item.id)).toEqual(['wooden_spear', 'wooden_sword_shield']);
+    expect(withClass.equipped.shield).toBeUndefined();
+    expect(withClass.inventory.map((item) => item.id)).toEqual(['wooden_spear', 'wooden_sword_shield', 'shield_wooden_wicker']);
       expect('palmae' in withClass).toBe(false);
     expect(withClass.appearance).toEqual(plain.appearance);
     expect(withClass.gold).toBe(plain.gold);

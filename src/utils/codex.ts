@@ -270,6 +270,7 @@ const ARMOR_SLOT_LABELS: Readonly<Record<string, string>> = {
   chest: 'Cuirass',
   arms: 'Arm guard',
   legs: 'Greaves',
+  shield: 'Shield',
 };
 
 const DISTRICT_LABELS: Readonly<Record<string, string>> = {

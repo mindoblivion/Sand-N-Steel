@@ -528,7 +528,7 @@ describe('PITCH A4 §G — the merge seam', () => {
 describe('PITCH A4 §H — createNewProfile', () => {
   test('with no argument keeps the legacy profile shape and receives the wooden starter arsenal', () => {
     const live = createNewProfile('Tester');
-    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'wooden_spear']);
+    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'wooden_spear', 'shield_wooden_wicker']);
     expect('identity' in live).toBe(false);
     expect(Object.keys(live)).not.toContain('identity');
     expect(live.baseStats).toEqual({ strength: 10, agility: 10, stamina: 10, defense: 4 });

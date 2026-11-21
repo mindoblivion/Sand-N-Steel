@@ -465,7 +465,8 @@ describe('P1 §F — the duel reads the effective weapon', () => {
     expect(duelSource).toContain(
       'resolveTemperLevel(playerProfile, playerProfile.equipped.weapon.id)'
     );
-    expect(duelSource).toContain('loadout: { weapon: playerWeapon }');
+    expect(duelSource).toContain('weapon: playerWeapon,');
+    expect(duelSource).toContain('getEffectiveArmorStats(playerProfile.equipped.shield');
     expect(duelSource).not.toContain('loadout: { weapon: playerProfile.equipped.weapon }');
   });
 

@@ -19,7 +19,7 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
-import { resolveTemperLevel, getEffectiveWeaponStats } from '../../utils/tempering';
+import { resolveTemperLevel, getEffectiveWeaponStats, getEffectiveArmorStats } from '../../utils/tempering';
 import { calculateDuelGold } from '../../utils/duelRewards';
 // C-8.70C — the crowd's tuning and its live rule. ONE config, ONE rule module;
 // `combatCalculations.ts` is not touched by this slice (see the two notes at the
@@ -51,7 +51,7 @@ import {
   crowdTurnsNow,
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
-import { getWeaponByType } from '../../data/itemsDB';
+import { getWeaponByType, weaponSupportsOffhandShield } from '../../data/itemsDB';
 import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
@@ -706,7 +706,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: pStats,
-    loadout: { weapon: playerWeapon },
+    loadout: {
+      weapon: playerWeapon,
+      ...(weaponSupportsOffhandShield(playerWeapon.type) && playerProfile.equipped.shield
+        ? { shield: getEffectiveArmorStats(playerProfile.equipped.shield, resolveTemperLevel(playerProfile, playerProfile.equipped.shield.id)) }
+        : {}),
+    },
     comboCount: 0,
     bodyWeightLb: playerProfile.appearance.bodyWeightLb,
     physique: playerProfile.appearance.physique,
@@ -1733,7 +1738,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
-        addLog(`${attacker.name} ${getBracePresentation(attacker.loadout.weapon.type).combatLog}`, isActorPlayer ? 'player' : 'opponent');
+        addLog(`${attacker.name} ${getBracePresentation(
+          attacker.loadout.weapon.type,
+          Boolean(attacker.loadout.shield || attacker.loadout.weapon.shieldModelPath),
+        ).combatLog}`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('BRACED!', 'blocked', attacker.position);
       } else if (actionType === 'dodge') {
         sounds.playDodge();
@@ -2307,7 +2315,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // block's add (capped at 0.90 by applyBlockReduction), less the
             // attacker's class penetration (thraex's Hook the Rim, 0.40).
             const blockReduction = effectiveBlockReduction(
-              defender.loadout.weapon.blockReduction,
+              defender.loadout.shield?.blockReduction ?? defender.loadout.weapon.blockReduction,
               defenderMods,
               attackerMods,
               isBlocked,

@@ -100,7 +100,7 @@ export function ownsItem(
   if (profile.inventory?.some((item) => item?.id === itemId)) return true;
   const equipped = profile.equipped;
   if (!equipped) return false;
-  return [equipped.weapon, equipped.helm, equipped.chest, equipped.arms, equipped.legs].some(
+  return [equipped.weapon, equipped.helm, equipped.chest, equipped.arms, equipped.legs, equipped.shield].some(
     (item) => item?.id === itemId
   );
 }

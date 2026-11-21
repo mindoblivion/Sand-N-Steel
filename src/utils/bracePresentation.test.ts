@@ -16,6 +16,10 @@ describe('weapon-aware defensive stance presentation', () => {
     expect(getBracePresentation('sword_shield').combatLog).toBe('braces behind their shield.');
   });
 
+  test('a mace with an independent shield uses shield guard language', () => {
+    expect(getBracePresentation('mace', true).title).toBe('Shield Guard');
+  });
+
   test('weapon-only families do not claim the fighter has a shield', () => {
     expect(getBracePresentation('dual_blades').title).toBe('Weapon Brace');
     expect(getBracePresentation('mace').combatLog).toBe('sets their weapons to meet the blow.');

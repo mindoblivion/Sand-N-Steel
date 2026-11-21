@@ -48,7 +48,7 @@ describe('WOODEN-1 wooden beginnings', () => {
   test('character creation grants wood instead of steel', () => {
     const storageSource = readFileSync(storagePath, 'utf8');
     expect(storageSource).toContain('weapon: WOODEN_SWORD_SHIELD');
-    expect(storageSource).toContain('inventory: [WOODEN_SWORD_SHIELD, STARTING_SPARE_WEAPON]');
+    expect(storageSource).toContain('inventory: [WOODEN_SWORD_SHIELD, STARTING_SPARE_WEAPON, WOODEN_SHIELD]');
     expect(storageSource).not.toContain('weapon: DEFAULT_PLAYER_WEAPON');
   });
 
