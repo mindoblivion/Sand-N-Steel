@@ -1194,12 +1194,9 @@ export interface OmenState {
 }
 
 /**
- * FOUNTAIN COIN TOSS — the Luck boost's published field shape, a LAZY optional
- * object on `PlayerProfile`: absent = no boost.  `boostUntil` is the phase total
- * (`resolveTimeState(profile).total`) at the next dawn, so the boost is live
- * while the clock's total is below it and expires exactly at dawn.  Luck has no
- * base value and no consumer yet — this slice introduces the hidden attribute
- * (vision doc: "hidden Luck & Happiness") as live state plus its panel display.
+ * BET-1 — CUT, left INERT. Retain the former Fountain Coin Toss field shape only
+ * for compatibility with saves created by the abandoned prototype. Production
+ * never reads, writes, or resolves this value; no Luck gameplay effect is active.
  */
 export interface LuckState {
   boostUntil: number;
