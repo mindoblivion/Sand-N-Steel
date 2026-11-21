@@ -478,7 +478,7 @@ describe('Phase 2 §F — the real App duel-result transaction', () => {
     expect(result).toContain('rankAfter: deriveRank(awards.profile)');
     expect(result).toContain('setProfile(awards.profile);');
     expect(result).toContain('saveProfile(awards.profile);');
-    expect((result.match(/saveProfile\\(/g) ?? []).length).toBe(1);
+    expect(result.split('saveProfile(').length - 1).toBe(1);
   });
 
   test('defeat still resolves injury and the duel clock without entering victory XP settlement', () => {
