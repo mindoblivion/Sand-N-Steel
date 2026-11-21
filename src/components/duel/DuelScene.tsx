@@ -706,7 +706,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: pStats,
-    loadout: { weapon: playerWeapon },
+    loadout: {
+      weapon: playerWeapon,
+      ...(playerWeapon.type !== 'spear' && playerProfile.equipped.shield
+        ? { shield: getEffectiveArmorStats(playerProfile.equipped.shield, resolveTemperLevel(playerProfile, playerProfile.equipped.shield.id)) as typeof playerProfile.equipped.shield }
+        : {}),
+    },
     comboCount: 0,
     bodyWeightLb: playerProfile.appearance.bodyWeightLb,
     physique: playerProfile.appearance.physique,
@@ -2307,7 +2312,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // block's add (capped at 0.90 by applyBlockReduction), less the
             // attacker's class penetration (thraex's Hook the Rim, 0.40).
             const blockReduction = effectiveBlockReduction(
-              defender.loadout.weapon.blockReduction,
+              defender.loadout.shield?.blockReduction ?? defender.loadout.weapon.blockReduction,
               defenderMods,
               attackerMods,
               isBlocked,
