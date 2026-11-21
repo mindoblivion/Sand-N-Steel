@@ -101,6 +101,7 @@ export const WOODEN_SPEAR: WeaponItem = {
   color: '#92400e',
   metalColor: '#d6a679',
   icon: 'Spear',
+  modelPath: MATERIAL_WEAPON_MODEL_PATHS.woodenSpear,
   bonusStrength: 0,
   bonusDefense: 0,
 };
