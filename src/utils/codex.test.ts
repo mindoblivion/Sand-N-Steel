@@ -91,7 +91,7 @@ describe('A5 §A — the datasets and the R1 denominators', () => {
     expect(ALL_OPPONENTS.length).toBe(24);
     expect(CODEX_GLADIATOR_ROWS.length).toBe(ALL_OPPONENTS.length + 1);
     expect(CHARIOT_PARTS.length).toBe(17);
-    expect(ITEMS_DB.length).toBe(34);
+    expect(ITEMS_DB.length).toBe(40);
     expect(HUB_LOCATIONS.length).toBe(26);
   });
 
