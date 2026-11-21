@@ -8,6 +8,7 @@ import type { WeaponItem } from '../types/game';
 export const MATERIAL_WEAPON_MODEL_PATHS = {
   woodenSword: '/models/weapons/wooden_sword.glb',
   woodenShield: '/models/weapons/wooden_shield.glb',
+  woodenSpear: '/models/weapons/wooden_spear.glb',
   bronzeSword: '/models/weapons/bronze_sword.glb',
   bronzeShield: '/models/weapons/bronze_shield.glb',
   bronzeSpear: '/models/weapons/bronze_spear.glb',
