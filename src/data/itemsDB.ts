@@ -1,4 +1,5 @@
 import { WeaponItem, ArmorItem, WeaponType } from '../types/game';
+import { MATERIAL_WEAPONS, MATERIAL_WEAPON_MODEL_PATHS } from './materialWeapons';
 
 /**
  * ===========================================================================
@@ -76,7 +77,8 @@ export const WOODEN_SWORD_SHIELD: WeaponItem = {
   color: '#92400e',
   metalColor: '#d6a679',
   icon: 'Shield',
-  modelPath: WEAPON_MODEL_PATHS.gladius,
+  modelPath: MATERIAL_WEAPON_MODEL_PATHS.woodenSword,
+  shieldModelPath: MATERIAL_WEAPON_MODEL_PATHS.woodenShield,
   bonusStrength: 0,
   bonusDefense: 0,
 };
@@ -428,10 +430,11 @@ export const ALL_WEAPONS: WeaponItem[] = [
   },
   WOODEN_SPEAR,
   WOODEN_DAGGERS,
+  ...MATERIAL_WEAPONS,
 ];
 
-/** Spare weapon granted to every new gladiator alongside the default gladius. */
-export const STARTING_SPARE_WEAPON: WeaponItem = ALL_WEAPONS[2];
+/** Wooden two-handed spear is the second member of the universal starter arsenal. */
+export const STARTING_SPARE_WEAPON: WeaponItem = WOODEN_SPEAR;
 
 /** EVERY ACQUIRABLE ARMOR PIECE (helm / chest / arms / legs). */
 export const ALL_ARMORS: ArmorItem[] = [
