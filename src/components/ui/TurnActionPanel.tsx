@@ -217,7 +217,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const str = player.stats.strength;
   const oppDef = opponent.stats.defense;
   const weapon = player.loadout.weapon;
-  const bracePresentation = getBracePresentation(weapon.type);
+  const bracePresentation = getBracePresentation(
+    weapon.type,
+    Boolean(player.loadout.shield || weapon.shieldModelPath),
+  );
 
   // CH-3a — the damage signature resolution will hand calculateAttackDamage:
   // attacker damageDealtMult ÷ defender damageTakenMult, with the same
