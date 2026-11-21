@@ -734,6 +734,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     actualDistance: 0,
     movementRatio: null,
     collisionLimited: false,
+    unexpectedDisplacement: false,
   });
     const drawbridgeRaisedRef = useRef<boolean>(false);
   const lastNearbyIdRef = useRef<string | null>(null);
