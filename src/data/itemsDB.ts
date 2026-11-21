@@ -468,7 +468,7 @@ const MATERIAL_SHIELDS: ArmorItem[] = [
 ];
 
 /** EVERY ACQUIRABLE ARMOR PIECE (helm / chest / arms / legs). */
-export const ALL_ARMORS: ArmorItem[] = [
+export const ALL_ARMORS: ArmorItem[] = [...MATERIAL_SHIELDS,
   {
     id: 'helm_murmillo',
     slot: 'helm',
@@ -719,7 +719,7 @@ export const ALL_ARMORS: ArmorItem[] = [
 ];
 
 /** The complete item database: every weapon and every armor piece. */
-export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS, ...MATERIAL_SHIELDS];
+export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS];
 
 /** Typed views of the database: `weapon` plus one entry per armor slot. */
 export const ITEMS_BY_CATEGORY = {
@@ -728,7 +728,7 @@ export const ITEMS_BY_CATEGORY = {
   chest: ALL_ARMORS.filter((armor) => armor.slot === 'chest'),
   arms: ALL_ARMORS.filter((armor) => armor.slot === 'arms'),
   legs: ALL_ARMORS.filter((armor) => armor.slot === 'legs'),
-  shield: MATERIAL_SHIELDS,
+  shield: ALL_ARMORS.filter((armor) => armor.slot === 'shield'),
 } as const;
 
 export type ItemCategory = keyof typeof ITEMS_BY_CATEGORY;
