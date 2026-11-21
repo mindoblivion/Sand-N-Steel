@@ -760,19 +760,20 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
     expect(planLanes).not.toContain(BESIDE_STAGING_X);
   });
 
-  test('the phase added no model file and no new asset to public/', () => {
-    // COMBAT-4 added aurelius_champion.glb (Aurelius's distinct champion model); the pin below is the inventory.
+  test('the phase added no racing model or horse asset to public/', () => {
+    // The inventory includes the independently uploaded civilian NPC model.
     expect(readdirSync(repo('public/models')).sort()).toEqual([
       'amazonian.glb',
       'arena_roman.glb',
       'aurelius_champion.glb',
+      'civilian.glb',
       'dimachaerus.glb',
       'lion.glb',
       'minotaur.glb',
       'netfighter.glb',
       'weapons',
     ]);
-    // `public/` gained nothing: the three horse uploads are the only horse files, and
+    // The three horse uploads remain the only horse files, and
     // they are the ones C-8.68A pinned (the byte-for-byte check lives in §A).
     const names: string[] = [];
     const walk = (dir: string) => {
