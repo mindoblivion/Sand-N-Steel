@@ -581,7 +581,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                         : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
                     }`}
                   >
-                    {isEquipped ? 'Equipped' : arm.slot === 'shield' && profile.equipped.weapon.type === 'spear' ? 'Spear equipped' : 'Equip'}
+                    {isEquipped ? 'Equipped' : 'Equip'}
                   </button>
                   {!isEquipped && onSellItem && (
                     <SellButton
@@ -671,7 +671,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                       </span>
                     </div>
                     <div className="text-xs font-mono text-neutral-400 mt-0.5">
-                      Def: +{arm.defense} {arm.healthBonus ? `• HP: +${arm.healthBonus}` : ''}
+                      {arm.blockReduction !== undefined ? `Block: ${Math.round(arm.blockReduction * 100)}%` : `Def: +${arm.defense}`} {arm.healthBonus ? `• HP: +${arm.healthBonus}` : ''}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -680,14 +680,14 @@ export const GearTab: React.FC<GearTabProps> = ({
                         sounds.playClick();
                         onEquipArmor(arm);
                       }}
-                      disabled={isEquipped}
+                      disabled={isEquipped || (arm.slot === 'shield' && profile.equipped.weapon.type === 'spear')}
                       className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
                         isEquipped
                           ? 'bg-green-800 text-green-200 cursor-default'
                           : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
                       }`}
                     >
-                      {isEquipped ? 'Equipped' : 'Equip'}
+                      {isEquipped ? 'Equipped' : arm.slot === 'shield' && profile.equipped.weapon.type === 'spear' ? 'Spear equipped' : 'Equip'}
                     </button>
                     {!isEquipped && onSellItem && (
                       <SellButton
