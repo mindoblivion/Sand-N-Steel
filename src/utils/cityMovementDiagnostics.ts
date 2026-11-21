@@ -16,6 +16,7 @@ export interface CityMovementDiagnosticSnapshot {
   actualDistance: number;
   movementRatio: number | null;
   collisionLimited: boolean;
+  unexpectedDisplacement: boolean;
 }
 
 export interface CityMovementDiagnosticInput {
@@ -68,5 +69,11 @@ export function createCityMovementDiagnosticSnapshot(
     movementRatio,
     collisionLimited:
       input.expectedDistance > 0.02 && actualDistance < input.expectedDistance * 0.85,
+    // A normal stride cannot exceed its commanded distance. The collision
+    // recovery fallback can choose an unnormalized diagonal step (up to √2×),
+    // so flag above 1.25× while leaving room for floating-point noise. The
+    // absolute floor also catches drift/teleports when no movement is expected.
+    unexpectedDisplacement:
+      actualDistance > Math.max(0.05, input.expectedDistance * 1.25 + 0.02),
   };
 }
