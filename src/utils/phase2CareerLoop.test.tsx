@@ -475,7 +475,8 @@ describe('Phase 2 §F — the real App duel-result transaction', () => {
     expect(result).toContain('currentTier: tierAfterVictory.currentTier');
     expect(result).toContain('const progression: DuelProgressionSummary');
     expect(result).toContain('levelAfter: awards.profile.level');
-    expect(result).toContain('rankAfter: deriveRank(awards.profile)');
+    expect(result).toContain('const rankAfter = deriveRank(awards.profile);');
+    expect(result).toContain('rankAfter,');
     expect(result).toContain('setProfile(awards.profile);');
     expect(result).toContain('saveProfile(awards.profile);');
     expect(result.split('saveProfile(').length - 1).toBe(1);
