@@ -770,4 +770,7 @@ export const getWeaponByType = (type: WeaponType): WeaponItem =>
   WEAPON_BY_TYPE.get(type) ?? DEFAULT_PLAYER_WEAPON;
 
 /** Narrow a database entry to a weapon. */
+export const weaponSupportsOffhandShield = (type: WeaponType): boolean =>
+  type === 'sword_shield' || type === 'mace';
+
 export const isWeapon = (item: GameItem): item is WeaponItem => 'damageLight' in item;
