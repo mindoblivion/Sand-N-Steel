@@ -468,7 +468,7 @@ const MATERIAL_SHIELDS: ArmorItem[] = [
 ];
 
 /** EVERY ACQUIRABLE ARMOR PIECE (helm / chest / arms / legs). */
-export const ALL_ARMORS: ArmorItem[] = [...MATERIAL_SHIELDS,
+export const ALL_ARMORS: ArmorItem[] = [
   {
     id: 'helm_murmillo',
     slot: 'helm',
@@ -563,6 +563,8 @@ export const ALL_ARMORS: ArmorItem[] = [...MATERIAL_SHIELDS,
     trimColor: '#f59e0b',
     bonusAgility: 2,
   },
+  // Independent shields are inserted after the six legacy armor entries so their saved indices remain stable.
+  ...MATERIAL_SHIELDS,
   // ── Progression P0 — armor material ladder (bronze → iron → steel → gilded) ──
   // APPENDED, never reordered: registry order is load-bearing for the slot filters
   // below. Rarity follows the price band the rest of the catalogue uses (uncommon
