@@ -200,8 +200,8 @@ export function armaturaKit(armatura: Armatura): {
   const extras = armatura.startingInventoryIds
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
-  // Every newly created fighter receives the same three-piece practice arsenal,
-  // regardless of armatura. Keep class-specific kit items and avoid duplicate ids.
+  // Every newly created fighter receives the same practice arsenal,
+  // regardless of armatura: wooden sword, spear and shield. Keep class-specific kit items and avoid duplicate ids.
   const inventory = [weapon, ...extras, WOODEN_SWORD_SHIELD, WOODEN_SPEAR, WOODEN_SHIELD].filter(
     (item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index,
   );
