@@ -102,6 +102,7 @@ import {
   isRiposteReady,
   shouldQueueRiposte,
 } from '../../utils/combatCounter';
+import { getBracePresentation } from '../../utils/bracePresentation';
 import {
   buildOpponentModifiers,
   buildPlayerModifiers,
