@@ -127,17 +127,23 @@ describe('§A — the academy floor', () => {
   });
 });
 
+const INTERIOR_INPUT_SOURCE = code('hooks/useInteriorInput.ts');
+
 describe('§A2 — Academy input lifecycle', () => {
-  test('blur and backgrounding release keyboard, joystick, and touch ownership', () => {
-    expect(ACADEMY_SOURCE).toContain("window.addEventListener('blur', releaseAllInputs)");
-    expect(ACADEMY_SOURCE).toContain("document.addEventListener('visibilitychange', handleVisibilityChange)");
-    expect(ACADEMY_SOURCE).toContain("document.visibilityState === 'hidden'");
-    expect(ACADEMY_SOURCE).toContain('keysPressed.current = {};');
-    expect(ACADEMY_SOURCE).toContain('touchIdRef.current = null;');
-    expect(ACADEMY_SOURCE).toContain('stickRef.current = { x: 0, y: 0 };');
-    expect(ACADEMY_SOURCE).toContain('setKnobPos({ x: 0, y: 0 });');
-    expect(ACADEMY_SOURCE).toContain("window.removeEventListener('blur', releaseAllInputs)");
-    expect(ACADEMY_SOURCE).toContain("document.removeEventListener('visibilitychange', handleVisibilityChange)");
+  test('delegates input lifecycle to shared useInteriorInput and avoids per-touch React state updates', () => {
+    expect(ACADEMY_SOURCE).toContain('useInteriorInput({');
+    expect(ACADEMY_SOURCE).toContain('locked: talking || courseOpen || atriumCard');
+    expect(ACADEMY_SOURCE).toContain('joystickKnobRef');
+    expect(ACADEMY_SOURCE).not.toContain('setKnobPos');
+
+    expect(INTERIOR_INPUT_SOURCE).toContain("window.addEventListener('blur', resetAllInputs)");
+    expect(INTERIOR_INPUT_SOURCE).toContain("document.addEventListener('visibilitychange', handleVisibilityChange)");
+    expect(INTERIOR_INPUT_SOURCE).toContain("document.visibilityState !== 'visible'");
+    expect(INTERIOR_INPUT_SOURCE).toContain('keysRef.current = {};');
+    expect(INTERIOR_INPUT_SOURCE).toContain('touchIdRef.current = null;');
+    expect(INTERIOR_INPUT_SOURCE).toContain('stickRef.current = { x: 0, y: 0 };');
+    expect(INTERIOR_INPUT_SOURCE).toContain("window.removeEventListener('blur', resetAllInputs)");
+    expect(INTERIOR_INPUT_SOURCE).toContain("document.removeEventListener('visibilitychange', handleVisibilityChange)");
   });
 });
 

@@ -143,6 +143,8 @@ import {
   type DoctoreTestRestriction,
 } from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
+import { resolveXpProgression, type DuelProgressionSummary } from './utils/levelProgression';
+import { deriveRank, RANK_INDEX } from './utils/rank';
 // STORY-4b — THE DESERTER'S PRICE. One pure module owns the ladder's rules; this
 // file is where its two writes land, inside the duel-result write every bout
 // already uses (a rung clear rides the victory write; the Deserter's answer is its
@@ -417,6 +419,7 @@ export function App() {
       takenGold: number;
       takenFame: number;
     } | null;
+    progression?: DuelProgressionSummary | null;
   } | null>(null);
   /**
    * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
@@ -1358,6 +1361,12 @@ export function App() {
     const rewardSettlementAccepted =
       !didWin || (goldSettlement?.ok === true && fameSettlement?.ok === true);
 
+    const rankBefore = deriveRank(profile);
+    let levelsGained = 0;
+    let statPointsGained = 0;
+    let tierUnlocked = false;
+    let newTier = profile.currentTier;
+
     let settledProfile: PlayerProfile;
 
     if (didWin && rewardSettlementAccepted) {
@@ -1366,17 +1375,19 @@ export function App() {
       // above is already the standard one).
       const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;
       const nextFame = fameSettlement?.ok ? fameSettlement.balance : profile.fame;
-      const nextXp = profile.xp + stats.xpEarned;
-
-      let nextLevel = profile.level;
-      let nextXpToNext = profile.xpToNextLevel;
-      let nextUnspentPoints = profile.unspentStatPoints;
-
-      if (nextXp >= nextXpToNext) {
-        nextLevel += 1;
-        nextXpToNext = Math.round(nextXpToNext * 1.5);
-        nextUnspentPoints += 2;
-      }
+      const xpProgression = resolveXpProgression({
+        level: profile.level,
+        xp: profile.xp,
+        xpToNextLevel: profile.xpToNextLevel,
+        unspentStatPoints: profile.unspentStatPoints,
+        xpEarned: stats.xpEarned,
+      });
+      const nextXp = xpProgression.xp;
+      const nextLevel = xpProgression.levelAfter;
+      const nextXpToNext = xpProgression.xpToNextLevel;
+      const nextUnspentPoints = xpProgression.unspentStatPoints;
+      levelsGained = xpProgression.levelsGained;
+      statPointsGained = xpProgression.statPointsGained;
 
       // C-8.70C — a GRUDGE BOUT is a GENERATED rematch row, not a roster id: its
       // victory settles the grudge and records no new felled id. A standard
@@ -1427,6 +1438,8 @@ export function App() {
             opponent: activeOpponent,
             defeatedOpponentIds: profile.defeatedOpponentIds,
           });
+      tierUnlocked = tierAfterVictory.advanced;
+      newTier = tierAfterVictory.currentTier;
 
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
@@ -1695,6 +1708,20 @@ export function App() {
     trialResultPendingRef.current = trialBout;
     trialBoutRef.current = false;
 
+    const rankAfter = deriveRank(awards.profile);
+    const progression: DuelProgressionSummary = {
+      levelBefore: profile.level,
+      levelAfter: awards.profile.level,
+      levelsGained,
+      statPointsGained,
+      unspentStatPointsAfter: awards.profile.unspentStatPoints,
+      tierUnlocked,
+      newTier,
+      rankBefore,
+      rankAfter,
+      rankPromoted: RANK_INDEX[rankAfter] > RANK_INDEX[rankBefore],
+    };
+
     const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted
       ? { ...stats, goldEarned: 0, fameEarned: 0, xpEarned: 0 }
       : resultStats;
@@ -1705,6 +1732,7 @@ export function App() {
       storyLines,
       injuryEvent,
       injury: afterInjury.injury ?? null,
+      progression,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
       // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd,
       // in C-C's order), which is the basis Finish's R1 rule reads.
@@ -1742,6 +1770,14 @@ export function App() {
         if (profile) enterCity(profile);
         else setCurrentScreen('city_3d');
     }, 0);
+  };
+
+  const handleDuelResultContinueToHub = (
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats'
+  ) => {
+    setDuelResult(null);
+    setDoctoreRestriction(null);
+    handleOpenHubTab(tab);
   };
 
   /**
@@ -1794,6 +1830,7 @@ export function App() {
 
     // The result surface is told what the save now carries, so the two cannot
     // disagree: Finish's fame figure becomes the boosted total it paid.
+    const rankAfterFinish = deriveRank(next);
     setDuelResult((previous) =>
       previous && previous.mercy
         ? {
@@ -1803,6 +1840,14 @@ export function App() {
                 ? { ...previous.stats, fameEarned: previous.stats.fameEarned + extraFame }
                 : previous.stats,
             mercy: { ...previous.mercy, chosen: choice, extraFame },
+            progression: previous.progression
+              ? {
+                  ...previous.progression,
+                  rankAfter: rankAfterFinish,
+                  rankPromoted:
+                    RANK_INDEX[rankAfterFinish] > RANK_INDEX[previous.progression.rankBefore],
+                }
+              : previous.progression,
           }
         : previous
     );
@@ -2668,6 +2713,8 @@ export function App() {
                 : null
             }
             onCoachCardDismiss={handleMarkCardSeen}
+            progression={duelResult.progression ?? null}
+            onContinueToHub={handleDuelResultContinueToHub}
             onContinue={handleDuelResultDismiss}
             />
           </React.Suspense>

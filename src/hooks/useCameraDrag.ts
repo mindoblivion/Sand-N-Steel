@@ -14,6 +14,8 @@ interface CameraDragOptions {
   minPitch?: number;
   maxPitch?: number;
   autoDecayOnMove?: boolean;
+  /** Disable drag-orbiting while a modal, dialogue, or menu overlay owns the screen. */
+  disabled?: boolean;
 }
 
 export function shouldDecayCameraYawOnMove(isMoving: boolean, isDragging: boolean, autoDecayOnMove: boolean): boolean {
@@ -41,6 +43,7 @@ export function useCameraDrag(
     minPitch = -1.8,
     maxPitch = 3.5,
     autoDecayOnMove = true,
+    disabled = false,
   } = options;
 
   const yawOffsetRef = useRef<number>(0);
@@ -49,6 +52,16 @@ export function useCameraDrag(
 
   const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const activePointerIdRef = useRef<number | null>(null);
+  const disabledRef = useRef<boolean>(disabled);
+  disabledRef.current = disabled;
+
+  useEffect(() => {
+    if (disabled) {
+      activePointerIdRef.current = null;
+      isDraggingRef.current = false;
+      lastPointerRef.current = { x: 0, y: 0 };
+    }
+  }, [disabled]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -58,13 +71,24 @@ export function useCameraDrag(
       return Boolean(
         target.closest('button') ||
           target.closest('input') ||
+          target.closest('select') ||
+          target.closest('textarea') ||
           target.closest('a') ||
           target.closest('[data-ui="true"]') ||
-          target.closest('.pointer-events-auto')
+          target.closest('.pointer-events-auto') ||
+          target.closest('[role="dialog"]') ||
+          target.closest('[aria-modal="true"]')
       );
     };
 
+    const clearActiveDrag = () => {
+      activePointerIdRef.current = null;
+      isDraggingRef.current = false;
+      lastPointerRef.current = { x: 0, y: 0 };
+    };
+
     const handlePointerDown = (e: PointerEvent) => {
+      if (disabledRef.current) return;
       if (activePointerIdRef.current !== null) return;
       if (isInteractiveUI(e.target as HTMLElement)) return;
 
@@ -74,6 +98,10 @@ export function useCameraDrag(
     };
 
     const handlePointerMove = (e: PointerEvent) => {
+      if (disabledRef.current) {
+        clearActiveDrag();
+        return;
+      }
       if (!isDraggingRef.current || e.pointerId !== activePointerIdRef.current) return;
 
       const deltaX = e.clientX - lastPointerRef.current.x;
@@ -93,19 +121,15 @@ export function useCameraDrag(
 
     const handlePointerUp = (e: PointerEvent) => {
       if (e.pointerId === activePointerIdRef.current) {
-        isDraggingRef.current = false;
-        activePointerIdRef.current = null;
+        clearActiveDrag();
       }
     };
 
     // Android can interrupt a gesture when the app is backgrounded or the
-    // system UI takes focus. Do not rely on receiving pointerup/pointercancel.
+    // system UI takes focus. Release the active pointer without snapping the
+    // player's chosen camera angle back to default.
     const handleInputInterruption = () => {
-      activePointerIdRef.current = null;
-      isDraggingRef.current = false;
-      yawOffsetRef.current = 0;
-      pitchOffsetRef.current = 0;
-      lastPointerRef.current = { x: 0, y: 0 };
+      clearActiveDrag();
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') handleInputInterruption();

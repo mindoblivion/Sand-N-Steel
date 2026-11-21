@@ -17,6 +17,7 @@ interface CityCameraProps {
   targetRotationY: number;
   isMoving?: boolean;
   cameraYawRef?: React.MutableRefObject<number>;
+  disabled?: boolean;
 }
 
 /** The camera's own height above the player, unchanged since Phase 26. */
@@ -44,6 +45,7 @@ export const CityCamera: React.FC<CityCameraProps> = ({
   targetRotationY,
   isMoving = false,
   cameraYawRef,
+  disabled = false,
 }) => {
   const { camera } = useThree();
 
@@ -56,6 +58,7 @@ export const CityCamera: React.FC<CityCameraProps> = ({
     // Movement is camera-relative in the city. Recentring yaw during a held
     // direction changes the movement vector every frame and bends the path.
     autoDecayOnMove: false,
+    disabled,
   });
 
   const currentLookAt = useRef(

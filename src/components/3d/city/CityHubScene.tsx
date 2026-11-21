@@ -720,6 +720,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const lastTimeRef = useRef<number>(performance.now());
   const isMovingRef = useRef<boolean>(false);
+  const bodyWeightLbRef = useRef<number | undefined>(playerProfile.appearance.bodyWeightLb);
+  bodyWeightLbRef.current = playerProfile.appearance.bodyWeightLb;
 
   /**
    * A presented scene owns the screen (the oath beat), so the city's own inputs are
@@ -729,6 +731,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    */
   const inputLockedRef = useRef<boolean>(!!movementLocked);
   const cityPanelInputLockedRef = useRef<boolean>(false);
+
+  const isOverlayOpen = Boolean(
+    movementLocked || treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
+    visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || academyPanel || showRaceEntry || showNavDrawer
+  );
 
   // Every presented city panel owns movement input, including the mobile joystick.
   // Keep this separate from the oath lock so Escape can still reach the panel handler.
@@ -1012,8 +1019,13 @@ const handleEnterBathhouse = useCallback(() => {
 
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
-    // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer) return;
+    // A presented scene or panel is up: E/Space and the action button are its own.
+    if (inputLockedRef.current || cityPanelInputLockedRef.current) return;
+    if (
+      treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
+      visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel ||
+      academyPanel || showRaceEntry || showNavDrawer
+    ) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -1035,6 +1047,9 @@ const handleEnterBathhouse = useCallback(() => {
     legendPanel,
     colosseumPanel,
     forgePanel,
+    bountyHallPanel,
+    bathhousePanel,
+    academyPanel,
     showRaceEntry,
     showNavDrawer,
   ]);
@@ -1192,13 +1207,16 @@ const handleEnterBathhouse = useCallback(() => {
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
+    if (e.cancelable) e.preventDefault();
     if (inputLockedRef.current || cityPanelInputLockedRef.current || touchIdRef.current !== null) return;
     const touch = e.changedTouches[0];
+    if (!touch) return;
     touchIdRef.current = touch.identifier;
     handleJoystickTouchMove(e);
   };
 
   const handleJoystickTouchMove = (e: React.TouchEvent) => {
+    if (e.cancelable) e.preventDefault();
     if (inputLockedRef.current || cityPanelInputLockedRef.current || !joystickRef.current || touchIdRef.current === null) return;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
@@ -1254,15 +1272,25 @@ const handleEnterBathhouse = useCallback(() => {
       touchVectorRef.current = { x: 0, z: 0 };
       keysPressed.current = {};
       resetJoystickKnob();
+      lastTimeRef.current = performance.now();
     };
     const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') resetJoystickInput();
+      if (document.visibilityState !== 'visible') {
+        resetJoystickInput();
+      } else {
+        lastTimeRef.current = performance.now();
+      }
+    };
+    const handleFocus = () => {
+      lastTimeRef.current = performance.now();
     };
 
     window.addEventListener('blur', resetJoystickInput);
+    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('blur', resetJoystickInput);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [resetJoystickKnob]);
@@ -1314,7 +1342,7 @@ const handleEnterBathhouse = useCallback(() => {
         const worldDz = normX * rightZ - normZ * forwardZ;
 
         // Grounded, controlled gladiator stride speed with analog control
-        const speed = resolveCityStrideSpeed(3.8 * mag, playerProfile.appearance.bodyWeightLb);
+        const speed = resolveCityStrideSpeed(3.8 * mag, bodyWeightLbRef.current);
         const nextPos = resolveCityMovement(playerPosRef.current, worldDx, worldDz, speed, delta);
         // Phase 34G: Apply terrain height from the motte ramp/summit.
         // getTerrainY returns 0 on flat city ground, so existing
@@ -1836,7 +1864,7 @@ const handleEnterBathhouse = useCallback(() => {
             </ThreeComponentErrorBoundary>
 
           {/* ELEVATED 3RD-PERSON CHASE CAMERA WITH HOLD-AND-DRAG ORBIT & PITCH */}
-          <CityCamera targetPosition={playerPos} targetPositionRef={playerPosRef} targetRotationY={playerRotY} isMoving={isMoving} cameraYawRef={cameraYawRef} />
+          <CityCamera targetPosition={playerPos} targetPositionRef={playerPosRef} targetRotationY={playerRotY} isMoving={isMoving} cameraYawRef={cameraYawRef} disabled={isOverlayOpen} />
         </Canvas>
       </WebGLContextErrorBoundary>
     </WebGLReadyGuard>
@@ -2017,7 +2045,7 @@ const handleEnterBathhouse = useCallback(() => {
           <div className="pointer-events-auto flex flex-col items-end gap-1.5 mr-[env(safe-area-inset-right)] ml-[env(safe-area-inset-left)]">
             <button
               onTouchStart={(e) => {
-                e.preventDefault();
+                if (e.cancelable) e.preventDefault();
                 handlePrimaryAction();
               }}
               onClick={handlePrimaryAction}
@@ -2508,7 +2536,12 @@ const handleEnterBathhouse = useCallback(() => {
 
       {/* QUICK TRAVEL DRAWER */}
       {showNavDrawer && (
-        <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-md z-30 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="City Map and Fast Travel"
+          className="pointer-events-auto absolute inset-0 bg-neutral-950/80 backdrop-blur-md z-30 flex items-center justify-center p-4"
+        >
           <div className="bg-neutral-900 border-2 border-amber-500/80 rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl animate-fadeIn">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-serif font-black text-amber-200 text-lg flex items-center gap-2">

@@ -23,6 +23,8 @@ import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/c
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings, Users } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { resolveDisplayClock } from '../../utils/dayRollover';
+import { deriveRank } from '../../utils/rank';
+import { resolveActiveInjury } from '../../utils/injury';
 // STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
 // the legacy-named herald pointer while the Rival Schools challenge is unmet.
 import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
@@ -245,6 +247,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
     onMarkCardSeen?.(HUB_FIRST_OPEN_CARD_ID);
   }, []);
 
+  const hubRank = deriveRank(playerProfile);
+  const hubInjury = resolveActiveInjury(playerProfile.injury);
+
   return (
     <div className="relative w-full h-full min-h-screen bg-neutral-950 text-amber-100 flex flex-col select-none overflow-y-auto">
       {/* TOP HEADER BAR */}
@@ -258,7 +263,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
               {playerProfile.name}
             </h1>
             <div className="text-[10px] text-amber-400 font-mono">
-              LVL {playerProfile.level} • {playerProfile.gold} Gold • {playerProfile.fame} Fame
+              {hubRank} · Tier {playerProfile.currentTier} · LVL {playerProfile.level} · {playerProfile.gold} Gold · {playerProfile.fame} Fame
             </div>
           </div>
         </div>
@@ -350,7 +355,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
                 if (tab.key === 'library') onLibraryPageChange('road');
                 onTabChange(tab.key as any);
               }}
-              className={`min-h-[48px] py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`min-h-[48px] py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                 isActive
                   ? 'bg-amber-500/20 border border-amber-400 text-amber-200 shadow-md'
                   : 'bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:text-amber-200'
@@ -358,6 +363,22 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
+              {tab.key === 'stats' && playerProfile.unspentStatPoints > 0 && (
+                <span
+                  data-tab-stat-points={playerProfile.unspentStatPoints}
+                  className="font-mono text-[11px] font-black text-amber-300"
+                >
+                  +{playerProfile.unspentStatPoints}
+                </span>
+              )}
+              {tab.key === 'stats' && hubInjury && (
+                <span
+                  data-tab-injured="1"
+                  className="font-mono text-[10px] font-bold text-red-400"
+                >
+                  [Injured]
+                </span>
+              )}
             </button>
           );
         })}

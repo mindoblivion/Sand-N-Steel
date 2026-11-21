@@ -9,13 +9,13 @@ interface WithdrawConfirmModalProps {
 /** Presentational confirmation; only the confirmed action forfeits the live bout. */
 export const WithdrawConfirmModal: React.FC<WithdrawConfirmModalProps> = ({ onStay, onConfirm }) => (
   <div
-    className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 select-none"
+    className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 select-none overflow-y-auto"
     role="dialog"
     aria-modal="true"
     aria-label="Confirm withdrawal"
     data-withdraw-dialog="true"
   >
-    <div className="w-full max-w-md bg-neutral-900 border-2 border-red-700/80 rounded-3xl shadow-2xl text-amber-100 p-5 sm:p-6 flex flex-col gap-4">
+    <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-y-contain bg-neutral-900 border-2 border-red-700/80 rounded-3xl shadow-2xl text-amber-100 p-5 sm:p-6 flex flex-col gap-4">
       <div className="flex items-start gap-3">
         <span className="shrink-0 p-2.5 rounded-2xl bg-red-500/15 border border-red-500/40 text-red-300">
           <Flag className="w-6 h-6" />

@@ -33,6 +33,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { applyDeadZone } from '../../utils/joystickDeadZone';
+import { useInteriorInput } from '../../hooks/useInteriorInput';
 import { getKeeper } from '../../data/keepers';
 import { TRAINING_ACTIONS } from '../../data/training';
 import { isTrainingActionScheduled } from '../../utils/trainingSchedule';
@@ -576,7 +577,7 @@ function AcademyPlayerRig({ onExitRef, keysRef, stickRef, onPosition }: AcademyP
     onPosition(px, pz);
     if (!exited.current && isAcademyExit(px, pz)) {
       exited.current = true;
-      onExitRef.current();
+      setTimeout(() => onExitRef.current(), 0);
       return;
     }
     if (mLen > 0.05) {
@@ -665,8 +666,6 @@ export function GladiatorAcademyInterior({
     onRecordKeeperVisitRef.current = onRecordKeeperVisit;
   });
 
-  const keysPressed = useRef<Record<string, boolean>>({});
-  const stickRef = useRef({ x: 0, y: 0 });
   const playerPosRef = useRef({ x: ACADEMY_SPAWN_X, z: ACADEMY_SPAWN_Z });
   const nearStationRef = useRef<AcademyStation | null>(null);
   const talkingRef = useRef(false);
@@ -744,88 +743,21 @@ export function GladiatorAcademyInterior({
     interactRef.current = interactWithStation;
   });
 
-  // Keyboard: WASD/arrows to walk, E to use the nearby station.
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      keysPressed.current[e.code] = true;
-      if (e.code === 'KeyE') interactRef.current();
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
-        e.preventDefault();
-      }
-    };
-    const up = (e: KeyboardEvent) => {
-      keysPressed.current[e.code] = false;
-    };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
-    return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
-    };
-  }, []);
-
-  // On-screen joystick (touch).
-  const joystickRef = useRef<HTMLDivElement>(null);
-  const touchIdRef = useRef<number | null>(null);
-  const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
-
-  const setStickFromTouch = (clientX: number, clientY: number) => {
-    const el = joystickRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const R = rect.width / 2;
-    let dx = (clientX - cx) / R;
-    let dy = (clientY - cy) / R;
-    const len = Math.hypot(dx, dy);
-    if (len > 1) {
-      dx /= len;
-      dy /= len;
-    }
-    stickRef.current = { x: dx, y: dy };
-    setKnobPos({ x: dx * (R - 20), y: dy * (R - 20) });
-  };
-
-  const handleJoystickTouchStart = (e: React.TouchEvent) => {
-    const t = e.changedTouches[0];
-    touchIdRef.current = t.identifier;
-    setStickFromTouch(t.clientX, t.clientY);
-  };
-  const handleJoystickTouchMove = (e: React.TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === touchIdRef.current) setStickFromTouch(t.clientX, t.clientY);
-    }
-  };
-  const handleJoystickTouchEnd = (e: React.TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === touchIdRef.current) {
-        touchIdRef.current = null;
-        stickRef.current = { x: 0, y: 0 };
-        setKnobPos({ x: 0, y: 0 });
-      }
-    }
-  };
-
-  // Android can suspend the WebView while a finger is still on the joystick.
-  // Release every input on focus loss/backgrounding so movement cannot stick.
-  useEffect(() => {
-    const releaseAllInputs = () => {
-      keysPressed.current = {};
-      touchIdRef.current = null;
-      stickRef.current = { x: 0, y: 0 };
-      setKnobPos({ x: 0, y: 0 });
-    };
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') releaseAllInputs();
-    };
-    window.addEventListener('blur', releaseAllInputs);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      window.removeEventListener('blur', releaseAllInputs);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+  const {
+    keysRef: keysPressed,
+    stickRef,
+    joystickRef,
+    joystickKnobRef,
+    joystickHandlers,
+  } = useInteriorInput({
+    locked: talking || courseOpen || atriumCard,
+    onInteract: () => interactRef.current(),
+    onEscape: () => {
+      if (talkingRef.current) stopTalking();
+      else if (courseOpen) setCourseOpen(false);
+      else setAtriumCard(false);
+    },
+  });
 
   // The course panel, from the live profile (read-only here — App owns the transaction).
   const level = profile?.level ?? 1;
@@ -914,7 +846,7 @@ export function GladiatorAcademyInterior({
         <div className="absolute top-3 left-3 pointer-events-auto">
           <button
             type="button"
-            onClick={() => onExitRef.current()}
+            onClick={() => setTimeout(() => onExitRef.current(), 0)}
             aria-label="Return to City"
             data-academy-return
             className="min-h-[44px] min-w-[44px] px-4 rounded-2xl bg-neutral-950/85 border border-red-600/50 text-red-200 font-serif font-bold text-sm hover:bg-red-500/20 flex items-center"
@@ -1074,22 +1006,27 @@ export function GladiatorAcademyInterior({
           </div>
         </div>
 
-        {/* Joystick (touch) */}
-        <div
-          ref={joystickRef}
-          className="pointer-events-auto absolute bottom-6 left-4 w-28 h-28 rounded-full bg-neutral-950/60 border border-red-600/40 touch-none"
-          onTouchStart={handleJoystickTouchStart}
-          onTouchMove={handleJoystickTouchMove}
-          onTouchEnd={handleJoystickTouchEnd}
-          onTouchCancel={handleJoystickTouchEnd}
-        >
+        {/* Joystick (touch + pointer fallback) */}
+        <div className="absolute bottom-5 left-5 mb-[env(safe-area-inset-bottom)] ml-[env(safe-area-inset-left)] pointer-events-auto touch-none">
           <div
-            className="absolute w-12 h-12 rounded-full bg-red-500/70 border border-red-300/60"
-            style={{
-              left: `calc(50% - 24px + ${knobPos.x}px)`,
-              top: `calc(50% - 24px + ${knobPos.y}px)`,
-            }}
-          />
+            ref={joystickRef}
+            {...joystickHandlers}
+            aria-label="Move"
+            className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-neutral-950/60 border-2 border-red-600/50 relative flex items-center justify-center touch-none select-none"
+          >
+            <div className="absolute top-2 w-1.5 h-1.5 rounded-full bg-red-500/50" />
+            <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-red-500/50" />
+            <div className="absolute left-2 w-1.5 h-1.5 rounded-full bg-red-500/50" />
+            <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-red-500/50" />
+            <div
+              ref={joystickKnobRef}
+              className="w-10 h-10 rounded-full bg-gradient-to-b from-red-500 to-red-700 border-2 border-red-300 will-change-transform"
+              style={{ transform: 'translate3d(0px, 0px, 0)' }}
+            />
+          </div>
+          <div className="mt-1 text-center font-mono text-[10px] uppercase tracking-wider text-red-300/80">
+            Move
+          </div>
         </div>
       </div>
     </div>

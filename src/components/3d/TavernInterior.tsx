@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { applyDeadZone } from '../../utils/joystickDeadZone';
+import { useInteriorInput } from '../../hooks/useInteriorInput';
 
 /* ------------------------------------------------------------------ */
 /* DOM-free tavern math (mirrors ForgeInterior — unit-testable).        */
@@ -761,8 +762,6 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
     onOpenServicesRef.current = onOpenServices;
   });
 
-  const keysPressed = useRef<Record<string, boolean>>({});
-  const stickRef = useRef({ x: 0, y: 0 });
   const playerPosRef = useRef({ x: TAVERN_SPAWN_X, z: TAVERN_SPAWN_Z });
   const nearStationRef = useRef<TavernStation | null>(null);
   const [nearStation, setNearStation] = useState<TavernStation | null>(null);
@@ -789,68 +788,15 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
     interactRef.current = interactWithStation;
   });
 
-  // Keyboard: WASD/arrows to walk, E to use the nearby station.
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      keysPressed.current[e.code] = true;
-      if (e.code === 'KeyE') interactRef.current();
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
-        e.preventDefault();
-      }
-    };
-    const up = (e: KeyboardEvent) => {
-      keysPressed.current[e.code] = false;
-    };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
-    return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
-    };
-  }, []);
-
-  // On-screen joystick (touch).
-  const joystickRef = useRef<HTMLDivElement>(null);
-  const touchIdRef = useRef<number | null>(null);
-  const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
-
-  const setStickFromTouch = (clientX: number, clientY: number) => {
-    const el = joystickRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const R = rect.width / 2;
-    let dx = (clientX - cx) / R;
-    let dy = (clientY - cy) / R;
-    const len = Math.hypot(dx, dy);
-    if (len > 1) {
-      dx /= len;
-      dy /= len;
-    }
-    stickRef.current = { x: dx, y: dy };
-    setKnobPos({ x: dx * (R - 20), y: dy * (R - 20) });
-  };
-
-  const handleJoystickTouchStart = (e: React.TouchEvent) => {
-    const t = e.changedTouches[0];
-    touchIdRef.current = t.identifier;
-    setStickFromTouch(t.clientX, t.clientY);
-  };
-  const handleJoystickTouchMove = (e: React.TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === touchIdRef.current) setStickFromTouch(t.clientX, t.clientY);
-    }
-  };
-  const handleJoystickTouchEnd = (e: React.TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === touchIdRef.current) {
-        touchIdRef.current = null;
-        stickRef.current = { x: 0, y: 0 };
-        setKnobPos({ x: 0, y: 0 });
-      }
-    }
-  };
+  const {
+    keysRef: keysPressed,
+    stickRef,
+    joystickRef,
+    joystickKnobRef,
+    joystickHandlers,
+  } = useInteriorInput({
+    onInteract: () => interactRef.current(),
+  });
 
   return (
     <div className="fixed inset-0 z-[95] bg-[#1b100b] text-amber-100 overflow-hidden select-none" role="dialog" aria-label="Roman tavern interior">
@@ -917,23 +863,21 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
         </div>
       )}
       {/* On-screen joystick */}
-      <div className="absolute bottom-5 left-5 z-10 touch-none">
+      <div className="absolute bottom-5 left-5 mb-[env(safe-area-inset-bottom)] ml-[env(safe-area-inset-left)] z-10 pointer-events-auto touch-none">
         <div
           ref={joystickRef}
-          onTouchStart={handleJoystickTouchStart}
-          onTouchMove={handleJoystickTouchMove}
-          onTouchEnd={handleJoystickTouchEnd}
-          onTouchCancel={handleJoystickTouchEnd}
+          {...joystickHandlers}
           aria-label="Move"
-          className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-stone-950/60 border-2 border-amber-200/40 relative flex items-center justify-center"
+          className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-stone-950/60 border-2 border-amber-200/40 relative flex items-center justify-center touch-none select-none"
         >
           <div className="absolute top-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
           <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
           <div className="absolute left-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
           <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
           <div
-            className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-400 to-amber-600 border-2 border-amber-200"
-            style={{ transform: `translate(${knobPos.x}px, ${knobPos.y}px)` }}
+            ref={joystickKnobRef}
+            className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-400 to-amber-600 border-2 border-amber-200 will-change-transform"
+            style={{ transform: 'translate3d(0px, 0px, 0)' }}
           />
         </div>
         <div className="mt-1 text-center text-[10px] uppercase tracking-wider text-amber-300/80">

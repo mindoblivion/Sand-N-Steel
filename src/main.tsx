@@ -121,6 +121,16 @@ const useRaceHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'race' ||
     readDevHarnessFlag() === 'race');
 
+// Step 1 — 500×500 Roman City Blueprint walkable scene loader. Reachable in dev
+// builds via `?devHarness=city-blueprint`, `/__dev/city-blueprint`, or the dev
+// scratch flag `sand_and_steel_dev_harness = 'city-blueprint'`. Dynamically
+// imported inside `import.meta.env.DEV` so production bundles stay untouched.
+const useCityBlueprintHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'city-blueprint' ||
+    window.location.pathname === '/__dev/city-blueprint' ||
+    readDevHarnessFlag() === 'city-blueprint');
+
 // The two PUBLIC pages — `/delete-account` and `/privacy` — are the opposite of the
 // harnesses above: they must exist in EVERY build, including a production one, and
 // they need no session at all.  `/delete-account` is the URL a store listing is given,
@@ -192,6 +202,14 @@ if (useAnimationInventoryHarness) {
     mountRoot(
       <React.StrictMode>
         <RaceHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useCityBlueprintHarness) {
+  void import('./components/3d/city/CityBlueprintScene').then(({ CityBlueprintScene }) => {
+    mountRoot(
+      <React.StrictMode>
+        <CityBlueprintScene />
       </React.StrictMode>,
     );
   });

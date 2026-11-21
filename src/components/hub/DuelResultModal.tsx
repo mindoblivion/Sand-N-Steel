@@ -28,6 +28,9 @@ import { sounds } from '../../audio/soundEffects';
 // poster section that displays it (canvas + the OS share sheet).
 import { composeVictoryCard } from '../../utils/victoryCard';
 import { VictoryPoster } from './VictoryPoster';
+import type { DuelProgressionSummary } from '../../utils/levelProgression';
+
+export type PostDuelHubTab = 'tournament' | 'training' | 'shop' | 'gear' | 'stats';
 
 interface DuelResultModalProps {
   didWin: boolean;
@@ -108,6 +111,10 @@ interface DuelResultModalProps {
   } | null;
   /** The Deserter's answer.  App writes it once; this component never writes. */
   onDeserterChoice?: (choice: 'spared' | 'taken') => void;
+  /** Phase 2 — computed career milestones from this duel (level up, tier unlock, rank promotion). */
+  progression?: DuelProgressionSummary | null;
+  /** Phase 2 — direct Ludus navigation from the post-bout screen alongside returning to the 3D gate. */
+  onContinueToHub?: (tab: PostDuelHubTab) => void;
   onContinue: () => void;
 }
 
@@ -151,6 +158,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   onMercyChoice,
   bounty,
   onDeserterChoice,
+  progression,
+  onContinueToHub,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -284,8 +293,32 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
     onContinue();
   };
 
+  const handleContinueToHub = (tab: PostDuelHubTab) => {
+    if (resultBeatCard && coachCardId) onCoachCardDismiss?.(coachCardId);
+    onContinueToHub?.(tab);
+  };
+
+  const hasProgressionMilestone = Boolean(
+    didWin &&
+      progression &&
+      (progression.levelsGained > 0 || progression.tierUnlocked || progression.rankPromoted),
+  );
+
+  const secondaryHubCta: { tab: PostDuelHubTab; label: string } | null = onContinueToHub
+    ? (progression?.unspentStatPointsAfter ?? 0) > 0
+      ? {
+          tab: 'stats',
+          label: `Spend Stat Points (${progression!.unspentStatPointsAfter}) · Gladiator Stats`,
+        }
+      : injuryStatus || injuryEvent?.kind === 'inflicted'
+        ? { tab: 'stats', label: 'Recover & Prepare · Gladiator Stats' }
+        : didWin
+          ? { tab: 'tournament', label: 'Next Bout · Colosseum' }
+          : { tab: 'training', label: 'Train & Prepare · Training Yard' }
+    : null;
+
   return (
-    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-40 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       {resultBeatCard && coachCardId && (
         <CoachCard
           id={coachCardId}
@@ -295,7 +328,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
         />
       )}
       <div
-        className={`border-2 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl animate-fadeIn text-amber-100 ${
+        className={`border-2 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-y-contain shadow-2xl animate-fadeIn text-amber-100 ${
           didWin
             ? 'bg-neutral-900 border-amber-500/80'
             : 'bg-neutral-900 border-red-600/80'
@@ -461,7 +494,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
         {injuryStatus && injuryEvent?.kind !== 'inflicted' && (
           <div
             data-testid="duel-injury-status"
-            className="mb-6 rounded-2xl border border-red-500/50 bg-red-950/40 p-3 flex items-start gap-2"
+            className="mb-4 rounded-2xl border border-red-500/50 bg-red-950/40 p-3 flex items-start gap-2"
           >
             <HeartPulse className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
             <p className="text-[11px] font-mono text-red-200 leading-relaxed">
@@ -470,6 +503,65 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               </span>{' '}
               -{injuryStatus.penaltyStrength} STR · -{injuryStatus.penaltyAgility} AGI ·{' '}
               {injuryStatus.durationLabel}.
+            </p>
+          </div>
+        )}
+
+        {hasProgressionMilestone && progression && (
+          <div
+            data-duel-progression="1"
+            className="mb-4 rounded-2xl border border-amber-500/70 bg-neutral-950/90 p-4 flex flex-col gap-2"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+              Career Milestones
+            </div>
+            {progression.levelsGained > 0 && (
+              <div
+                data-duel-level-up={progression.levelAfter}
+                className="text-xs sm:text-[13px] font-serif text-amber-100 leading-relaxed"
+              >
+                <span className="font-bold text-amber-300">Level Up</span> · Level{' '}
+                {progression.levelBefore} to Level {progression.levelAfter} (+
+                {progression.statPointsGained} stat points · {progression.unspentStatPointsAfter}{' '}
+                unspent)
+              </div>
+            )}
+            {progression.tierUnlocked && (
+              <div
+                data-duel-tier-unlocked={progression.newTier}
+                className="text-xs sm:text-[13px] font-serif text-emerald-200 leading-relaxed"
+              >
+                <span className="font-bold text-emerald-300">Tier {progression.newTier} Unlocked</span>{' '}
+                · New tournament challengers await in the Colosseum.
+              </div>
+            )}
+            {progression.rankPromoted && (
+              <div
+                data-duel-rank-promoted={progression.rankAfter}
+                className="text-xs sm:text-[13px] font-serif text-purple-200 leading-relaxed"
+              >
+                <span className="font-bold text-purple-300">Rank Promoted</span> ·{' '}
+                {progression.rankBefore} to {progression.rankAfter}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!didWin && (
+          <div
+            data-duel-next-steps="defeat"
+            className="mb-4 rounded-2xl border border-neutral-700/80 bg-neutral-950/80 p-3.5 flex flex-col gap-1.5"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">
+              Prepare for Return
+            </div>
+            {(injuryStatus || injuryEvent?.kind === 'inflicted') && (
+              <p className="text-[11px] font-serif text-red-200/90 leading-relaxed">
+                Recovery path: apply a satchel remedy in Gladiator Stats, rest at the Medical House or Caravanserai Inn in the Metropolis, or finish bouts in the sand (each completed duel reduces recovery by 1).
+              </p>
+            )}
+            <p className="text-[11px] font-serif text-neutral-300 leading-relaxed">
+              Adjust your approach from How it went, train attributes in the Training Yard, or upgrade gear at the Bazaar &amp; Forge before your next bout.
             </p>
           </div>
         )}
@@ -798,17 +890,30 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
         )}
 
         {(!mercy || mercy.chosen) && (!bounty || bounty.kind === 'rung' || bounty.chosen) && (
-        <button
-          onClick={handleContinue}
-          className={`btn-press w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${
-            didWin
-              ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-neutral-950 border border-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.5)]'
-              : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600'
-          }`}
-        >
-          <span>Return to Metropolis [Town Gate]</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="flex flex-col gap-2.5">
+          <button
+            onClick={handleContinue}
+            className={`btn-press w-full min-h-[48px] py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${
+              didWin
+                ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-neutral-950 border border-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.5)]'
+                : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600'
+            }`}
+          >
+            <span>Return to Metropolis [Town Gate]</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          {secondaryHubCta && (
+            <button
+              type="button"
+              data-duel-continue-hub={secondaryHubCta.tab}
+              onClick={() => handleContinueToHub(secondaryHubCta.tab)}
+              className="btn-press w-full min-h-[48px] py-3 px-4 rounded-2xl bg-neutral-950/90 hover:bg-neutral-800 border border-amber-500/50 text-amber-200 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 transition-colors"
+            >
+              <span>{secondaryHubCta.label}</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            </button>
+          )}
+        </div>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -10,6 +10,7 @@ import {
   applyArenaTextureAnisotropy,
 } from '../../utils/arenaInteriorTextures';
 import { applyDeadZone } from '../../utils/joystickDeadZone';
+import { useInteriorInput } from '../../hooks/useInteriorInput';
 
 /**
  * COLOSSEUM INTERIOR — the enterable empty arena.
@@ -344,7 +345,7 @@ function ColosseumPlayerRig({
 }: {
   onExitRef: { current: () => void };
   keysRef: { current: Record<string, boolean> };
-  stickRef: { current: { x: number; z: number } };
+  stickRef: { current: { x: number; y: number } };
 }) {
   const rootRef = useRef<THREE.Group>(null);
   const armLRef = useRef<THREE.Group>(null);
@@ -362,13 +363,14 @@ function ColosseumPlayerRig({
     const k = keysRef.current;
     let ix = 0;
     let iz = 0;
-    if (k['w']) iz -= 1;
-    if (k['s']) iz += 1;
-    if (k['a']) ix -= 1;
-    if (k['d']) ix += 1;
+    if (k['KeyW'] || k['ArrowUp']) iz -= 1;
+    if (k['KeyS'] || k['ArrowDown']) iz += 1;
+    if (k['KeyA'] || k['ArrowLeft']) ix -= 1;
+    if (k['KeyD'] || k['ArrowRight']) ix += 1;
     const stick = stickRef.current;
-    ix += stick.x;
-    iz += stick.z;
+    const joystick = applyDeadZone(stick.x, stick.y);
+    ix += joystick.x;
+    iz += joystick.z;
     const len = Math.hypot(ix, iz);
     const moving = len > 0.05;
 
@@ -484,89 +486,15 @@ export const ColosseumInterior: React.FC<ColosseumInteriorProps> = ({ onExit }) 
     onExitRef.current = onExit;
   }, [onExit]);
 
-  const keysPressed = useRef<Record<string, boolean>>({});
-  const stickRef = useRef({ x: 0, z: 0 });
-  const joystickRef = useRef<HTMLDivElement>(null);
-  const touchIdRef = useRef<number | null>(null);
-  const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
+  const {
+    keysRef: keysPressed,
+    stickRef,
+    joystickRef,
+    joystickKnobRef,
+    joystickHandlers,
+  } = useInteriorInput();
 
   const textures = useColosseumTextures();
-
-  // WASD / arrow keys
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      const code = e.code;
-      const key = e.key.toLowerCase();
-      if (
-        code === 'ArrowUp' ||
-        code === 'ArrowDown' ||
-        code === 'ArrowLeft' ||
-        code === 'ArrowRight' ||
-        code === 'Space'
-      ) {
-        e.preventDefault();
-      }
-      if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
-      if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
-      if (code === 'KeyA' || key === 'a' || code === 'ArrowLeft') keysPressed.current['a'] = true;
-      if (code === 'KeyD' || key === 'd' || code === 'ArrowRight') keysPressed.current['d'] = true;
-    };
-    const up = (e: KeyboardEvent) => {
-      const code = e.code;
-      const key = e.key.toLowerCase();
-      if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = false;
-      if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = false;
-      if (code === 'KeyA' || key === 'a' || code === 'ArrowLeft') keysPressed.current['a'] = false;
-      if (code === 'KeyD' || key === 'd' || code === 'ArrowRight') keysPressed.current['d'] = false;
-    };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
-    return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
-    };
-  }, []);
-
-  // mobile virtual joystick (the city's stick pattern)
-  const handleJoystickTouchMove = (e: React.TouchEvent) => {
-    if (!joystickRef.current || touchIdRef.current === null) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const touch = e.changedTouches[i];
-      if (touch.identifier === touchIdRef.current) {
-        const rect = joystickRef.current.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        let dx = touch.clientX - centerX;
-        let dy = touch.clientY - centerY;
-        const maxDist = rect.width * 0.42;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > maxDist) {
-          dx = (dx / dist) * maxDist;
-          dy = (dy / dist) * maxDist;
-        }
-        setKnobPos({ x: dx, y: dy });
-        const vec = applyDeadZone(dx / maxDist, dy / maxDist);
-        stickRef.current = { x: vec.x, z: vec.z };
-        break;
-      }
-    }
-  };
-  const handleJoystickTouchStart = (e: React.TouchEvent) => {
-    if (touchIdRef.current !== null) return;
-    const touch = e.changedTouches[0];
-    touchIdRef.current = touch.identifier;
-    handleJoystickTouchMove(e);
-  };
-  const handleJoystickTouchEnd = (e: React.TouchEvent) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === touchIdRef.current) {
-        touchIdRef.current = null;
-        setKnobPos({ x: 0, y: 0 });
-        stickRef.current = { x: 0, z: 0 };
-        break;
-      }
-    }
-  };
 
   return (
     <div
@@ -629,23 +557,21 @@ export const ColosseumInterior: React.FC<ColosseumInteriorProps> = ({ onExit }) 
             ← Return to City
           </button>
         </div>
-        <div className="absolute bottom-5 left-5 pointer-events-auto touch-none">
+        <div className="absolute bottom-5 left-5 mb-[env(safe-area-inset-bottom)] ml-[env(safe-area-inset-left)] pointer-events-auto touch-none">
           <div
             ref={joystickRef}
-            onTouchStart={handleJoystickTouchStart}
-            onTouchMove={handleJoystickTouchMove}
-            onTouchEnd={handleJoystickTouchEnd}
-            onTouchCancel={handleJoystickTouchEnd}
+            {...joystickHandlers}
             aria-label="Move"
-            className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-neutral-950/60 border-2 border-amber-600/50 relative flex items-center justify-center"
+            className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-neutral-950/60 border-2 border-amber-600/50 relative flex items-center justify-center touch-none select-none"
           >
             <div className="absolute top-2 w-1.5 h-1.5 rounded-full bg-amber-500/50" />
             <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-amber-500/50" />
             <div className="absolute left-2 w-1.5 h-1.5 rounded-full bg-amber-500/50" />
             <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-amber-500/50" />
             <div
-              className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 border-2 border-amber-300"
-              style={{ transform: `translate(${knobPos.x}px, ${knobPos.y}px)` }}
+              ref={joystickKnobRef}
+              className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 border-2 border-amber-300 will-change-transform"
+              style={{ transform: 'translate3d(0px, 0px, 0)' }}
             />
           </div>
           <div className="mt-1 text-center font-mono text-[10px] uppercase tracking-wider text-amber-300/80">

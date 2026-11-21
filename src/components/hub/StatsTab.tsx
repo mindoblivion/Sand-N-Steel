@@ -324,9 +324,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({
 
       {/* UNSPENT POINTS BANNER */}
       {profile.unspentStatPoints > 0 && (
-        <div className="bg-amber-500/20 border border-amber-400 p-4 rounded-2xl flex justify-between items-center animate-pulse">
+        <div className="bg-amber-500/20 border border-amber-400 p-4 rounded-2xl flex flex-wrap justify-between items-center gap-2">
           <span className="font-serif font-bold text-sm text-amber-200">
             You have {profile.unspentStatPoints} unspent stat point(s)!
+          </span>
+          <span className="text-xs font-mono text-amber-300">
+            Tap + below to raise an attribute.
           </span>
         </div>
       )}
@@ -345,6 +348,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <p className="text-xs font-mono text-red-300/90 mt-0.5">
               −{injuryStatus.penaltyStrength} STR / −{injuryStatus.penaltyAgility} AGI ·{' '}
               {injuryStatus.durationLabel}
+            </p>
+            <p className="text-[11px] font-serif text-red-200/80 mt-1">
+              Heal with a satchel remedy below, rest at the Medical House or Caravanserai Inn in the 3D Metropolis, or complete {injuryStatus.fightsRemaining} duel{injuryStatus.fightsRemaining === 1 ? '' : 's'}.
             </p>
           </div>
 

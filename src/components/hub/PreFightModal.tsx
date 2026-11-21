@@ -83,10 +83,10 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
     .filter((palma): palma is Palma => Boolean(palma));
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       {/* A centred dialog: `data-origin="center"` is the transport-free panel variant. */}
       <div
-        className="anim-panel bg-neutral-900 border-2 border-red-500/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-amber-100"
+        className="anim-panel bg-neutral-900 border-2 border-red-500/80 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-y-contain shadow-2xl text-amber-100"
         data-origin="center"
       >
         <div className="text-center mb-6">
