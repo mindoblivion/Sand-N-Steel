@@ -466,6 +466,7 @@ export const GearTab: React.FC<GearTabProps> = ({
   const currentWeapon = profile.equipped.weapon;
   const currentHelm = profile.equipped.helm;
   const currentChest = profile.equipped.chest;
+  const currentShield = profile.equipped.shield;
 
   const inventoryWeapons = profile.inventory.filter((i): i is WeaponItem => 'damageLight' in i);
   const inventoryArmors = profile.inventory.filter((i): i is ArmorItem => 'defense' in i);
