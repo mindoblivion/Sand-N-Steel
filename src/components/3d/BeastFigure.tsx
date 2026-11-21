@@ -51,9 +51,50 @@ export interface BeastFigureProps {
 }
 
 /**
+ * Compute Ferrum's retreat target from its current world pose.
+ * The lion model faces +Z, so adding PI turns it directly away from its
+ * current heading; the world-space displacement uses the same +Z convention.
+ */
+export function getBeastFleeTarget(
+  currentPosition: readonly [number, number, number],
+  currentYaw: number,
+  distance = 4.5,
+): { position: [number, number, number]; yaw: number } {
+  const yaw = currentYaw + Math.PI;
+  return {
+    position: [
+      currentPosition[0] + Math.sin(yaw) * distance,
+      currentPosition[1],
+      currentPosition[2] + Math.cos(yaw) * distance,
+    ],
+    yaw,
+  };
+}
+
+/**
  * Compute world Y rotation for a model whose forward axis is `+Z` so it aims
  * from `beastPos` toward `targetPos`.
  */
+/**
+ * Keep the flee destination authoritative after Ferrum has entered the
+ * terminal retreat pose. Parent renders may provide a fresh spawn-position
+ * tuple, but must not pull the retreating lion back toward the arena center.
+ */
+export function syncBeastTargetPosition(
+  target: THREE.Vector3,
+  position: readonly [number, number, number],
+  pose: BeastPose,
+): boolean {
+  if (pose === 'fled') return false;
+  target.set(position[0], position[1], position[2]);
+  return true;
+}
+
+/** Keep the retreat heading authoritative once Ferrum enters its terminal flee pose. */
+export function syncBeastTargetYaw(currentTargetYaw: number, incomingYaw: number, pose: BeastPose): number {
+  return pose === 'fled' ? currentTargetYaw : incomingYaw;
+}
+
 export function beastFacingYaw(
   beastPos: readonly [number, number, number],
   targetPos: readonly [number, number, number],
@@ -219,12 +260,12 @@ const LionGLB: React.FC<BeastFigureProps> = ({
   const recoilRef = useRef(0);
 
   useEffect(() => {
-    targetPosRef.current.set(position[0], position[1], position[2]);
-  }, [position[0], position[1], position[2]]);
+    syncBeastTargetPosition(targetPosRef.current, position, pose);
+  }, [position[0], position[1], position[2], pose]);
 
   useEffect(() => {
-    targetYawRef.current = rotationY;
-  }, [rotationY]);
+    targetYawRef.current = syncBeastTargetYaw(targetYawRef.current, rotationY, pose);
+  }, [rotationY, pose]);
 
   poseRef.current = pose;
 
@@ -357,6 +398,24 @@ const LionGLB: React.FC<BeastFigureProps> = ({
     if (prevPoseRef.current === pose) return;
     prevPoseRef.current = pose;
 
+    if (pose === 'fled') {
+      // Ferrum turns away from the player and runs clear of the arena instead
+      // of disappearing the instant the hunt state changes to "fled".
+      biteActiveRef.current = false;
+      const current = outerGroupRef.current?.position ?? targetPosRef.current;
+      const retreat = getBeastFleeTarget(
+        // targetPosRef stores the unlifted ground height; outerGroupRef already
+        // includes LION_GROUND_Y and would otherwise apply the lift twice.
+        [current.x, targetPosRef.current.y, current.z],
+        outerGroupRef.current?.rotation.y ?? targetYawRef.current,
+      );
+      targetYawRef.current = retreat.yaw;
+      targetPosRef.current.set(...retreat.position);
+      isMovingRef.current = true;
+      switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);
+      return;
+    }
+
     if (pose === 'crouch') {
       biteActiveRef.current = false;
       switchClip(BEAST_ANIMATION_MAP.crouch, 0.2, false);
@@ -421,6 +480,9 @@ const LionGLB: React.FC<BeastFigureProps> = ({
         isMovingRef.current = movingNow;
         if (poseRef.current === 'prowl' && !biteActiveRef.current) {
           switchClip(movingNow ? BEAST_ANIMATION_MAP.walk : BEAST_ANIMATION_MAP.idle, 0.18, false);
+        } else if (poseRef.current === 'fled') {
+          // Finish the retreat cleanly instead of looping the Run clip in place.
+          switchClip(movingNow ? BEAST_ANIMATION_MAP.run : BEAST_ANIMATION_MAP.idle, 0.18, false);
         }
       }
     }
