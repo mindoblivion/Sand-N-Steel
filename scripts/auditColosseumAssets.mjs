@@ -33,7 +33,11 @@ function parseGlb(buffer, label) {
     primitives: (json.meshes ?? []).reduce((sum, mesh) => sum + (mesh.primitives?.length ?? 0), 0),
     skins: json.skins?.length ?? 0,
     joints: (json.skins ?? []).map((skin) => skin.joints?.length ?? 0),
-    animations: (json.animations ?? []).map((animation) => animation.name || '(unnamed)'),
+    animationCount: json.animations?.length ?? 0,
+    usefulAnimationNames: (json.animations ?? []).map((animation) => animation.name || '(unnamed)').filter((name) => /idle|walk|jog|run|talk|greet|sit|stand|pray|bow|look|point/i.test(name)),
+    vertexCounts: (json.meshes ?? []).flatMap((mesh) => (mesh.primitives ?? []).map((primitive) => json.accessors?.[primitive.attributes?.POSITION]?.count ?? 0)),
+    indexCounts: (json.meshes ?? []).flatMap((mesh) => (mesh.primitives ?? []).map((primitive) => primitive.indices == null ? null : json.accessors?.[primitive.indices]?.count ?? null)),
+    embeddedImageBytes: (json.images ?? []).map((image) => image.bufferView == null ? null : json.bufferViews?.[image.bufferView]?.byteLength ?? null),
     materials: json.materials?.length ?? 0,
     textures: json.textures?.length ?? 0,
     images: (json.images ?? []).map((image) => ({
@@ -58,7 +62,9 @@ console.log(run('unzip', ['-l', archive]));
 
 const modelEntries = entries.filter((entry) => /\.(glb|gltf)$/i.test(entry));
 if (modelEntries.length === 0) {
-  console.log('ARCHIVE CONTAINS NO .glb/.gltf FILES; inspect listed entries for source format.');
+  const readme = entries.find((entry) => /readme/i.test(entry));
+  if (readme) console.log('=== ARCHIVE README ===\\n' + execFileSync('unzip', ['-p', archive, readme], { encoding: 'utf8' }));
+  throw new Error('Expected the fighting-arena archive to contain a .glb or .gltf model, but none was found.');
 }
 for (const entry of modelEntries) {
   if (/\.glb$/i.test(entry)) {
