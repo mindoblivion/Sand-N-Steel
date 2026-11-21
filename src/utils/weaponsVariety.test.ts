@@ -107,7 +107,7 @@ describe('WEAPONS-1 weapons variety', () => {
       expect(forge).toContain(id);
       expect(market).toContain(id);
     }
-    expect(forge).toHaveLength(17);
+    expect(forge).toHaveLength(23);
     expect(market).toHaveLength(ITEMS_DB.length);
   });
 });
