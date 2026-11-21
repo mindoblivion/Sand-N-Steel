@@ -51,7 +51,7 @@ import {
   isProvinceId,
   isVitiumId,
 } from '../data/corpusEtOrigo';
-import { DEFAULT_PLAYER_WEAPON, WOODEN_SWORD_SHIELD, WOODEN_SPEAR, WOODEN_SHIELD, getItemById, isWeapon } from '../data/itemsDB';
+import { DEFAULT_PLAYER_WEAPON, WOODEN_SWORD_SHIELD, WOODEN_SPEAR, WOODEN_SHIELD, getItemById, isWeapon, weaponSupportsOffhandShield } from '../data/itemsDB';
 import type { StatFlat } from './traitModifiers';
 
 /** The ten points every new gladiator spends in the allocation screen. */
@@ -305,7 +305,7 @@ export function buildCreatedProfile(input: {
     injury: null,
     equipped: {
       weapon: kit.weapon,
-      shield: WOODEN_SHIELD,
+      ...(weaponSupportsOffhandShield(kit.weapon.type) ? { shield: WOODEN_SHIELD } : {}),
     },
     inventory: kit.inventory,
     fightsWon: 0,
