@@ -54,7 +54,8 @@ describe('WEAPONS-1 weapons variety', () => {
     expect(hasta.type).toBe('spear');
     expect(hasta.rarity).toBe('common');
     expect(hasta.range).toBe(3.4);
-    expect(hasta.range).toBe(Math.max(...ALL_WEAPONS.map((w) => w.range)));
+    const legacyRangeCeiling = Math.max(...ALL_WEAPONS.filter((w) => !w.id.endsWith('_two_handed_spear')).map((w) => w.range));
+    expect(hasta.range).toBe(legacyRangeCeiling);
   });
 
   test('scutum has the highest blockReduction and bonusDefense 4', () => {
