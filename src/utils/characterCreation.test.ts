@@ -221,6 +221,7 @@ describe('CH-2 §C — createNewProfile', () => {
     expect(withClass.armatura).toBe('retiarius');
     expect(withClass.baseStats).toEqual({ strength: 9, agility: 13, stamina: 11, defense: 1 });
     expect(withClass.equipped.weapon.id).toBe('wooden_spear');
+    expect(withClass.equipped.shield).toBeUndefined();
     expect(withClass.inventory.map((item) => item.id)).toEqual(['wooden_spear', 'wooden_sword_shield', 'shield_wooden_wicker']);
       expect('palmae' in withClass).toBe(false);
     expect(withClass.appearance).toEqual(plain.appearance);
