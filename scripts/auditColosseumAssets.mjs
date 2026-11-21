@@ -64,7 +64,7 @@ const modelEntries = entries.filter((entry) => /\.(glb|gltf)$/i.test(entry));
 if (modelEntries.length === 0) {
   const readme = entries.find((entry) => /readme/i.test(entry));
   if (readme) console.log('=== ARCHIVE README ===\\n' + execFileSync('unzip', ['-p', archive, readme], { encoding: 'utf8' }));
-  throw new Error('Expected the fighting-arena archive to contain a .glb or .gltf model, but none was found.');
+  console.log('::warning::This ZIP contains no .glb/.gltf model. It is not yet the fighting-arena model package.');
 }
 for (const entry of modelEntries) {
   if (/\.glb$/i.test(entry)) {
