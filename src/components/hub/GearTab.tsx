@@ -640,10 +640,6 @@ export const GearTab: React.FC<GearTabProps> = ({
             <div className="text-[10px] uppercase font-mono text-neutral-400">Shield</div>
             <div className="text-xs font-bold text-amber-200 truncate">{profile.equipped.shield?.name || 'None'}</div>
           </div>
-          <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded-xl">
-            <div className="text-[10px] uppercase font-mono text-neutral-400">Shield</div>
-            <div className="text-xs font-bold text-amber-200 truncate">{profile.equipped.shield?.name || 'None'}</div>
-          </div>
         </div>
 
         <h5 className="font-serif font-bold text-sm text-neutral-300 mb-3 uppercase tracking-wider">
