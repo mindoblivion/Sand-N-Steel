@@ -289,7 +289,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     equipped.weapon,
     resolveTemperLevel(profile, equipped.weapon.id),
   );
-  const temperedArmor = [equipped.helm, equipped.chest, equipped.arms, equipped.legs].flatMap(
+  const temperedArmor = [equipped.helm, equipped.chest, equipped.arms, equipped.legs, equipped.shield].flatMap(
     (armor) =>
       armor ? [getEffectiveArmorStats(armor, resolveTemperLevel(profile, armor.id))] : [],
   );
