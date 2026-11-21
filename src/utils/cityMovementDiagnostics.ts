@@ -16,6 +16,7 @@ export interface CityMovementDiagnosticSnapshot {
   actualDistance: number;
   movementRatio: number | null;
   collisionLimited: boolean;
+  unexpectedDisplacement: boolean;
 }
 
 export interface CityMovementDiagnosticInput {
@@ -68,5 +69,9 @@ export function createCityMovementDiagnosticSnapshot(
     movementRatio,
     collisionLimited:
       input.expectedDistance > 0.02 && actualDistance < input.expectedDistance * 0.85,
+    // Detect recovery escapes, respawns, stale input, or other movement that
+    // exceeds the commanded stride. The idle threshold also catches drift/teleports.
+    unexpectedDisplacement:
+      actualDistance > Math.max(0.05, input.expectedDistance * 1.5 + 0.02),
   };
 }
