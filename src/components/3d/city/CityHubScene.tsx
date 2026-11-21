@@ -106,7 +106,7 @@ import { createCityMovementDiagnosticSnapshot, type CityMovementDiagnosticSnapsh
 import { getCityFacingYaw } from '../../../utils/cityFacing';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
-import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
+import { DEFAULT_PLAYER_WEAPON, weaponSupportsOffhandShield } from '../../../data/itemsDB';
 import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 // A8 — the Library building's own prompt carries a ✦ while earned deeds are unread.
@@ -1665,7 +1665,7 @@ const handleEnterBathhouse = useCallback(() => {
     stats: calculatedStats,
     loadout: {
       weapon: playerProfile.equipped.weapon || DEFAULT_PLAYER_WEAPON,
-      ...(playerProfile.equipped.weapon?.type !== 'spear' && playerProfile.equipped.shield
+      ...(weaponSupportsOffhandShield(playerProfile.equipped.weapon?.type ?? DEFAULT_PLAYER_WEAPON.type) && playerProfile.equipped.shield
         ? { shield: playerProfile.equipped.shield }
         : {}),
     },
