@@ -174,7 +174,7 @@ export function createNewProfile(
     ...profile,
     baseStats: { ...row.stats },
     equipped: { weapon: kit.weapon, shield: WOODEN_SHIELD },
-    inventory: [...kit.inventory, WOODEN_SHIELD],
+    inventory: kit.inventory,
     armatura: row.id,
   };
 }
