@@ -244,8 +244,8 @@ describe('§6 — body weight changes player combat style, never weapon eligibil
   test('DuelScene resolves one profile from the saved player weight', () => {
     const duel = code('src/components/duel/DuelScene.tsx');
     expect(duel).toContain("import { getWeightCombatProfile } from '../../utils/gladiatorWeight'");
-    expect(duel).toContain('getWeightCombatProfile(player.bodyWeightLb)');
-    expect(duel).toContain('[player.bodyWeightLb]');
+    expect(duel).toContain('getWeightCombatProfile(playerProfile.appearance.bodyWeightLb)');
+    expect(duel).toContain('[playerProfile.appearance.bodyWeightLb]');
   });
 
   test('HUD estimates receive the same impact and stamina multipliers as resolution', () => {
