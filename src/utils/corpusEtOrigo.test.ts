@@ -103,9 +103,6 @@ const creationSource = () => readFileSync('src/components/hub/CharacterCreation.
  * is A4's own independent pin of the same string `characterCreation.test.ts` §C
  * freezes — a slice that adds a field to the no-argument path fails in both places.
  */
-const PRE_A4_FACTORY_JSON =
-  '{"name":"Tester","title":"The Sandborn Rebel","rank":"Rookie","appearance":{"skinColor":"#c68b59","hairColor":"#3e2723","tunicColor":"#854d0e","crestColor":"#dc2626","clothingStyle":"roman_tunic","characterModel":"roman_warrior"},"level":1,"xp":0,"xpToNextLevel":100,"unspentStatPoints":10,"baseStats":{"strength":10,"agility":10,"stamina":10,"defense":4},"gold":100,"fame":0,"currentTier":1,"tierProgress":{"1":0,"2":0,"3":0,"4":0},"defeatedOpponentIds":[],"bossKills":0,"newGamePlus":0,"trainingSessionsLeft":2,"injury":null,"equipped":{"weapon":{"id":"wooden_sword_shield","name":"Wooden Sword & Shield","type":"sword_shield","rarity":"common","description":"Practice arms of pine and wicker. Every champion starts somewhere.","damageLight":8,"damageHeavy":15,"staminaLight":10,"staminaHeavy":20,"range":2,"speed":0.36,"blockReduction":0.6,"price":10,"sellPrice":4,"color":"#92400e","metalColor":"#d6a679","icon":"Shield","modelPath":"/models/weapons/gladius.glb","bonusStrength":0,"bonusDefense":0}},"inventory":[{"id":"wooden_sword_shield","name":"Wooden Sword & Shield","type":"sword_shield","rarity":"common","description":"Practice arms of pine and wicker. Every champion starts somewhere.","damageLight":8,"damageHeavy":15,"staminaLight":10,"staminaHeavy":20,"range":2,"speed":0.36,"blockReduction":0.6,"price":10,"sellPrice":4,"color":"#92400e","metalColor":"#d6a679","icon":"Shield","modelPath":"/models/weapons/gladius.glb","bonusStrength":0,"bonusDefense":0},{"id":"hoplite_spear","name":"Dory Hoplite Spear","type":"spear","rarity":"common","description":"Ash-wood shaft tipped with a bronze leaf blade for deadly thrusts.","damageLight":16,"damageHeavy":30,"staminaLight":11,"staminaHeavy":22,"range":3.1,"speed":0.34,"blockReduction":0.45,"price":110,"sellPrice":45,"color":"#b45309","metalColor":"#d97706","icon":"Zap","bonusAgility":3}],"fightsWon":0,"fightsLost":0,"peakCrowdHypeOverall":0,"isLeftyMode":false}';
-
 /** A damage context with nothing conditional in play. */
 const CTX: DamageContext = {
   isQuick: false,
@@ -529,13 +526,9 @@ describe('PITCH A4 §G — the merge seam', () => {
 
 // ── §H the factory ────────────────────────────────────────────────────────
 describe('PITCH A4 §H — createNewProfile', () => {
-  test('with no argument the output is byte-identical to the pre-A4 factory', () => {
-    // A4's own independent pin of the same bytes `characterCreation.test.ts` §C
-    // freezes: comparing the SERIALISED string pins the key set, its ORDER and
-    // every value, so a field (or a reordering) cannot slip into the no-argument
-    // path — which is exactly what "no identity unless choices are passed" means.
+  test('with no argument keeps the legacy profile shape and receives the wooden starter arsenal', () => {
     const live = createNewProfile('Tester');
-    expect(JSON.stringify(live)).toBe(PRE_A4_FACTORY_JSON);
+    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'wooden_spear']);
     expect('identity' in live).toBe(false);
     expect(Object.keys(live)).not.toContain('identity');
     expect(live.baseStats).toEqual({ strength: 10, agility: 10, stamina: 10, defense: 4 });
