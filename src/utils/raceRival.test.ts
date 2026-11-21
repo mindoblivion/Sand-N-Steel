@@ -1,57 +1,67 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import { CIRCUS_AXIS_X } from './collisionShapes';
-import { advanceRaceLap, createRaceLapTracker } from './raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder, resolveRaceRivalOutcome } from './raceRival';
+import { getRivalRoute, getRaceRivalSpeed, RACE_ROUTE_LENGTH, resolveFieldFinishOrder } from './raceRival';
 
-describe('deterministic race rival route', () => {
-  test('starts on the selected lane and is deterministic for equal elapsed time', () => {
-    const config = { lapDurationMs: 60000, startSide: 1 as const };
-    const a = getRaceRivalPose(0, config);
-    const b = getRaceRivalPose(0, config);
-    expect(a).toEqual(b);
-    expect(a.x).toBeCloseTo(CIRCUS_AXIS_X + 7.8, 8);
-    expect(a.z).toBe(42.5);
-    expect(a.finished).toBe(false);
+// LADDER-1B2 — the clocks retired. The route is now the rival driver's
+// reference path (rivalDriver.ts), not a clock pose source; getRaceRivalPose
+// and resolveRaceRivalOutcome were removed with the clocks. These tests pin
+// the route the driver follows, and the field-order settlement the driven
+// finish times feed.
+describe('rival route (the driver reference path)', () => {
+  test('starts on the selected lane at the finish line and is deterministic', () => {
+    const a = getRivalRoute(1);
+    const b = getRivalRoute(1);
+    expect(a.points).toEqual(b.points);
+    expect(a.length).toBeCloseTo(RACE_ROUTE_LENGTH, 9);
+    expect(a.points[0][0]).toBeCloseTo(CIRCUS_AXIS_X + 7.8, 8);
+    expect(a.points[0][1]).toBe(42.5);
+    expect(a.points[a.points.length - 1][0]).toBeCloseTo(CIRCUS_AXIS_X + 7.8, 8);
+    expect(a.points[a.points.length - 1][1]).toBe(42.5);
   });
 
-  test('crosses both surveyed lane checkpoints and the finish exactly once', () => {
-    const config = { lapDurationMs: 60000, startSide: 1 as const };
-    let tracker = createRaceLapTracker();
-    for (let i = 0; i <= 1000; i += 1) {
-      const pose = getRaceRivalPose(i * config.lapDurationMs / 1000, config);
-      const update = advanceRaceLap(tracker, pose);
-      tracker = update.tracker;
-      expect(pose.x).toBeGreaterThanOrEqual(43.94);
-      expect(pose.x).toBeLessThanOrEqual(60.74);
-      if (i < 1000) expect(update.finishedNow).toBe(false);
-      else expect(update.finishedNow).toBe(true);
+  test('the route length is the measured 157.613 units', () => {
+    expect(RACE_ROUTE_LENGTH).toBeCloseTo(157.613, 2);
+    expect(getRivalRoute(-1).length).toBeCloseTo(157.613, 2);
+  });
+
+  test('the mirrored west-first lane mirrors the east lane about the axis', () => {
+    const east = getRivalRoute(1);
+    const west = getRivalRoute(-1);
+    expect(west.points.length).toBe(east.points.length);
+    expect(west.points[0][0]).toBeCloseTo(CIRCUS_AXIS_X - 7.8, 8);
+    for (let i = 0; i < east.points.length; i += 47) {
+      expect(west.points[i][0]).toBeCloseTo(2 * CIRCUS_AXIS_X - east.points[i][0], 6);
+      expect(west.points[i][1]).toBeCloseTo(east.points[i][1], 6);
     }
-    expect(tracker.northTurnCompleted).toBe(true);
-    expect(tracker.southTurnCompleted).toBe(true);
-    expect(tracker.finished).toBe(true);
-    expect(advanceRaceLap(tracker, getRaceRivalPose(70000, config)).finishedNow).toBe(false);
   });
 
-  test('supports the mirrored west-first lane without changing lap validation', () => {
-    const config = { lapDurationMs: 45000, startSide: -1 as const };
-    let tracker = createRaceLapTracker();
-    for (let i = 0; i <= 1000; i += 1) {
-      const pose = getRaceRivalPose(i * config.lapDurationMs / 1000, config);
-      tracker = advanceRaceLap(tracker, pose).tracker;
+  test('the route rounds both surveyed turns and stays inside the driveable outline', () => {
+    for (const side of [1, -1] as const) {
+      const route = getRivalRoute(side);
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      for (const [x, z] of route.points) {
+        expect(x).toBeGreaterThanOrEqual(38.38);
+        expect(x).toBeLessThanOrEqual(66.3);
+        expect(z).toBeGreaterThanOrEqual(-27.66);
+        expect(z).toBeLessThanOrEqual(43.8);
+        minZ = Math.min(minZ, z);
+        maxZ = Math.max(maxZ, z);
+      }
+      expect(minZ).toBeLessThanOrEqual(-22);
+      expect(maxZ).toBeGreaterThanOrEqual(40.8);
     }
-    expect(tracker.startSide).toBe(-1);
-    expect(tracker.northTurnCompleted).toBe(true);
-    expect(tracker.southTurnCompleted).toBe(true);
-    expect(tracker.finished).toBe(true);
   });
 
-  test('clamps time, handles malformed time and protects invalid lap durations', () => {
-    const config = { lapDurationMs: 1000, startSide: 1 as const };
-    expect(getRaceRivalPose(-100, config).progress).toBe(0);
-    expect(getRaceRivalPose(Number.NaN, config).progress).toBe(0);
-    expect(getRaceRivalPose(2000, config).progress).toBe(1);
-    expect(getRaceRivalPose(0, { lapDurationMs: Number.NaN, startSide: 1 }).finished).toBe(false);
+  test('arc lengths are monotonic and end at the route length', () => {
+    const route = getRivalRoute(1);
+    expect(route.cumulativeDistances.length).toBe(route.points.length);
+    expect(route.cumulativeDistances[0]).toBe(0);
+    expect(route.cumulativeDistances[route.cumulativeDistances.length - 1]).toBeCloseTo(route.length, 9);
+    for (let i = 1; i < route.cumulativeDistances.length; i += 1) {
+      expect(route.cumulativeDistances[i]).toBeGreaterThanOrEqual(route.cumulativeDistances[i - 1]);
+    }
   });
 
   test('derives a stable world-space pace from the configured lap duration', () => {
@@ -63,92 +73,12 @@ describe('deterministic race rival route', () => {
     expect(getRaceRivalSpeed(config)).toBe(speed);
     expect(getRaceRivalSpeed({ lapDurationMs: 0, startSide: 1 })).toBeGreaterThan(1000);
   });
-
-  test('heading remains finite at straight segments and lane transitions', () => {
-    for (let i = 0; i <= 100; i += 1) {
-      const pose = getRaceRivalPose(i * 1000, { lapDurationMs: 100000, startSide: 1 });
-      expect(Number.isFinite(pose.heading)).toBe(true);
-      expect(Number.isFinite(pose.x)).toBe(true);
-      expect(Number.isFinite(pose.z)).toBe(true);
-    }
-  });
-
-  test('heading faces the local negative-Z forward axis along both mirrored routes', () => {
-    const config = { lapDurationMs: 36000, startSide: 1 as const };
-    const mirrored = { ...config, startSide: -1 as const };
-    for (const route of [config, mirrored]) {
-      for (let elapsed = 100; elapsed < route.lapDurationMs - 100; elapsed += 100) {
-        const before = getRaceRivalPose(elapsed - 20, route);
-        const pose = getRaceRivalPose(elapsed, route);
-        const after = getRaceRivalPose(elapsed + 20, route);
-        const dx = after.x - before.x;
-        const dz = after.z - before.z;
-        if (Math.hypot(dx, dz) < 1e-5) continue;
-        const expectedHeading = Math.atan2(-dx, -dz);
-        const difference = Math.atan2(
-          Math.sin(pose.heading - expectedHeading),
-          Math.cos(pose.heading - expectedHeading),
-        );
-        expect(Math.abs(difference)).toBeLessThan(0.02);
-      }
-    }
-  });
-
-  test('rounded hairpins stay within the surveyed racing surface and turn smoothly', () => {
-    const config = { lapDurationMs: 36000, startSide: -1 as const };
-    let previousHeading: number | null = null;
-    for (let i = 0; i <= 2000; i += 1) {
-      const pose = getRaceRivalPose(i * config.lapDurationMs / 2000, config);
-      expect(pose.x).toBeGreaterThanOrEqual(43.94);
-      expect(pose.x).toBeLessThanOrEqual(60.74);
-      expect(pose.z).toBeGreaterThanOrEqual(-27.66);
-      expect(pose.z).toBeLessThanOrEqual(43.51);
-      if (previousHeading !== null) {
-        const delta = Math.atan2(
-          Math.sin(pose.heading - previousHeading),
-          Math.cos(pose.heading - previousHeading),
-        );
-        expect(Math.abs(delta)).toBeLessThan(0.3);
-      }
-      previousHeading = pose.heading;
-    }
-  });
-});
-
-
-describe('race rival finish comparison', () => {
-  test('reports a player victory and the exact winning margin', () => {
-    expect(resolveRaceRivalOutcome(58200, 60000)).toEqual({
-      outcome: 'victory',
-      marginMs: 1800,
-    });
-  });
-
-  test('reports a rival victory and the exact losing margin', () => {
-    expect(resolveRaceRivalOutcome(61800, 60000)).toEqual({
-      outcome: 'defeat',
-      marginMs: 1800,
-    });
-  });
-
-  test('treats finishes within one displayed tenth as a photo finish', () => {
-    expect(resolveRaceRivalOutcome(60099, 60000)).toEqual({
-      outcome: 'photo-finish',
-      marginMs: 99,
-    });
-    expect(resolveRaceRivalOutcome(60000, 60000)?.outcome).toBe('photo-finish');
-  });
-
-  test('rejects invalid finish times instead of inventing a winner', () => {
-    expect(resolveRaceRivalOutcome(Number.NaN, 60000)).toBeNull();
-    expect(resolveRaceRivalOutcome(60000, Number.POSITIVE_INFINITY)).toBeNull();
-    expect(resolveRaceRivalOutcome(-1, 60000)).toBeNull();
-  });
 });
 
 // LADDER-1B — the full field, in place order, from finish times. The 1v1
-// helper above still answers a two-rig race; a multi-rival field needs
-// places for every rig and one outcome for the settlement.
+// outcome helper retired with the clocks; a multi-rival field needs places
+// for every rig and one outcome for the settlement. In 1B2 the finish times
+// are driven (rivalDriver.ts), not clocked, but the settlement is unchanged.
 describe('LADDER-1B — the field finish order', () => {
   const field = [
     { id: 'player', name: 'Spartacus', finishMs: 58000, isPlayer: true },

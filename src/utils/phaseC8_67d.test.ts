@@ -941,12 +941,19 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     // LADDER-1A adds a second deliberate production consumer: raceGrid reads only
     // getTeamWidth — the measured Quadra width (2.94) — to derive grid slot spacing.
     // raceGrid is pure data too (no rendering, no save writes); the plan stays pure.
+    // LADDER-1B2 adds two more deliberate production consumers, both for the
+    // same measured width: rivalDriver reads getTeamWidth for each rig's
+    // overtake-window width, and RaceScene reads it for the shared rig
+    // registry the resolver separates. Both are pure data / scene wiring;
+    // the plan stays pure and renderer-free.
     expect(consumers).toEqual([
       'components/3d/RaceHorseTeam.tsx',
+      'components/3d/RaceScene.tsx',
       'components/dev/HorseChariotFitPrototype.tsx',
       'utils/chariotWheelFit.ts',
       'utils/horseFitPrototype.ts',
       'utils/raceGrid.ts',
+      'utils/rivalDriver.ts',
     ]);
     // The app's own entry points still name it nowhere.
     expect(code('../App.tsx')).not.toContain('chariotTeamFormation');

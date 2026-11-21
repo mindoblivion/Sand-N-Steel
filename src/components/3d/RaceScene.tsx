@@ -87,9 +87,9 @@ import {
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker, getRaceLapStage } from '../../utils/raceLap';
 import type { RaceLapStage } from '../../utils/raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder } from '../../utils/raceRival';
+import { RACE_ROUTE_LENGTH, resolveFieldFinishOrder } from '../../utils/raceRival';
 import type { RaceFieldFinishOrder } from '../../utils/raceRival';
-import { resolveRaceRungId, resolveRungField } from '../../utils/raceCompetitors';
+import { resolveRaceRungId, resolveRivalDriverProfile, resolveRungField } from '../../utils/raceCompetitors';
 import type { RaceCompetitor, RaceRungId } from '../../utils/raceCompetitors';
 import {
   FORMATION_ROLL_SPEED,
@@ -98,6 +98,17 @@ import {
   resolveRollPhase,
 } from '../../utils/raceGrid';
 import type { RollPath } from '../../utils/raceGrid';
+import {
+  analyzeRivalRoute,
+  createRivalDriver,
+  driveRival,
+  projectToRoute,
+  resolveDriverPaceCap,
+  rivalDriverRoutePosition,
+} from '../../utils/rivalDriver';
+import type { RivalDriverState, RivalRigSnapshot } from '../../utils/rivalDriver';
+import { applyRigSeparation } from '../../utils/raceRigCollision';
+import { getTeamWidth } from '../../utils/chariotTeamFormation';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -129,8 +140,10 @@ import type { RollPath } from '../../utils/raceGrid';
  *     on its own pivots. The finish is also applied to cloned kit-wheel materials;
  *   • the player's `RaceHorseTeam`, using the selected Biga / Triga / Quadra
  *     horse count, plus one deterministic, presentation-only rival chariot and
- *     its two-horse team. The rival has its own fixed lap clock and cannot finish
- *     the player's lap or award / persist a record;
+ *     its two-horse team. LADDER-1B2: the rivals are driven (`rivalDriver.ts`),
+ *     not clocked — each finishes its own lap through its driver and reports
+ *     its driven finish time, but no rival can settle the player's race or
+ *     award / persist a record (the parent owns the settlement).
  *   • the city hub's calibrated light rig (sun, fill, hemisphere, fog, Sky and
  *     procedural `Environment`), with the race Canvas using adaptive DPR and a
  *     quality-scaled key-light shadow map for mobile performance.
@@ -626,15 +639,82 @@ const RaceChariotKitWheels: React.FC<{
 };
 
 /**
- * One roster rival in the field (LADDER-1B): the scene mounts N of these
+ * LADDER-1B2 — the shared rig registry. One entry per rig in the field
+ * (the player under `'player'`, each rival under its competitor id). The
+ * player and the rivals write their own `ChariotMotion` into it every
+ * frame, so the resolver below and the rivals' drivers both read live
+ * poses from one place. `s` / `lap` / `u` are the rig's route position
+ * (rivals update theirs from their driver; the player is projected onto
+ * its route by the first rival that needs it, hinted by the stored `s`).
+ * `paceTarget` is a rival's pace cap; the player's snapshot uses its live
+ * speed instead, so its stored value is unused.
+ */
+export interface RaceRigEntry {
+  id: string;
+  motion: ChariotMotion;
+  side: -1 | 1;
+  width: number;
+  paceTarget: number;
+  s: number;
+  lap: number;
+  u: number;
+  sampleIndex: number;
+}
+
+export type RaceRigRegistry = Map<string, RaceRigEntry>;
+
+/** LADDER-1B2 — one rival's driven progress, read by the parent at the player's finish. */
+export interface RivalRaceProgress {
+  /** Route distance (wrapped) the rival has driven, from its driver. */
+  s: number;
+  /** Laps the rival's driver has completed. */
+  lap: number;
+  /** The rival's driven finish time (ms since the race clock origin), null until it crosses. */
+  finishMs: number | null;
+}
+
+/**
+ * LADDER-1B2 — the shared rig-vs-rig resolver. Mounted after the rivals
+ * (subscription order is mount order, so its `useFrame` runs after the
+ * player and the rivals have moved for the frame), it resolves each
+ * unordered pair once per frame through the minimal separation resolver
+ * (`raceRigCollision.ts`: separation + slide only, shared equally, no
+ * fault, no speed scrub). The player and the rivals both register in the
+ * same registry, so one component keeps the whole field apart.
+ */
+const RaceRigResolver: React.FC<{
+  registry: React.MutableRefObject<RaceRigRegistry>;
+  frozen: boolean;
+}> = ({ registry, frozen }) => {
+  useFrame(() => {
+    if (frozen) return;
+    const entries = [...registry.current.values()];
+    for (let i = 0; i < entries.length; i += 1) {
+      for (let j = i + 1; j < entries.length; j += 1) {
+        // The collision module applies the pushes (the scene never does
+        // arithmetic on a motion — the movement module owns the motion).
+        applyRigSeparation(entries[i].motion, entries[j].motion);
+      }
+    }
+  });
+  return null;
+};
+
+/**
+ * One roster rival in the field (LADDER-1B2): the scene mounts N of these
  * (2 District, 4 League), one per competitor in the rung's pool. Each rival
- * keeps its own clock in 1B — the shipped deterministic `getRaceRivalPose`
- * pace, with a scripted roll phase added before it: the rival follows its
- * precomputed roll path until its own crossing, then its clock pose. The
- * route's `startSide` comes from the formation slot's flank (the roll ends
- * on that flank's racing lane), not from the roster's `startSide` — the
- * roster value is only a formation-placement preference (which front-row
- * slot the first rival takes).
+ * is DRIVEN, not clocked — the 1B clock (`getRaceRivalPose`) retired with
+ * the clocks. The rival keeps its scripted roll phase (it follows its
+ * precomputed roll path until its own crossing), then the driver takes over
+ * from the line pose: `rivalDriver.ts` outputs a `ChariotInput` each frame
+ * and the shipped `advanceChariot` moves the rig on the fixed timestep,
+ * exactly like the player. The route's `startSide` comes from the formation
+ * slot's flank (the roll ends on that flank's racing lane), not from the
+ * roster's `startSide` — the roster value is only a formation-placement
+ * preference (which front-row slot the first rival takes).
+ * The rival reports its driven finish through `onRivalCrossed` when its
+ * driver's lap increments; it still cannot settle the player's race or
+ * award / persist a record — the parent owns the settlement.
  */
 const RaceRivalChariot: React.FC<{
   raceState: RaceState;
@@ -647,26 +727,66 @@ const RaceRivalChariot: React.FC<{
   rollPath: RollPath;
   /** The `performance.now()` instant GO fired; null until the countdown elapses. */
   rollStartedAt: number | null;
-}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt }) => {
+  /** This rival's index in the rung's field (the driver's seed). */
+  fieldIndex: number;
+  /** The shared rig registry (player + rivals); this rival registers its motion in it. */
+  registry: React.MutableRefObject<RaceRigRegistry>;
+  /** The shared driven-progress record (one entry per rival), read by the parent at the player's finish. */
+  rivalProgress: React.MutableRefObject<Record<string, RivalRaceProgress>>;
+}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt, fieldIndex, registry, rivalProgress }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
   const roll = useRef(0);
   const finishedRef = useRef(false);
-  const [finished, setFinished] = useState(false);
-  // LADDER-1B: the horse team's gait follows the roll speed while this rival
-  // is still rolling, then its race pace. Updated only on the phase change.
+  // LADDER-1B2: the horse team's gait follows the roll speed while this rival
+  // is still rolling, then its driven speed. Updated only on the phase change.
   const rollingRef = useRef(false);
   const [rolling, setRolling] = useState(false);
-  const config = { lapDurationMs: competitor.lapDurationMs, startSide };
+  // LADDER-1B2: the rival's own motion, created at its formation slot (like
+  // the player) and updated by the roll path while rolling, then by the
+  // driver. It is registered in the shared registry at mount so the resolver
+  // can separate the rolling field.
+  const motionRef = useRef<ChariotMotion | null>(null);
+  if (motionRef.current === null) {
+    const initialPose = getRollPathPoseAtDistance(rollPath, 0);
+    motionRef.current = createChariotMotion(initialPose.x, initialPose.z, initialPose.heading);
+  }
+  const motion = motionRef.current;
+  // LADDER-1B2: the driver, created lazily at the handoff (the first driven
+  // frame, when the roll has ended at the line) from the line pose.
+  const driverRef = useRef<RivalDriverState | null>(null);
+  const crossedRef = useRef(false);
+  const profile = resolveRivalDriverProfile(competitor);
+  const paceTarget = resolveDriverPaceCap(profile);
 
   useEffect(() => {
     if (raceState === 'idle' || raceState === 'countdown' || raceState === 'aborted') {
       finishedRef.current = false;
-      setFinished(false);
+      crossedRef.current = false;
+      driverRef.current = null;
       rollingRef.current = false;
       setRolling(false);
     }
   }, [raceState]);
+
+  useEffect(() => {
+    registry.current.set(competitor.id, {
+      id: competitor.id,
+      motion,
+      side: startSide,
+      width: getTeamWidth(2),
+      paceTarget,
+      s: 0,
+      lap: 0,
+      u: 0,
+      sampleIndex: 0,
+    });
+    rivalProgress.current[competitor.id] = { s: 0, lap: 0, finishMs: null };
+    return () => {
+      registry.current.delete(competitor.id);
+      delete rivalProgress.current[competitor.id];
+    };
+  }, [registry, rivalProgress, competitor.id, motion, startSide, paceTarget]);
 
   const body = useMemo(() => {
     const scene = gltf.scene.clone(true);
@@ -687,45 +807,126 @@ const RaceRivalChariot: React.FC<{
     return { scene, wheels };
   }, [gltf.scene, competitor.finish]);
 
-  // LADDER-1B: the rival starts at its formation slot, not on the line.
+  // LADDER-1B2: the rival starts at its formation slot, not on the line.
   const initialPose = getRollPathPoseAtDistance(rollPath, 0);
-  const rivalSpeed = getRaceRivalSpeed(config);
 
   useFrame((_state, delta) => {
     if (!group.current || frozen) return;
     const now = performance.now();
     const elapsedSinceGoMs = rollStartedAt !== null ? now - rollStartedAt : 0;
-    // Keep the rival on its own race clock after the player finishes.
+    // Keep the rival driving after the player finishes (the clock origin is
+    // the leader's crossing, and the rival's own finish is reported
+    // independently) — the driver only drives once the clock has started.
     const raceClockActive = (raceState === 'racing' || raceState === 'finished') && startedAt !== null;
-    const elapsed = raceClockActive ? Math.max(0, now - startedAt) : 0;
-    // LADDER-1B: the roll phase runs before the clock pose. During the
+    // LADDER-1B2: the roll phase runs before the driver. During the
     // countdown the rival stands at its formation slot (the initial pose).
     const phase = rollStartedAt !== null && raceState === 'racing'
       ? resolveRollPhase(rollPath, elapsedSinceGoMs)
       : null;
     const isRolling = phase !== null && phase.rolling;
-    let next: { x: number; z: number; heading: number; finished: boolean };
     if (isRolling) {
       const pose = getRollPathPoseAtDistance(rollPath, phase.rollDistance);
-      next = { x: pose.x, z: pose.z, heading: pose.heading, finished: false };
-    } else {
-      next = getRaceRivalPose(elapsed, config);
+      motion.x = pose.x;
+      motion.z = pose.z;
+      motion.heading = pose.heading;
+      motion.speed = FORMATION_ROLL_SPEED;
+    } else if (raceClockActive) {
+      // Handoff: the driver is created from the line pose on the first
+      // driven frame (the roll has ended at the line), at the roll speed,
+      // and decays to pace under the driver.
+      if (driverRef.current === null) {
+        driverRef.current = createRivalDriver({
+          competitor,
+          side: startSide,
+          x: motion.x,
+          z: motion.z,
+          heading: motion.heading,
+          speed: FORMATION_ROLL_SPEED,
+          teamSize: 2,
+          seed: 1000 + fieldIndex,
+        });
+      }
+      const driver = driverRef.current;
+      // The other rigs' snapshots, from the shared registry. The player is
+      // projected onto its route (hinted by the stored `s`, which the first
+      // rival to run each frame refreshes); the rivals read their stored
+      // route position, which they update from their own driver below.
+      const others: RivalRigSnapshot[] = [];
+      for (const entry of registry.current.values()) {
+        if (entry.id === competitor.id) continue;
+        if (entry.id === 'player') {
+          const analysis = analyzeRivalRoute(entry.side);
+          const proj = projectToRoute(analysis, entry.motion.x, entry.motion.z, entry.s, entry.sampleIndex);
+          if (proj.s < entry.s - RACE_ROUTE_LENGTH / 2) entry.lap += 1;
+          entry.s = proj.s;
+          entry.u = proj.lateral;
+          entry.sampleIndex = proj.index;
+          others.push({
+            id: 'player',
+            s: entry.s,
+            lap: entry.lap,
+            u: entry.u,
+            speed: entry.motion.speed,
+            paceTarget: entry.motion.speed,
+            width: entry.width,
+            side: entry.side,
+            x: entry.motion.x,
+            z: entry.motion.z,
+            heading: entry.motion.heading,
+          });
+        } else {
+          others.push({
+            id: entry.id,
+            s: entry.s,
+            lap: entry.lap,
+            u: entry.u,
+            speed: entry.motion.speed,
+            paceTarget: entry.paceTarget,
+            width: entry.width,
+            side: entry.side,
+            x: entry.motion.x,
+            z: entry.motion.z,
+            heading: entry.motion.heading,
+          });
+        }
+      }
+      const input = driveRival(driver, {
+        x: motion.x,
+        z: motion.z,
+        heading: motion.heading,
+        speed: motion.speed,
+        racing: true,
+        warning: 'none',
+        others,
+        dt: 1 / 60,
+      });
+      advanceChariot(motion, input, delta);
+      const pos = rivalDriverRoutePosition(driver);
+      const entry = registry.current.get(competitor.id);
+      if (entry) {
+        entry.s = pos.s;
+        entry.lap = pos.lap;
+        entry.u = pos.u;
+      }
+      const prog = rivalProgress.current[competitor.id] ?? { s: 0, lap: 0, finishMs: null };
+      prog.s = pos.s;
+      prog.lap = pos.lap;
+      rivalProgress.current[competitor.id] = prog;
+      if (pos.lap >= 1 && !crossedRef.current) {
+        crossedRef.current = true;
+        prog.finishMs = Math.max(0, now - (startedAt ?? now));
+      }
     }
     if (isRolling !== rollingRef.current) {
       rollingRef.current = isRolling;
       setRolling(isRolling);
     }
-    group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
-    group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
+    group.current.position.set(motion.x, RACE_START_POSITION[1], motion.z);
+    group.current.rotation.y = motion.heading + CHARIOT_MODEL_YAW_OFFSET;
 
-    const moving = !next.finished && (isRolling || raceClockActive);
-    roll.current = advanceWheelRoll(roll.current, moving ? (isRolling ? FORMATION_ROLL_SPEED : rivalSpeed) : 0, delta);
+    const moving = isRolling || raceClockActive;
+    roll.current = advanceWheelRoll(roll.current, moving ? (isRolling ? FORMATION_ROLL_SPEED : motion.speed) : 0, delta);
     for (const wheel of body.wheels) wheel.rotation.x = roll.current;
-
-    if (next.finished && !finishedRef.current) {
-      finishedRef.current = true;
-      setFinished(true);
-    }
   });
 
   return (
@@ -738,12 +939,12 @@ const RaceRivalChariot: React.FC<{
     >
       <primitive object={body.scene} />
       {/*
-        LADDER-1B: the gait follows the roll speed while this rival is still
-        rolling — `startedAt` is null until the leader crosses, so the roll
-        cannot be gated on the race clock or the horses would stand still
-        while the chariot rolls.
+        LADDER-1B2: the gait follows the roll speed while this rival is still
+        rolling, then its driven speed — `startedAt` is null until the leader
+        crosses, so the roll cannot be gated on the race clock or the horses
+        would stand still while the chariot rolls.
       */}
-      <RaceHorseTeam teamSize={2} speed={((raceState === 'racing' && (rolling || startedAt !== null)) || (raceState === 'finished' && startedAt !== null)) && !frozen && !finished ? (rolling ? FORMATION_ROLL_SPEED : rivalSpeed) : 0} />
+      <RaceHorseTeam teamSize={2} speed={((raceState === 'racing' && (rolling || startedAt !== null)) || (raceState === 'finished' && startedAt !== null)) && !frozen ? (rolling ? FORMATION_ROLL_SPEED : motion.speed) : 0} />
     </group>
   );
 };
@@ -964,6 +1165,31 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [keyboardInput] = useState<ChariotInput>(() => ({ throttle: 0, steer: 0 }));
   const [touchInput] = useState<ChariotInput>(() => ({ throttle: 0, steer: 0 }));
   const [heldKeys] = useState(() => new Set<string>());
+
+  // LADDER-1B2 — the shared rig registry (player + rivals) and each rival's
+  // driven progress. Refs, not state — the resolver and the drivers read
+  // them in the frame loop, and the parent reads the progress at the
+  // player's finish. The player registers its motion below; the rivals
+  // register theirs at mount.
+  const rigRegistryRef = useRef<RaceRigRegistry>(new Map());
+  const rivalProgressRef = useRef<Record<string, RivalRaceProgress>>({});
+
+  useEffect(() => {
+    rigRegistryRef.current.set('player', {
+      id: 'player',
+      motion,
+      side: formation.slots[formation.playerSlot].endSide,
+      width: getTeamWidth(teamSize),
+      paceTarget: 0,
+      s: 0,
+      lap: 0,
+      u: 0,
+      sampleIndex: 0,
+    });
+    return () => {
+      rigRegistryRef.current.delete('player');
+    };
+  }, [motion, formation, teamSize]);
 
   // Stabilize the Environment cubemap's Lightformer children (the city hub's own
   // rig, and the same reason it memoizes them there).
@@ -1275,12 +1501,23 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
-                    // LADDER-1B: places are read from finish times — the
-                    // player's elapsed against each rival's scheduled finish.
-                    // The settlement still takes the single derived outcome.
+                    // LADDER-1B2: places are read from DRIVEN finish times —
+                    // each rival's own crossing (reported through its driver),
+                    // not its scheduled clock time. A rival that has not
+                    // crossed yet is projected: the player's elapsed plus its
+                    // remaining route distance at its pace cap. The settlement
+                    // still takes the single derived outcome.
                     const fieldOrder = resolveFieldFinishOrder([
                       { id: 'player', name: 'You', finishMs: elapsedMs, isPlayer: true },
-                      ...field.map((rival) => ({ id: rival.id, name: rival.name, finishMs: rival.lapDurationMs, isPlayer: false })),
+                      ...field.map((rival) => {
+                        const prog = rivalProgressRef.current[rival.id];
+                        if (prog?.finishMs !== null && prog?.finishMs !== undefined) {
+                          return { id: rival.id, name: rival.name, finishMs: prog.finishMs, isPlayer: false };
+                        }
+                        const paceTarget = resolveDriverPaceCap(resolveRivalDriverProfile(rival));
+                        const remaining = RACE_ROUTE_LENGTH - (prog?.s ?? 0);
+                        return { id: rival.id, name: rival.name, finishMs: elapsedMs + (remaining / paceTarget) * 1000, isPlayer: false };
+                      }),
                     ]);
                     setRaceFieldOrder(fieldOrder);
                     const outcome = fieldOrder?.outcome ?? 'photo-finish';
@@ -1307,9 +1544,17 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                       startSide={formation.slots[slot].endSide}
                       rollPath={formation.paths[slot]}
                       rollStartedAt={rollStartedAt}
+                      fieldIndex={index}
+                      registry={rigRegistryRef}
+                      rivalProgress={rivalProgressRef}
                     />
                   );
                 })}
+                {/*
+                  LADDER-1B2: the shared rig-vs-rig resolver, mounted after
+                  the rivals so its frame runs after the field has moved.
+                */}
+                <RaceRigResolver registry={rigRegistryRef} frozen={frozen} />
               </Suspense>
             </ThreeComponentErrorBoundary>
 

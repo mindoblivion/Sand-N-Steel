@@ -172,3 +172,84 @@ export function resolveRungField(rung: unknown): readonly RaceCompetitor[] {
   const count = RUNG_FIELD_SIZE[rungId];
   return pool.slice(0, count);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LADDER-1B2 — driver profiles (challenge §2B, brief §3).
+//
+// A lap time is not a driver: `RaceCompetitor` carries only id / name /
+// faction / lapDurationMs / startSide / finish. 1B2 authors the profile here,
+// derived where a number exists and assigned where the design gives a rule —
+// and says which is which, so nothing looks sourced that isn't.
+//
+// DERIVED — `paceCapFactor`: the rival's mean speed (route length over its
+// lap time) relative to the fastest rival (Aulus, 58 s = 1.00). The route
+// length cancels, so the factor is 58 / lapSeconds — the test asserts the
+// derivation from `lapDurationMs`, never a hand-typed number. A lap-time
+// change re-derives it. The factor is a TARGET-speed cap for the driver
+// (mean speed, far below the movement cap of 13 u/s); it is never a
+// rubber-band — the driver never exceeds it to catch up.
+//
+// ASSIGNED — `metaSkill`, `aggression`, `staminaStyle`: the brief's §3 table
+// (rookies wide lines, low aggression; Greens tight; League tighter and
+// hotter than rookies). `staminaStyle` is stored now and NOT consumed until
+// 1D. Pool speed invariant (1A) still holds in profile terms: every League
+// factor exceeds every rookie factor, so the rungs never overlap in speed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RivalStaminaStyle = 'closer' | 'metronome' | 'frontrunner';
+
+export interface RivalDriverProfile {
+  /** The competitor this profile drives. */
+  competitorId: string;
+  /** Target-speed cap as a factor of the fastest rival's mean speed (Aulus = 1.00). Derived. */
+  paceCapFactor: number;
+  /** 0 = the wide safe line around a meta, 1 = the tight inside line. Assigned. */
+  metaSkill: number;
+  /** 0 = never defends, 1 = always. A rival defends at or above 0.60. Assigned. */
+  aggression: number;
+  /** Stored now, consumed by 1D (stamina). Assigned. */
+  staminaStyle: RivalStaminaStyle;
+}
+
+/** The brief's §3 table — the ASSIGNED half of each profile, keyed by rival id. */
+const RIVAL_DRIVER_ASSIGNED: Readonly<Record<string, {
+  metaSkill: number;
+  aggression: number;
+  staminaStyle: RivalStaminaStyle;
+}>> = Object.freeze({
+  albata_champion: { metaSkill: 0.8, aggression: 0.7, staminaStyle: 'closer' },
+  appius_albata: { metaSkill: 0.7, aggression: 0.6, staminaStyle: 'metronome' },
+  tiberius_russata: { metaSkill: 0.65, aggression: 0.65, staminaStyle: 'frontrunner' },
+  veneta_veteran: { metaSkill: 0.6, aggression: 0.55, staminaStyle: 'metronome' },
+  spurius_prasina: { metaSkill: 0.75, aggression: 0.5, staminaStyle: 'closer' },
+  russata_rookie: { metaSkill: 0.35, aggression: 0.35, staminaStyle: 'metronome' },
+  servius_veneta_rookie: { metaSkill: 0.3, aggression: 0.3, staminaStyle: 'metronome' },
+  manius_prasina_rookie: { metaSkill: 0.45, aggression: 0.3, staminaStyle: 'metronome' },
+});
+
+/** The fastest rival's lap, in seconds — the pace-cap reference (Aulus, 58 s). */
+export const RIVAL_PACE_REFERENCE_LAP_SECONDS = 58;
+
+/**
+ * LADDER-1B2 — the driver profile for a competitor. The pace cap is DERIVED
+ * from the shipped lap time (58 / lapSeconds); the rest is the assigned
+ * §3 table. An unknown competitor fails closed to the slowest rookie
+ * profile (never a League profile), so a bad id can never invent speed.
+ */
+export function resolveRivalDriverProfile(competitor: RaceCompetitor): RivalDriverProfile {
+  const lapSeconds = Number.isFinite(competitor?.lapDurationMs) && competitor.lapDurationMs > 0
+    ? competitor.lapDurationMs / 1000
+    : 67;
+  const assigned = RIVAL_DRIVER_ASSIGNED[competitor?.id] ?? {
+    metaSkill: 0.3,
+    aggression: 0.3,
+    staminaStyle: 'metronome' as const,
+  };
+  return {
+    competitorId: competitor?.id ?? 'unknown',
+    paceCapFactor: RIVAL_PACE_REFERENCE_LAP_SECONDS / lapSeconds,
+    metaSkill: assigned.metaSkill,
+    aggression: assigned.aggression,
+    staminaStyle: assigned.staminaStyle,
+  };
+}

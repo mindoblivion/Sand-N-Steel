@@ -91,7 +91,11 @@ describe('A. The scene drives the pure movement module', () => {
   });
 
   test('the motion, the inputs and the launch state are created once, not per frame', () => {
-    expect(sceneCode.split('createChariotMotion(').length - 1).toBe(1);
+    // LADDER-1B2 — two `createChariotMotion(` literals: the player's (one
+    // useState) and one in `RaceRivalChariot` (one lazy ref per mount, so
+    // each rival's motion is created once at mount, never per frame). The
+    // rival component is one literal mounted N times (2 District, 4 League).
+    expect(sceneCode.split('createChariotMotion(').length - 1).toBe(2);
     expect(sceneCode).toContain('useState(createChariotLaunchState)');
     expect(sceneCode.split('useState(createChariotLaunchState)').length - 1).toBe(1);
     // never re-created: the state initializer is the only place the factory runs

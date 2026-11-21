@@ -355,10 +355,17 @@ describe('E. Slice boundaries', () => {
     }
   });
 
-  test('the rival is visual-only and cannot finish or reward the player', () => {
+  // LADDER-1B2 — the rival is DRIVEN, not clocked, and not visual-only:
+  // it finishes its own lap through its driver (`driveRival`) and reports
+  // its driven finish time — but it still cannot settle the player's race
+  // or award / persist a record (the parent owns the settlement, and the
+  // forbidden tokens below are unchanged).
+  test('the rival drives its own lap but cannot finish or reward the player', () => {
     const scene = code(sceneSrc);
     expect(scene).toContain('const RaceRivalChariot');
-    expect(scene).toContain('getRaceRivalPose');
+    expect(scene).toContain('createRivalDriver');
+    expect(scene).toContain('driveRival');
+    expect(scene).not.toContain('getRaceRivalPose');
     expect(scene).toContain('RaceHorseTeam teamSize={2}');
     const rivalStart = scene.indexOf('const RaceRivalChariot');
     const rivalEnd = scene.indexOf('const RaceClock', rivalStart);

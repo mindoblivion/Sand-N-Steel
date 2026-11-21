@@ -13,6 +13,10 @@ on:
       # LADDER-1B — the rolling start + multi-rival field: the formation and
       # roll-path module, the rival clock / finish-order module, the rung
       # pools, the rung picker, and the city handoff that carries the rung.
+      # LADDER-1B2 — the rival driver and the shared rig-vs-rig resolver run
+      # inside the scene's frame loop, so a change to either re-runs the profiler.
+      - 'src/utils/rivalDriver.ts'
+      - 'src/utils/raceRigCollision.ts'
       - 'src/utils/raceGrid.ts'
       - 'src/utils/raceRival.ts'
       - 'src/utils/raceCompetitors.ts'

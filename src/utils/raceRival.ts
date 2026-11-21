@@ -1,22 +1,27 @@
 /**
- * Deterministic rival pacing on the surveyed East Circus oval.
+ * The surveyed East Circus oval, as the rival route.
  *
- * The rival follows the same two lane-change checkpoints as raceLap.ts. This
- * module is deliberately renderer- and storage-free: callers supply race time
- * and receive a stable world-space pose. A rival is not authoritative for
- * player completion or rewards; the scene must still validate its own finish.
+ * LADDER-1B2 — the clocks retired. This module no longer resolves a rival
+ * pose from elapsed time: `getRaceRivalPose` and the 1v1
+ * `resolveRaceRivalOutcome` are gone with the deterministic lap clocks, and
+ * the rivals drive through `rivalDriver.ts` instead. What stays is the
+ * route itself — the driver's reference path — plus the lane source and the
+ * field finish order:
+ *
+ *   • `RACE_LANE_OFFSET` stays the single source for the lane (1B's rule:
+ *     `raceGrid.ts` imports it, a second literal would let the two drift);
+ *   • `getRivalRoute` exposes the sampled route (points, arc lengths,
+ *     length) for the driver — no second circuit is built anywhere;
+ *   • `getRaceRivalSpeed` stays as the route's mean-speed helper: route
+ *     length over the configured lap time. The driver profiles derive their
+ *     pace cap from it, and `raceFormation.test.ts` still pins it;
+ *   • `resolveFieldFinishOrder` stays and is fed driven finish times.
+ *
+ * The module is still renderer- and storage-free.
  */
 import { CIRCUS_AXIS_X } from './collisionShapes';
 import { CIRCUS_RACE_START } from './circusDistrictGeometry';
 import { RACE_NORTH_TURN_Z } from './raceLap';
-
-export interface RaceRivalPose {
-  x: number;
-  z: number;
-  heading: number;
-  finished: boolean;
-  progress: number;
-}
 
 export interface RaceRivalConfig {
   /** Target lap duration. Must be finite and positive. */
@@ -117,106 +122,39 @@ function prepareRoute(points: ReadonlyArray<readonly [number, number]>): Sampled
 const WEST_FIRST_SAMPLED_ROUTE = prepareRoute(WEST_FIRST_ROUTE);
 const EAST_FIRST_SAMPLED_ROUTE = prepareRoute(EAST_FIRST_ROUTE);
 
+/** The sampled route, as the driver consumes it: points, arc lengths, length. */
+export interface RivalRoute {
+  points: ReadonlyArray<readonly [number, number]>;
+  cumulativeDistances: ReadonlyArray<number>;
+  length: number;
+}
+
 function routeFor(startSide: -1 | 1): SampledRoute {
   return startSide === -1 ? WEST_FIRST_SAMPLED_ROUTE : EAST_FIRST_SAMPLED_ROUTE;
 }
 
-/** Resolve a world-space point with a binary search over precomputed arc lengths. */
-function pointAtDistance(route: SampledRoute, target: number): readonly [number, number] {
-  const distance = Math.max(0, Math.min(route.length, target));
-  const distances = route.cumulativeDistances;
-  let low = 1;
-  let high = distances.length - 1;
-  while (low < high) {
-    const middle = (low + high) >>> 1;
-    if (distances[middle] < distance) low = middle + 1;
-    else high = middle;
-  }
-
-  const from = route.points[low - 1];
-  const to = route.points[low];
-  const segmentLength = distances[low] - distances[low - 1];
-  const t = segmentLength > 0 ? (distance - distances[low - 1]) / segmentLength : 1;
-  return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+/**
+ * LADDER-1B2 — the driver's reference path. The driver reuses this route;
+ * it does not build a second circuit. Both flanks share one length.
+ */
+export function getRivalRoute(startSide: -1 | 1): RivalRoute {
+  return routeFor(startSide === -1 ? -1 : 1);
 }
 
+/** The route's length (157.6 units), shared by both flanks. */
+export const RACE_ROUTE_LENGTH = WEST_FIRST_SAMPLED_ROUTE.length;
+
 /**
- * Constant world-space pace for the configured lap. Deriving this from the
- * route keeps the horse gait and wheel roll synchronized with the rival pose.
+ * The route's mean speed for the configured lap: route length over lap time.
+ * LADDER-1B2 — kept as the mean-speed helper (the clock pose is gone): the
+ * driver profiles derive their pace cap from it, and the formation suite
+ * still pins it. Both flanks share one length, so the speed is side-free.
  */
 export function getRaceRivalSpeed(config: RaceRivalConfig): number {
   const duration = Number.isFinite(config?.lapDurationMs) && config.lapDurationMs > 0
     ? config.lapDurationMs / 1000
     : 0.001;
   return routeFor(config?.startSide === -1 ? -1 : 1).length / duration;
-}
-
-/** Resolve a repeatable rival pose from elapsed race time. */
-export function getRaceRivalPose(
-  elapsedMs: number,
-  config: RaceRivalConfig,
-): RaceRivalPose {
-  const duration = Number.isFinite(config?.lapDurationMs) && config.lapDurationMs > 0
-    ? config.lapDurationMs
-    : 1;
-  const startSide: -1 | 1 = config?.startSide === -1 ? -1 : 1;
-  const route = routeFor(startSide);
-  const totalLength = route.length;
-  const progress = Number.isFinite(elapsedMs)
-    ? Math.max(0, Math.min(1, elapsedMs / duration))
-    : 0;
-  const distance = totalLength * progress;
-
-  // Resolve pose in logarithmic time from precomputed arc-length metadata.
-  // Heading uses a short symmetric chord to avoid steering snaps at hairpins.
-  const position = progress >= 1
-    ? route.points[route.points.length - 1]
-    : pointAtDistance(route, distance);
-  const tangentHalfWidth = Math.min(0.2, totalLength / 1000);
-  const before = pointAtDistance(route, distance - tangentHalfWidth);
-  const after = pointAtDistance(route, distance + tangentHalfWidth);
-  const heading = Math.atan2(-(after[0] - before[0]), -(after[1] - before[1]));
-
-  return {
-    x: position[0],
-    z: position[1],
-    heading,
-    finished: progress >= 1,
-    progress,
-  };
-}
-
-
-export interface RaceRivalOutcome {
-  outcome: 'victory' | 'defeat' | 'photo-finish';
-  marginMs: number;
-}
-
-/**
- * Compare the player's validated finish with the rival's scheduled finish.
- * A difference of one displayed tenth or less is reported as a photo finish.
- * Invalid timings return null and can never create a false result.
- */
-export function resolveRaceRivalOutcome(
-  playerElapsedMs: number,
-  rivalElapsedMs: number,
-): RaceRivalOutcome | null {
-  if (
-    !Number.isFinite(playerElapsedMs) ||
-    playerElapsedMs < 0 ||
-    !Number.isFinite(rivalElapsedMs) ||
-    rivalElapsedMs < 0
-  ) {
-    return null;
-  }
-
-  const difference = playerElapsedMs - rivalElapsedMs;
-  const marginMs = Math.abs(difference);
-  if (marginMs <= 100) return { outcome: 'photo-finish', marginMs };
-  return {
-    outcome: difference < 0 ? 'victory' : 'defeat',
-    marginMs,
-  };
 }
 
 /**
