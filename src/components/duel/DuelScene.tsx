@@ -2312,7 +2312,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // block's add (capped at 0.90 by applyBlockReduction), less the
             // attacker's class penetration (thraex's Hook the Rim, 0.40).
             const blockReduction = effectiveBlockReduction(
-              defender.loadout.shield?.blockReduction ?? (defender.loadout.shield?.blockReduction ?? defender.loadout.weapon.blockReduction),
+              defender.loadout.shield?.blockReduction ?? defender.loadout.weapon.blockReduction,
               defenderMods,
               attackerMods,
               isBlocked,
