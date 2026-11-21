@@ -36,7 +36,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 
 ## Status reconciliation — 2026-11-21
 
-The live status table above supersedes older historical notes below where their PR numbers or mainline SHAs differ. PR #532 superseded the retired rival-clock work in #528 and is merged. PR #536 and #538 have both been re-synchronized with current `main` at `38a108c`; they are each 7 commits ahead / 0 behind, with only their intended gameplay/diagnostic files differing. Fresh CI is running on both updated heads. PR #496 is 209 commits behind current `main`; its verified clean artwork package is prepared, but the binaries must be committed and the validator reapplied on a fresh branch before merge.
+The live status table above supersedes older historical notes below where their PR numbers or mainline SHAs differ. PR #532 superseded the retired rival-clock work in #528 and is merged. PR #536 and #538 have both been re-synchronized with current `main` at `38a108c`; they are each 7 commits ahead / 1 behind (the only intervening commit is this documentation update), with only their intended gameplay/diagnostic files differing. Fresh CI is running on both updated heads. PR #496 is 209 commits behind current `main`; its verified clean artwork package is prepared, but the binaries must be committed and the validator reapplied on a fresh branch before merge.
 
 ## System workstreams
 
