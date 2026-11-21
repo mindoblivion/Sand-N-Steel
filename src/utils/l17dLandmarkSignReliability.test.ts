@@ -188,9 +188,14 @@ describe('L17D §A — an individual sign cannot take the district with it', () 
         boundary: false,
       });
     }
-    // …and no city file other than the hub/canvas owners names it at all.
+    // The live city owns its district/canvas boundaries; the blueprint's
+    // additional boundary is confined to the separately mounted dev harness.
     const owners = cityFiles.filter((f) => code(CITY_FILE(f)).includes('ThreeComponentErrorBoundary'));
-    expect(owners.sort()).toEqual(['CityHubScene.tsx', 'LandmarkSign.tsx']);
+    expect(owners.sort()).toEqual([
+      'BlueprintBuildings.tsx',
+      'CityHubScene.tsx',
+      'LandmarkSign.tsx',
+    ]);
   });
 });
 
