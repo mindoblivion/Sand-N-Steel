@@ -69,9 +69,11 @@ export function createCityMovementDiagnosticSnapshot(
     movementRatio,
     collisionLimited:
       input.expectedDistance > 0.02 && actualDistance < input.expectedDistance * 0.85,
-    // Detect recovery escapes, respawns, stale input, or other movement that
-    // exceeds the commanded stride. The idle threshold also catches drift/teleports.
+    // A normal stride cannot exceed its commanded distance. The collision
+    // recovery fallback can choose an unnormalized diagonal step (up to √2×),
+    // so flag above 1.25× while leaving room for floating-point noise. The
+    // absolute floor also catches drift/teleports when no movement is expected.
     unexpectedDisplacement:
-      actualDistance > Math.max(0.05, input.expectedDistance * 1.5 + 0.02),
+      actualDistance > Math.max(0.05, input.expectedDistance * 1.25 + 0.02),
   };
 }
