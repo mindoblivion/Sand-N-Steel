@@ -506,7 +506,10 @@ describe('E. Slice boundaries', () => {
 describe('F. Presented city overlays own input', () => {
   test('forge and pre-race overlays block the primary action', () => {
     const primary = code(handlerBody(citySrc, 'handlePrimaryAction'));
-    expect(primary).toContain('forgePanel || showRaceEntry || showNavDrawer');
+    expect(primary).toContain('inputLockedRef.current || cityPanelInputLockedRef.current');
+    expect(primary).toContain('forgePanel');
+    expect(primary).toContain('showRaceEntry');
+    expect(primary).toContain('showNavDrawer');
   });
 
   test('forge and pre-race overlays block movement and close on Escape', () => {
@@ -530,7 +533,10 @@ describe('F. Presented city overlays own input', () => {
   test('presented panels and full-screen scene locks clear held inputs', () => {
     expect(citySrc).toContain('cityPanelInputLockedRef.current = panelLocked');
     expect(citySrc).toContain('if (panelLocked || movementLocked) {');
-    expect(citySrc).toContain('forgePanel || showRaceEntry || showNavDrawer');
+    const normalizedCity = citySrc.split(/\s+/).join(' ');
+    expect(normalizedCity).toContain(
+      'visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || academyPanel || showRaceEntry || showNavDrawer'
+    );
     expect(citySrc).toContain('keysPressed.current = {}');
     expect(citySrc).toContain("touchVectorRef.current = { x: 0, z: 0 }");
     expect(citySrc).toContain('!inputLockedRef.current && !cityPanelInputLockedRef.current');
