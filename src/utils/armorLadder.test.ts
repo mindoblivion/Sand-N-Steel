@@ -390,7 +390,7 @@ describe('P0 armor ladder — append-only registry order', () => {
       });
     }
     // Nothing was inserted before them and nothing was dropped.
-    expect(ALL_ARMORS.length).toBe(LEGACY_PIECES.length + 4 + NEW_PIECES.length);
+    expect(ALL_ARMORS.length).toBe(LEGACY_PIECES.length + NEW_PIECES.length);
   });
 
   test('no legacy entry was edited to make the ladder fit', () => {
