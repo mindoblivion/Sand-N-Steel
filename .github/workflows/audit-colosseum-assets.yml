@@ -1,0 +1,25 @@
+name: Audit uploaded Colosseum and civilian assets
+
+on:
+  pull_request:
+    paths:
+      - 'public/colosseum-loading-assets.zip'
+      - 'public/models/civilian.glb'
+      - 'scripts/auditColosseumAssets.mjs'
+      - '.github/workflows/audit-colosseum-assets.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-assets:
+    name: Inspect archive contents and GLB rig metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tools
+        run: |
+          node --version
+          unzip -v | head -n 2
+      - name: Inspect arena archive and civilian GLB
+        run: node scripts/auditColosseumAssets.mjs
