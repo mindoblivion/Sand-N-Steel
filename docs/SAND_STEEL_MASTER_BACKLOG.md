@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `b5bfde6d266e88fbdcbd1419e107219720e1a1c4` (2026-11-21).
+> Living project index. Baseline reconciled against `dbb3a494edb4f87f68e3292cd815528779b71342` (2026-11-21).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -22,7 +22,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 |---|---|---|---|
 | P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372), [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411) | Merged to main (#372, #411, #449). Camera yaw stability and focus-loss/full-screen-scene clearing of held touch/keyboard movement inputs are implemented with regression coverage; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, camera collision, and hold movement → background app → resume to confirm the gladiator remains stationary on Samsung S24. |
 | P0 | Loading artwork and progress transitions — [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371) | Merged to main. Shared artwork/progress treatment covers scene transitions and character-preview loading/recovery. | Verify artwork, truthful progress/indeterminate state, recovery action, and safe-area spacing during real chunk/GLB loading on Samsung S24. |
-| P0 | Ferrum beastmaster retreat — [PR #536](https://github.com/mindoblivion/Sand-N-Steel/pull/536) | Rerender-safe retreat target and heading fix with regression coverage. Validated on head `09ffb13`; 8 commits ahead / 1 behind after documentation-only mainline update. Latest Main quality and Environment gates passed. | Visual acceptance remains: verify turn direction, retreat distance, ground contact, Run-to-Idle transition, and normal victory/result settlement before merge. |
+| P0 | Ferrum beastmaster retreat — [PR #536](https://github.com/mindoblivion/Sand-N-Steel/pull/536) | Merged to `main` in `dbb3a494`; rerender-safe retreat target and heading fix with regression coverage. Main quality and Environment gates passed on the merged head. | Device/gameplay acceptance remains: verify turn direction, retreat distance, ground contact, Run-to-Idle transition, and normal victory/result settlement on Samsung S24. |
 | P1 | Rival chariot drivers — [PR #532](https://github.com/mindoblivion/Sand-N-Steel/pull/532) | Deterministic per-rival driving, overtaking windows, rig separation, and driven finish settlement merged to `main`; automated driver soak and simulation pass gate recorded in PR. Live browser/Samsung visual behaviour and device CPU remain unverified. | Test staggered starts, passing/defence, horse and wheel gait continuity, ground contact, finish order, and device performance with the development profiler on Samsung S24. |
 | P0 | Loading artwork file integrity — [PR #539](https://github.com/mindoblivion/Sand-N-Steel/pull/539) | PNG/WebP signature validation was reapplied on a fresh current-main branch. Both CI workflows reached the production asset check and failed on the four known mislabeled JPEG files (two in `public/`, two copied into `dist/`), confirming the validator is active. Clean replacement artwork binaries are not currently committed. Old PR #496 was closed as superseded. | Attach/commit genuine WebP/PNG binaries through a supported binary upload path, rerun both gates, then remove lower-cover masking only after clean artwork is present. |
 | P0 | Android device acceptance — [issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) | Initial install/launch/city walkaround smoke test passed on Samsung device (2026-11-03); remaining acceptance is open. PR #538 is 8 commits ahead / 1 behind after documentation-only mainline update; all four latest CI workflows passed, including both profiler APK builds. No newer S24 result is recorded. | Install the current movement-profiler APK and exercise joystick directions/diagonals, camera drag/release, obstacles, panels/input locks, and background/resume. Paste the copied diagnostic snapshot if movement jumps or drifts. Continue save, arena, orientation, offline, long-session, creator, loading, skin-tone, weight, icon and race acceptance. |
@@ -36,10 +36,10 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 
 ## Status reconciliation — 2026-11-21
 
-Live state checked against current `main` at `b5bfde6`:
+Live state checked against current `main` at `dbb3a49`:
 - PR #532 is merged and supersedes the retired rival-clock work in #528.
-- PR #536 (Ferrum retreat) is 8 commits ahead / 1 behind due to a documentation-only mainline commit; latest Main quality and Environment gates passed on head `09ffb13`. Rendered/device acceptance remains outstanding.
-- PR #538 (city movement diagnostics) is 8 commits ahead / 1 behind due to a documentation-only mainline commit; Main quality, Environment, city profiler APK, and race profiler APK workflows all passed on head `bcf0120`. Samsung S24 acceptance remains outstanding.
+- PR #536 (Ferrum retreat) merged to `main` as `dbb3a494` after its Main quality and Environment gates passed; Samsung S24 visual/gameplay acceptance remains outstanding.
+- PR #538 (city movement diagnostics) was synchronized with latest `main` in merge commit `f455339`; its Main quality, Environment, city profiler APK, and race profiler APK workflows are rerunning on the synchronized head. Merge remains pending all four passing.
 - PR #539 reapplies PNG/WebP signature validation on a fresh current-main branch. Both CI workflows reached the asset check and failed on the known mislabeled JPEG assets; clean artwork binaries are still not committed.
 - PR #496 is closed as superseded; PR #539 is the replacement for its validator-only change.
 ## System workstreams
