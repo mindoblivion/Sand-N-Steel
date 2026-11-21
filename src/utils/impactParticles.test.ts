@@ -658,7 +658,7 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
     // the bout mode, whose Sand default keeps the shipped table exact.
     // Player recovery now uses the saved weight profile; opponent recovery stays neutral.
     // Keep the single scheduling seam pinned while requiring the player-only multiplier.
-    expect((duel.match(/turnResolutionMs\(/g) ?? []).length).toBe(1);
+    expect((duel.match(/\},\s*turnResolutionMs\(/g) ?? []).length).toBe(1);
     expect(duel).toContain('isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1');
   });
 
