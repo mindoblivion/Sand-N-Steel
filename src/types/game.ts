@@ -13,7 +13,7 @@ export interface SteelDelta {
   blockChance: number;
 }
 
-export type ArmorSlot = 'helm' | 'chest' | 'arms' | 'legs';
+export type ArmorSlot = 'helm' | 'chest' | 'arms' | 'legs' | 'shield';
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
@@ -200,6 +200,9 @@ export interface ArmorItem {
   bonusAgility?: number;
   bonusDefense?: number;
   bonusStamina?: number;
+  /** Independent shield mesh and defensive value; absent on ordinary armor. */
+  modelPath?: string;
+  blockReduction?: number;
 }
 
 export interface FighterStats {
@@ -218,6 +221,8 @@ export interface FighterLoadout {
   chest?: ArmorItem;
   arms?: ArmorItem;
   legs?: ArmorItem;
+  /** Independent off-hand shield; two-handed spear loadouts omit it. */
+  shield?: ArmorItem;
 }
 
 export type FighterAction = 
@@ -1269,6 +1274,7 @@ export interface PlayerProfile {
     chest?: ArmorItem;
     arms?: ArmorItem;
     legs?: ArmorItem;
+    shield?: ArmorItem;
   };
   inventory: (WeaponItem | ArmorItem)[];
   fightsWon: number;
