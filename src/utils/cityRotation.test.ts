@@ -15,10 +15,10 @@ import {
 } from './cityRotation';
 
 const DAY_ONE = [
-  'helm_centurion',
-  'chest_golden_muscled',
-  'arms_manica_steel',
-  'arms_galerus_gilded',
+  'titan_colossus_mace',
+  'shamshir_curved',
+  'steel_sword_shield',
+  'steel_two_handed_spear',
 ];
 
 describe('L2 — deterministic daily storefront rotation', () => {

@@ -24,8 +24,8 @@ const EXISTING_WEAPON_IDS = [
 const NEW_WEAPON_IDS = ['wpn_pilum', 'wpn_hasta', 'shd_scutum_gladius', 'shd_parma_pugio'];
 
 describe('WEAPONS-1 weapons variety', () => {
-  test('the four new weapons sit at indices 12-15 in order', () => {
-    expect(ALL_WEAPONS).toHaveLength(18);
+  test('the four legacy variety weapons retain their indices and material tiers append', () => {
+    expect(ALL_WEAPONS).toHaveLength(24);
     NEW_WEAPON_IDS.forEach((id, i) => {
       expect(ALL_WEAPONS[12 + i].id).toBe(id);
     });
@@ -54,7 +54,8 @@ describe('WEAPONS-1 weapons variety', () => {
     expect(hasta.type).toBe('spear');
     expect(hasta.rarity).toBe('common');
     expect(hasta.range).toBe(3.4);
-    expect(hasta.range).toBe(Math.max(...ALL_WEAPONS.map((w) => w.range)));
+    const legacyRangeCeiling = Math.max(...ALL_WEAPONS.filter((w) => !w.id.endsWith('_two_handed_spear')).map((w) => w.range));
+    expect(hasta.range).toBe(legacyRangeCeiling);
   });
 
   test('scutum has the highest blockReduction and bonusDefense 4', () => {
@@ -79,6 +80,27 @@ describe('WEAPONS-1 weapons variety', () => {
     expect(parma.bonusAgility).toBe(3);
   });
 
+  test('material weapon tiers resolve to their supplied sword, shield and spear GLBs', () => {
+    const byId = new Map(ALL_WEAPONS.map((weapon) => [weapon.id, weapon]));
+    for (const [id, sword, shield] of [
+      ['bronze_sword_shield', '/models/weapons/bronze_sword.glb', '/models/weapons/bronze_shield.glb'],
+      ['iron_sword_shield', '/models/weapons/iron_sword.glb', '/models/weapons/iron_shield.glb'],
+      ['steel_sword_shield', '/models/weapons/steel_sword.glb', '/models/weapons/steel_shield.glb'],
+    ] as const) {
+      expect(byId.get(id)?.modelPath).toBe(sword);
+      expect(byId.get(id)?.shieldModelPath).toBe(shield);
+    }
+    for (const [id, model] of [
+      ['bronze_two_handed_spear', '/models/weapons/bronze_spear.glb'],
+      ['iron_two_handed_spear', '/models/weapons/iron_spear.glb'],
+      ['steel_two_handed_spear', '/models/weapons/steel_spear.glb'],
+    ] as const) {
+      expect(byId.get(id)?.modelPath).toBe(model);
+      expect(byId.get(id)?.type).toBe('spear');
+      expect(byId.get(id)?.shieldModelPath).toBeUndefined();
+    }
+  });
+
   test('all four new weapons are stocked at the forge and the market', () => {
     const forge = getStorefrontStock('forge');
     const market = getStorefrontStock('market');
@@ -86,7 +108,7 @@ describe('WEAPONS-1 weapons variety', () => {
       expect(forge).toContain(id);
       expect(market).toContain(id);
     }
-    expect(forge).toHaveLength(17);
+    expect(forge).toHaveLength(23);
     expect(market).toHaveLength(ITEMS_DB.length);
   });
 });

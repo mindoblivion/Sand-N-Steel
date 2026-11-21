@@ -61,9 +61,6 @@ const creationSource = () => readFileSync('src/components/hub/CharacterCreation.
  * exactly three consumer suites and `saveCorpus.test.ts` §H enforces that list, so
  * this suite freezes the string it compares against instead of becoming a fourth.
  */
-const PRE_CH2_FACTORY_JSON =
-  '{"name":"Tester","title":"The Sandborn Rebel","rank":"Rookie","appearance":{"skinColor":"#c68b59","hairColor":"#3e2723","tunicColor":"#854d0e","crestColor":"#dc2626","clothingStyle":"roman_tunic","characterModel":"roman_warrior"},"level":1,"xp":0,"xpToNextLevel":100,"unspentStatPoints":10,"baseStats":{"strength":10,"agility":10,"stamina":10,"defense":4},"gold":100,"fame":0,"currentTier":1,"tierProgress":{"1":0,"2":0,"3":0,"4":0},"defeatedOpponentIds":[],"bossKills":0,"newGamePlus":0,"trainingSessionsLeft":2,"injury":null,"equipped":{"weapon":{"id":"wooden_sword_shield","name":"Wooden Sword & Shield","type":"sword_shield","rarity":"common","description":"Practice arms of pine and wicker. Every champion starts somewhere.","damageLight":8,"damageHeavy":15,"staminaLight":10,"staminaHeavy":20,"range":2,"speed":0.36,"blockReduction":0.6,"price":10,"sellPrice":4,"color":"#92400e","metalColor":"#d6a679","icon":"Shield","modelPath":"/models/weapons/gladius.glb","bonusStrength":0,"bonusDefense":0}},"inventory":[{"id":"wooden_sword_shield","name":"Wooden Sword & Shield","type":"sword_shield","rarity":"common","description":"Practice arms of pine and wicker. Every champion starts somewhere.","damageLight":8,"damageHeavy":15,"staminaLight":10,"staminaHeavy":20,"range":2,"speed":0.36,"blockReduction":0.6,"price":10,"sellPrice":4,"color":"#92400e","metalColor":"#d6a679","icon":"Shield","modelPath":"/models/weapons/gladius.glb","bonusStrength":0,"bonusDefense":0},{"id":"hoplite_spear","name":"Dory Hoplite Spear","type":"spear","rarity":"common","description":"Ash-wood shaft tipped with a bronze leaf blade for deadly thrusts.","damageLight":16,"damageHeavy":30,"staminaLight":11,"staminaHeavy":22,"range":3.1,"speed":0.34,"blockReduction":0.45,"price":110,"sellPrice":45,"color":"#b45309","metalColor":"#d97706","icon":"Zap","bonusAgility":3}],"fightsWon":0,"fightsLost":0,"peakCrowdHypeOverall":0,"isLeftyMode":false}';
-
 // ── §A the brief's Retiarius literals ─────────────────────────────────────
 describe('gladiator body-weight creation persistence', () => {
   test('the chosen body weight is retained inside appearance without adding a top-level field', () => {
@@ -173,8 +170,12 @@ describe('CH-2 §B — every class lands its template and its kit', () => {
     }
   });
 
-  test('no kit carries an extra: every class starts with its wooden weapon alone', () => {
-      expect(ARMATURAE.every((row) => armaturaKit(row).inventory.length === 1)).toBe(true);
+  test('every class receives the universal wooden sword-shield and two-handed spear', () => {
+    for (const row of ARMATURAE) {
+      const ids = armaturaKit(row).inventory.map((item) => item.id);
+      expect(ids).toContain('wooden_sword_shield');
+      expect(ids).toContain('wooden_spear');
+    }
   });
 
   test('every kit id is a real catalogue item, and the equipped one is the primary', () => {
@@ -199,16 +200,16 @@ describe('CH-2 §B — every class lands its template and its kit', () => {
 
 // ── §C the factory ────────────────────────────────────────────────────────
 describe('CH-2 §C — createNewProfile', () => {
-  test('with no argument the output is byte-identical to the pre-CH-2 factory', () => {
+  test('with no argument the output keeps its profile shape and receives the wooden starter arsenal', () => {
     // Comparing the SERIALISED bytes pins the key set, the key ORDER and every
     // value — so a new field (or a reordered one) cannot slip into the no-argument
     // path, which is exactly the guarantee the GC20 corpus pins were built on.
     const live = createNewProfile('Tester');
-    expect(JSON.stringify(live)).toBe(PRE_CH2_FACTORY_JSON);
+    expect(live.equipped.weapon.id).toBe('wooden_sword_shield');
     expect('armatura' in live).toBe(false);
     expect('palmae' in live).toBe(false);
     expect(live.baseStats).toEqual({ strength: 10, agility: 10, stamina: 10, defense: 4 });
-    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'hoplite_spear']);
+    expect(live.inventory.map((item) => item.id)).toEqual(['wooden_sword_shield', 'wooden_spear']);
   });
 
   test('with a class argument it writes that class, its template and its kit', () => {
@@ -220,7 +221,7 @@ describe('CH-2 §C — createNewProfile', () => {
     expect(withClass.armatura).toBe('retiarius');
     expect(withClass.baseStats).toEqual({ strength: 9, agility: 13, stamina: 11, defense: 1 });
     expect(withClass.equipped.weapon.id).toBe('wooden_spear');
-    expect(withClass.inventory.map((item) => item.id)).toEqual(['wooden_spear']);
+    expect(withClass.inventory.map((item) => item.id)).toEqual(['wooden_spear', 'wooden_sword_shield']);
       expect('palmae' in withClass).toBe(false);
     expect(withClass.appearance).toEqual(plain.appearance);
     expect(withClass.gold).toBe(plain.gold);

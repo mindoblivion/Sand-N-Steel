@@ -107,10 +107,14 @@ describe('FORGECRAFT-1 §A — the recipe table', () => {
     ['dirk_desert', 'dual_sicae_daggers', 55],
     ['dual_sicae_daggers', 'dual_vipers', 215],
     ['bronze_mace', 'titan_colossus_mace', 230],
+    ['bronze_sword_shield', 'iron_sword_shield', 70],
+    ['iron_sword_shield', 'steel_sword_shield', 130],
+    ['bronze_two_handed_spear', 'iron_two_handed_spear', 80],
+    ['iron_two_handed_spear', 'steel_two_handed_spear', 140],
   ];
 
   test('exactly eight recipes, one per ladder rung', () => {
-    expect(FORGE_RECIPES).toHaveLength(8);
+    expect(FORGE_RECIPES).toHaveLength(12);
     expect(FORGE_RECIPES.map((recipe) => recipe.inputId)).toEqual(
       EXPECTED.map(([input]) => input)
     );

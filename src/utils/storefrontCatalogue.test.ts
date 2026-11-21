@@ -78,6 +78,12 @@ const FORGE_IDS = [
   'shd_parma_pugio',
   'wooden_spear',
   'wooden_daggers',
+  'bronze_sword_shield',
+  'bronze_two_handed_spear',
+  'iron_sword_shield',
+  'iron_two_handed_spear',
+  'steel_sword_shield',
+  'steel_two_handed_spear',
 ];
 
 const ARMORER_IDS = [
@@ -104,6 +110,8 @@ const MERCHANT_IDS = [
   'dual_vipers',
   'titan_colossus_mace',
   'shamshir_curved',
+  'steel_sword_shield',
+  'steel_two_handed_spear',
   'helm_centurion',
   'chest_golden_muscled',
   'arms_manica_steel',
@@ -149,8 +157,8 @@ describe('SHOP-1 §A — the resolver is pure and order-preserving', () => {
 
 // ══════════════════════════════════════════════════════════════════════════
 describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
-  test('forge offers 17 weapons', () => {
-    expect(getStorefrontStock('forge')).toHaveLength(17);
+  test('forge offers every non-starter weapon', () => {
+    expect(getStorefrontStock('forge')).toHaveLength(23);
     expect(new Set(getStorefrontStock('forge'))).toEqual(new Set(FORGE_IDS));
   });
 
@@ -159,8 +167,8 @@ describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
     expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set(ALL_ARMORS.map((a) => a.id)));
   });
 
-  test('merchant offers exactly the thirteen rare/legendary goods', () => {
-    expect(getStorefrontStock('merchant')).toHaveLength(13);
+  test('merchant offers exactly the fifteen rare/legendary goods', () => {
+    expect(getStorefrontStock('merchant')).toHaveLength(15);
     expect(new Set(getStorefrontStock('merchant'))).toEqual(new Set(MERCHANT_IDS));
   });
 
@@ -199,7 +207,7 @@ describe('SHOP-1 §D — the merchant deals only in rare and legendary', () => {
       .filter((item) => item.rarity === 'rare' || item.rarity === 'legendary')
       .map((item) => item.id);
     expect(sorted(getStorefrontStock('merchant'))).toEqual(sorted(rareLegendary));
-    expect(rareLegendary).toHaveLength(13);
+    expect(rareLegendary).toHaveLength(15);
   });
 
   test('no common or uncommon item is merchant stock', () => {
@@ -230,15 +238,15 @@ describe('SHOP-1 §E — forge + armorer partition the market minus the starter'
 // ══════════════════════════════════════════════════════════════════════════
 describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
-    expect(ALL_WEAPONS).toHaveLength(18);
+    expect(ALL_WEAPONS).toHaveLength(24);
     expect(ALL_ARMORS).toHaveLength(16);
-    expect(ITEMS_DB).toHaveLength(34);
+    expect(ITEMS_DB).toHaveLength(40);
   });
 
   test('the load-bearing ALL_WEAPONS order is intact', () => {
     expect(ALL_WEAPONS[0].id).toBe(STARTER_ID);
-    expect(ALL_WEAPONS[2]).toBe(STARTING_SPARE_WEAPON);
     expect(ALL_WEAPONS[2].id).toBe('hoplite_spear');
+    expect(STARTING_SPARE_WEAPON.id).toBe('wooden_spear');
   });
 });
 

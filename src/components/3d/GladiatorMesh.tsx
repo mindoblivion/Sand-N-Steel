@@ -247,6 +247,20 @@ const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
   '/models/weapons/dagger.glb',
   '/models/weapons/dirk.glb',
   '/models/weapons/shamshir.glb',
+  '/models/weapons/wooden_sword.glb',
+  '/models/weapons/bronze_sword.glb',
+  '/models/weapons/iron_sword.glb',
+  '/models/weapons/steel_sword.glb',
+  '/models/weapons/bronze_spear.glb',
+  '/models/weapons/iron_spear.glb',
+  '/models/weapons/steel_spear.glb',
+]);
+
+const SUPPORTED_SHIELD_MODEL_PATHS = new Set<string>([
+  '/models/weapons/wooden_shield.glb',
+  '/models/weapons/bronze_shield.glb',
+  '/models/weapons/iron_shield.glb',
+  '/models/weapons/steel_shield.glb',
 ]);
 
 // Per-model orientation correction. The four +Y-axis models (gladius, spatha,
@@ -460,35 +474,63 @@ const SHIELD_CONSTRAINT_STRENGTH: Record<string, number> = {
   death: 0.0,
 };
 
-// Shared Shield Renderer Component
-const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor: string; shieldScale?: number }>(({ isLefty, goldColor, shieldScale = SHIELD_SCALE_GLB }, ref) => {
+const ShieldAssetMesh: React.FC<{ modelUrl: string }> = ({ modelUrl }) => {
+  const gltf = useGLTF(modelUrl);
+  const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
+  useEffect(() => {
+    cloned.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [cloned]);
+  return <primitive object={cloned} />;
+};
+
+// Shared shield renderer. The original procedural board remains the safe
+// fallback while the material-specific GLB is loading or if it fails.
+const ShieldModel = React.forwardRef<THREE.Group, {
+  isLefty: boolean;
+  goldColor: string;
+  shieldScale?: number;
+  modelUrl?: string;
+}>(({ isLefty, goldColor, shieldScale = SHIELD_SCALE_GLB, modelUrl }, ref) => {
+  const procedural = (
+    <>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[0.68, 1.15, 0.05]} />
+        <meshStandardMaterial color="#881337" roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0, 0.028]}>
+        <boxGeometry args={[0.7, 1.17, 0.01]} />
+        <meshStandardMaterial color={goldColor} metalness={0.8} roughness={0.25} />
+      </mesh>
+      <mesh castShadow position={[0, 0, 0.06]}>
+        <sphereGeometry args={[0.14, 16, 16]} />
+        <meshStandardMaterial color={goldColor} metalness={0.9} roughness={0.15} />
+      </mesh>
+      <mesh position={[0, 0.25, 0.035]}>
+        <boxGeometry args={[0.35, 0.05, 0.01]} />
+        <meshStandardMaterial color="#fef08a" metalness={0.7} />
+      </mesh>
+      <mesh position={[0, -0.25, 0.035]}>
+        <boxGeometry args={[0.35, 0.05, 0.01]} />
+        <meshStandardMaterial color="#fef08a" metalness={0.7} />
+      </mesh>
+    </>
+  );
+  const useAsset = !!modelUrl && SUPPORTED_SHIELD_MODEL_PATHS.has(modelUrl);
   return (
     <group ref={ref} position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={shieldScale}>
-      {/* Offset the board along its own face-normal (+Z = outward) so the
-          hand bone sits behind the board instead of passing through it.
-          0.13 pre-scale × 0.53 ≈ 0.069 world units, clearing the forearm
-          radius (~0.04) without the shield floating away from the arm. */}
       <group position={[0, 0, 0.13]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[0.68, 1.15, 0.05]} />
-          <meshStandardMaterial color="#881337" roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 0, 0.028]}>
-          <boxGeometry args={[0.7, 1.17, 0.01]} />
-          <meshStandardMaterial color={goldColor} metalness={0.8} roughness={0.25} />
-        </mesh>
-        <mesh castShadow position={[0, 0, 0.06]}>
-          <sphereGeometry args={[0.14, 16, 16]} />
-          <meshStandardMaterial color={goldColor} metalness={0.9} roughness={0.15} />
-        </mesh>
-        <mesh position={[0, 0.25, 0.035]}>
-          <boxGeometry args={[0.35, 0.05, 0.01]} />
-          <meshStandardMaterial color="#fef08a" metalness={0.7} />
-        </mesh>
-        <mesh position={[0, -0.25, 0.035]}>
-          <boxGeometry args={[0.35, 0.05, 0.01]} />
-          <meshStandardMaterial color="#fef08a" metalness={0.7} />
-        </mesh>
+        {useAsset ? (
+          <WeaponGLBErrorBoundary fallback={procedural}>
+            <React.Suspense fallback={procedural}>
+              <ShieldAssetMesh modelUrl={modelUrl!} />
+            </React.Suspense>
+          </WeaponGLBErrorBoundary>
+        ) : procedural}
       </group>
     </group>
   );
@@ -1126,7 +1168,15 @@ const RomanWarriorGLB: React.FC<{
   const weaponNode = useWeaponGLB
     ? <WeaponGLBRenderer modelUrl={weaponModelPath} weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
-  const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} shieldScale={effectiveShieldScale} />;
+  const shieldNode = weaponType === 'spear' ? null : (
+    <ShieldModel
+      ref={shieldGroupRef}
+      isLefty={isLefty}
+      goldColor={goldColor}
+      shieldScale={effectiveShieldScale}
+      modelUrl={weaponItem?.shieldModelPath}
+    />
+  );
 
   // Anatomical assignment: Righty = Sword in Right Hand, Shield in Left Hand. Lefty = Reversed.
   const rightHandEquipment = isLefty ? shieldNode : weaponNode;

@@ -51,7 +51,7 @@ import {
   isProvinceId,
   isVitiumId,
 } from '../data/corpusEtOrigo';
-import { DEFAULT_PLAYER_WEAPON, getItemById, isWeapon } from '../data/itemsDB';
+import { DEFAULT_PLAYER_WEAPON, WOODEN_SWORD_SHIELD, WOODEN_SPEAR, getItemById, isWeapon } from '../data/itemsDB';
 import type { StatFlat } from './traitModifiers';
 
 /** The ten points every new gladiator spends in the allocation screen. */
@@ -200,7 +200,12 @@ export function armaturaKit(armatura: Armatura): {
   const extras = armatura.startingInventoryIds
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
-  return { weapon, inventory: [weapon, ...extras] };
+  // Every newly created fighter receives the same three-piece practice arsenal,
+  // regardless of armatura. Keep class-specific kit items and avoid duplicate ids.
+  const inventory = [weapon, ...extras, WOODEN_SWORD_SHIELD, WOODEN_SPEAR].filter(
+    (item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index,
+  );
+  return { weapon, inventory };
 }
 
 /**
