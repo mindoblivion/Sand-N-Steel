@@ -90,6 +90,11 @@ export function syncBeastTargetPosition(
   return true;
 }
 
+/** Keep the retreat heading authoritative once Ferrum enters its terminal flee pose. */
+export function syncBeastTargetYaw(currentTargetYaw: number, incomingYaw: number, pose: BeastPose): number {
+  return pose === 'fled' ? currentTargetYaw : incomingYaw;
+}
+
 export function beastFacingYaw(
   beastPos: readonly [number, number, number],
   targetPos: readonly [number, number, number],
@@ -259,8 +264,8 @@ const LionGLB: React.FC<BeastFigureProps> = ({
   }, [position[0], position[1], position[2], pose]);
 
   useEffect(() => {
-    targetYawRef.current = rotationY;
-  }, [rotationY]);
+    targetYawRef.current = syncBeastTargetYaw(targetYawRef.current, rotationY, pose);
+  }, [rotationY, pose]);
 
   poseRef.current = pose;
 
