@@ -438,13 +438,15 @@ export const ALL_WEAPONS: WeaponItem[] = [
 export const STARTING_SPARE_WEAPON: WeaponItem = WOODEN_SPEAR;
 
 /** Independent off-hand shields. These are separate inventory/equipment items. */
-const MATERIAL_SHIELDS: ArmorItem[] = [
-  {
+export const WOODEN_SHIELD: ArmorItem = {
     id: 'shield_wooden_wicker', slot: 'shield', name: 'Wooden Wicker Shield', rarity: 'common',
     description: 'A light wicker practice shield bound with rawhide.', defense: 0, staminaRegenBonus: 0,
     price: 10, sellPrice: 4, color: '#92400e', trimColor: '#d6a679',
     modelPath: MATERIAL_WEAPON_MODEL_PATHS.woodenShield, blockReduction: 0.60,
-  },
+  };
+
+const MATERIAL_SHIELDS: ArmorItem[] = [
+  WOODEN_SHIELD,
   {
     id: 'shield_bronze_round', slot: 'shield', name: 'Bronze Round Shield', rarity: 'uncommon',
     description: 'A bronze-faced round shield with a reinforced central boss.', defense: 0, staminaRegenBonus: 0,
@@ -466,7 +468,7 @@ const MATERIAL_SHIELDS: ArmorItem[] = [
 ];
 
 /** EVERY ACQUIRABLE ARMOR PIECE (helm / chest / arms / legs). */
-export const ALL_ARMORS: ArmorItem[] = [
+export const ALL_ARMORS: ArmorItem[] = [...MATERIAL_SHIELDS,
   {
     id: 'helm_murmillo',
     slot: 'helm',
@@ -717,7 +719,7 @@ export const ALL_ARMORS: ArmorItem[] = [
 ];
 
 /** The complete item database: every weapon and every armor piece. */
-export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS, ...MATERIAL_SHIELDS];
+export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS];
 
 /** Typed views of the database: `weapon` plus one entry per armor slot. */
 export const ITEMS_BY_CATEGORY = {
@@ -726,7 +728,7 @@ export const ITEMS_BY_CATEGORY = {
   chest: ALL_ARMORS.filter((armor) => armor.slot === 'chest'),
   arms: ALL_ARMORS.filter((armor) => armor.slot === 'arms'),
   legs: ALL_ARMORS.filter((armor) => armor.slot === 'legs'),
-  shield: MATERIAL_SHIELDS,
+  shield: ALL_ARMORS.filter((armor) => armor.slot === 'shield'),
 } as const;
 
 export type ItemCategory = keyof typeof ITEMS_BY_CATEGORY;
