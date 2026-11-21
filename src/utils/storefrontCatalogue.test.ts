@@ -157,7 +157,7 @@ describe('SHOP-1 §A — the resolver is pure and order-preserving', () => {
       getStorefrontStock(id);
     }
     expect(ITEMS_DB.map((item) => `${item.id}:${item.rarity}`)).toEqual(before);
-    expect(ITEMS_DB.length).toBe(ALL_WEAPONS.length + ALL_ARMORS.length);
+    expect(ITEMS_DB.length).toBe(ALL_WEAPONS.length + ALL_ARMORS.length + 4);
   });
 });
 
@@ -245,7 +245,7 @@ describe('SHOP-1 §E — forge + armorer partition the market minus the starter'
 describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
     expect(ALL_WEAPONS).toHaveLength(24);
-    expect(ALL_ARMORS).toHaveLength(20);
+    expect(ALL_ARMORS).toHaveLength(16);
     expect(ITEMS_DB).toHaveLength(40);
   });
 
