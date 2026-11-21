@@ -618,7 +618,11 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   test('KEPT on a win: the purse, the level, the peak and the one write', () => {
     expect(result).toContain('const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;');
     expect(result).toContain('const nextFame = fameSettlement?.ok ? fameSettlement.balance : profile.fame;');
-    expect(result).toContain('const nextXp = profile.xp + stats.xpEarned;');
+    // XP now settles through the shared multi-level progression resolver.
+    expect(result).toContain('const xpProgression = resolveXpProgression({');
+    expect(result).toContain('const nextXp = xpProgression.xp;');
+    expect(result).toContain('levelsGained = xpProgression.levelsGained;');
+    expect(result).toContain('statPointsGained = xpProgression.statPointsGained;');
     expect(result).toContain('peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),');
     // One result, one save: the awards' profile IS the transaction's profile.
     expect(result).toContain('setProfile(awards.profile);');
