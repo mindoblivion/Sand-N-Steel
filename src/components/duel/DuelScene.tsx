@@ -502,7 +502,8 @@ const DuelCameraRig: React.FC<{
   cameraMode: string;
   impactRef: React.MutableRefObject<ImpactState>;
   shakeMultiplierRef: React.MutableRefObject<number>;
-}> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef }) => {
+  disabled?: boolean;
+}> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef, disabled = false }) => {
   const { camera } = useThree();
   // Reuse the camera target scratch vector; this rig runs every rendered frame.
   const targetCamPos = useMemo(() => new THREE.Vector3(), []);
@@ -512,6 +513,7 @@ const DuelCameraRig: React.FC<{
   const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(false, {
     yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
     pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
+    disabled,
   });
 
   useFrame((state, delta) => {
@@ -4026,6 +4028,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               cameraMode={cameraMode}
               impactRef={impactRef}
               shakeMultiplierRef={shakeMultiplierRef}
+              disabled={withdrawConfirmOpen}
             />
           </Canvas>
         </WebGLContextErrorBoundary>
