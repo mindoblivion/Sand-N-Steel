@@ -1663,7 +1663,12 @@ const handleEnterBathhouse = useCallback(() => {
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: calculatedStats,
-    loadout: { weapon: playerProfile.equipped.weapon || DEFAULT_PLAYER_WEAPON },
+    loadout: {
+      weapon: playerProfile.equipped.weapon || DEFAULT_PLAYER_WEAPON,
+      ...(playerProfile.equipped.weapon?.type !== 'spear' && playerProfile.equipped.shield
+        ? { shield: playerProfile.equipped.shield }
+        : {}),
+    },
     comboCount: 0,
     bodyWeightLb: playerProfile.appearance.bodyWeightLb,
     physique: playerProfile.appearance.physique,
