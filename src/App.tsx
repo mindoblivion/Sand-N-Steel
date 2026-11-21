@@ -2276,7 +2276,7 @@ export function App() {
   };
 
   const handleEquipArmor = (armor: ArmorItem) => {
-    if (!profile) return;
+    if (!profile || (armor.slot === 'shield' && profile.equipped.weapon.type === 'spear')) return;
     const updated: PlayerProfile = {
       ...profile,
       equipped: {
