@@ -24,11 +24,12 @@ const base = {
 };
 
 describe('city movement diagnostic snapshots', () => {
-  test('records an unconstrained stride without reporting a collision', () => {
+  test('records an unconstrained stride without reporting a collision or anomaly', () => {
     const snapshot = createCityMovementDiagnosticSnapshot(base);
     expect(snapshot.actualDistance).toBeCloseTo(0.38, 8);
     expect(snapshot.movementRatio).toBeCloseTo(1, 8);
     expect(snapshot.collisionLimited).toBe(false);
+    expect(snapshot.unexpectedDisplacement).toBe(false);
     expect(snapshot.touchActive).toBe(true);
     expect(snapshot.cameraYaw).toBe(Math.PI);
   });
@@ -41,9 +42,36 @@ describe('city movement diagnostic snapshots', () => {
     expect(snapshot.actualDistance).toBeCloseTo(0.12, 8);
     expect(snapshot.movementRatio).toBeCloseTo(0.12 / 0.38, 8);
     expect(snapshot.collisionLimited).toBe(true);
+    expect(snapshot.unexpectedDisplacement).toBe(false);
   });
 
-  test('does not divide by zero when no movement is expected', () => {
+  test('flags a recovery or respawn-sized displacement above the commanded stride', () => {
+    const snapshot = createCityMovementDiagnosticSnapshot({
+      ...base,
+      nextPosition: [1.2, 0, 0],
+    });
+    expect(snapshot.unexpectedDisplacement).toBe(true);
+    expect(snapshot.collisionLimited).toBe(false);
+  });
+
+  test('detects movement while the player has no movement input', () => {
+    const snapshot = createCityMovementDiagnosticSnapshot({
+      ...base,
+      nextPosition: [0.08, 0, 0],
+      rawInputX: 0,
+      rawInputZ: 0,
+      touchX: 0,
+      touchZ: 0,
+      touchActive: false,
+      expectedDistance: 0,
+      speed: 0,
+    });
+    expect(snapshot.movementRatio).toBeNull();
+    expect(snapshot.collisionLimited).toBe(false);
+    expect(snapshot.unexpectedDisplacement).toBe(true);
+  });
+
+  test('does not divide by zero when the player is stationary without input', () => {
     const snapshot = createCityMovementDiagnosticSnapshot({
       ...base,
       nextPosition: [0, 0, 0],
@@ -55,6 +83,7 @@ describe('city movement diagnostic snapshots', () => {
     });
     expect(snapshot.movementRatio).toBeNull();
     expect(snapshot.collisionLimited).toBe(false);
+    expect(snapshot.unexpectedDisplacement).toBe(false);
   });
 
   test('preserves input-lock and keyboard state for lifecycle diagnosis', () => {
