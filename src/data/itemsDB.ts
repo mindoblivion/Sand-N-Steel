@@ -130,8 +130,8 @@ export const WOODEN_DAGGERS: WeaponItem = {
 /**
  * EVERY ACQUIRABLE WEAPON.
  *
- * ORDER IS LOAD-BEARING: index 2 is the spare starter weapon handed to new
- * gladiators (see STARTING_SPARE_WEAPON). Append new weapons at the end.
+ * ORDER IS LOAD-BEARING: the original 0-17 catalogue order is preserved for
+ * existing saves and tests. New material-tier weapons are appended at the end.
  */
 export const ALL_WEAPONS: WeaponItem[] = [
   DEFAULT_PLAYER_WEAPON,
