@@ -687,7 +687,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                           : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
                       }`}
                     >
-                      {isEquipped ? 'Equipped' : arm.slot === 'shield' && profile.equipped.weapon.type === 'spear' ? 'Spear equipped' : 'Equip'}
+                      {isEquipped ? 'Equipped' : arm.slot === 'shield' && !weaponSupportsOffhandShield(profile.equipped.weapon.type) ? 'Off-hand unavailable' : 'Equip'}
                     </button>
                     {!isEquipped && onSellItem && (
                       <SellButton
