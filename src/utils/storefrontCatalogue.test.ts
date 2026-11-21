@@ -14,7 +14,7 @@
  *   §C  forge excludes the starter gladius, and every other weapon is present;
  *   §D  the merchant's thirteen goods are exactly the rare/legendary 13;
  *   §E  forge ∪ armorer = market minus the starter, and the two are disjoint;
- *   §F  the item catalogue itself is untouched — the counts and the
+ *   §F  legacy weapon and armor registries remain stable while shields append — the counts and the
  *       load-bearing `ALL_WEAPONS` order (index 2 is the spare starter);
  *   §G  the scope guard — `shops.ts` derives from `ITEMS_DB` fields (no id or
  *       price table of its own), and exactly three components consume it: the
@@ -32,7 +32,7 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { ALL_ARMORS, ALL_WEAPONS, ITEMS_DB, STARTING_SPARE_WEAPON } from '../data/itemsDB';
+import { ALL_ARMORS, ALL_WEAPONS, ITEMS_DB, ITEMS_BY_CATEGORY, STARTING_SPARE_WEAPON } from '../data/itemsDB';
 import { getStorefrontStock } from '../data/shops';
 
 // ── Sources (for the scope guard) ──────────────────────────────────────────
@@ -170,7 +170,7 @@ describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
 
   test('armorer offers all twenty armor and shield pieces', () => {
     expect(getStorefrontStock('armorer')).toHaveLength(20);
-    expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set(ALL_ARMORS.map((a) => a.id)));
+    expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set([...ALL_ARMORS, ...ITEMS_BY_CATEGORY.shield].map((a) => a.id)));
   });
 
   test('merchant offers exactly the seventeen rare/legendary goods', () => {
@@ -246,7 +246,7 @@ describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
     expect(ALL_WEAPONS).toHaveLength(24);
     expect(ALL_ARMORS).toHaveLength(16);
-    expect(ITEMS_DB).toHaveLength(40);
+    expect(ITEMS_DB).toHaveLength(44);
   });
 
   test('the load-bearing ALL_WEAPONS order is intact', () => {
