@@ -709,7 +709,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     loadout: {
       weapon: playerWeapon,
       ...(playerWeapon.type !== 'spear' && playerProfile.equipped.shield
-        ? { shield: getEffectiveArmorStats(playerProfile.equipped.shield, resolveTemperLevel(playerProfile, playerProfile.equipped.shield.id)) as typeof playerProfile.equipped.shield }
+        ? { shield: getEffectiveArmorStats(playerProfile.equipped.shield, resolveTemperLevel(playerProfile, playerProfile.equipped.shield.id)) }
         : {}),
     },
     comboCount: 0,
