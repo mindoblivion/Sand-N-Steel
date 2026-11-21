@@ -102,6 +102,7 @@ import {
   isRiposteReady,
   shouldQueueRiposte,
 } from '../../utils/combatCounter';
+import { getBracePresentation } from '../../utils/bracePresentation';
 import {
   buildOpponentModifiers,
   buildPlayerModifiers,
@@ -1732,7 +1733,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
-        addLog(`${attacker.name} braces behind their shield.`, isActorPlayer ? 'player' : 'opponent');
+        addLog(`${attacker.name} ${getBracePresentation(attacker.loadout.weapon.type).combatLog}`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('BRACED!', 'blocked', attacker.position);
       } else if (actionType === 'dodge') {
         sounds.playDodge();
