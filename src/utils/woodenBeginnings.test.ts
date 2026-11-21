@@ -21,6 +21,13 @@ describe('WOODEN-1 wooden beginnings', () => {
     expect(WOODEN_SWORD_SHIELD.blockReduction).toBe(0.6);
     expect(WOODEN_SWORD_SHIELD.price).toBe(10);
     expect(WOODEN_SWORD_SHIELD.sellPrice).toBe(4);
+    expect(WOODEN_SWORD_SHIELD.modelPath).toBe('/models/weapons/wooden_sword.glb');
+    expect(WOODEN_SWORD_SHIELD.shieldModelPath).toBe('/models/weapons/wooden_shield.glb');
+  });
+
+  test('wooden spear uses its supplied model and is weaker than the metal progression', () => {
+    expect(STARTING_SPARE_WEAPON.modelPath).toBe('/models/weapons/wooden_spear.glb');
+    expect(STARTING_SPARE_WEAPON.type).toBe('spear');
   });
 
   test('wooden is strictly weaker than the steel gladius', () => {

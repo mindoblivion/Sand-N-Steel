@@ -248,6 +248,7 @@ const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
   '/models/weapons/dirk.glb',
   '/models/weapons/shamshir.glb',
   '/models/weapons/wooden_sword.glb',
+  '/models/weapons/wooden_spear.glb',
   '/models/weapons/bronze_sword.glb',
   '/models/weapons/iron_sword.glb',
   '/models/weapons/steel_sword.glb',
