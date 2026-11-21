@@ -31,8 +31,9 @@ describe('WOODEN-1 wooden beginnings', () => {
 
   test('ALL_WEAPONS indices 0-11 preserved with wooden at index 11', () => {
     expect(ALL_WEAPONS[0]).toBe(DEFAULT_PLAYER_WEAPON);
-    expect(ALL_WEAPONS[2]).toBe(STARTING_SPARE_WEAPON);
-    expect(STARTING_SPARE_WEAPON.id).toBe('hoplite_spear');
+    expect(ALL_WEAPONS[2].id).toBe('hoplite_spear');
+    expect(STARTING_SPARE_WEAPON.id).toBe('wooden_spear');
+    expect(STARTING_SPARE_WEAPON).toBe(ALL_WEAPONS.find((weapon) => weapon.id === 'wooden_spear'));
     expect(ALL_WEAPONS[11]).toBe(WOODEN_SWORD_SHIELD);
     expect(ALL_WEAPONS.indexOf(WOODEN_SWORD_SHIELD)).toBeGreaterThan(2);
   });
