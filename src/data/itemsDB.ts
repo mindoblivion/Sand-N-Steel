@@ -451,19 +451,19 @@ const MATERIAL_SHIELDS: ArmorItem[] = [
     id: 'shield_bronze_round', slot: 'shield', name: 'Bronze Round Shield', rarity: 'uncommon',
     description: 'A bronze-faced round shield with a reinforced central boss.', defense: 0, staminaRegenBonus: 0,
     price: 55, sellPrice: 24, color: '#b45309', trimColor: '#fbbf24',
-    modelPath: MATERIAL_WEAPON_MODEL_PATHS.bronzeShield, blockReduction: 0.64,
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.bronzeShield, blockReduction: 0.72,
   },
   {
     id: 'shield_iron_scuta', slot: 'shield', name: 'Iron Scutum', rarity: 'rare',
     description: 'A reinforced iron-faced scutum built to catch heavy blows.', defense: 0, staminaRegenBonus: 0,
     price: 140, sellPrice: 62, color: '#475569', trimColor: '#cbd5e1',
-    modelPath: MATERIAL_WEAPON_MODEL_PATHS.ironShield, blockReduction: 0.68,
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.ironShield, blockReduction: 0.78,
   },
   {
     id: 'shield_steel_scuta', slot: 'shield', name: 'Steel Scutum', rarity: 'legendary',
     description: 'A steel-faced scutum with a hardened rim and central boss.', defense: 0, staminaRegenBonus: 0,
     price: 320, sellPrice: 145, color: '#334155', trimColor: '#e2e8f0',
-    modelPath: MATERIAL_WEAPON_MODEL_PATHS.steelShield, blockReduction: 0.72,
+    modelPath: MATERIAL_WEAPON_MODEL_PATHS.steelShield, blockReduction: 0.82,
   },
 ];
 
