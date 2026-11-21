@@ -1541,5 +1541,15 @@ export interface PlayerProfile {
     visitorsCompleted?: string[];
     /** L4 — the in-game day of the last successful Elite Merchant House purchase. */
     merchantPurchaseDay?: number;
+    /**
+     * THE GLADIATOR'S FATE — permanent earned card collection and queued level-up
+     * offers. Nested here to preserve the profile's established optional-field
+     * count and legacy save shape; absent means no Fate cards have been chosen.
+     */
+    fate?: {
+      ownedCardIds?: string[];
+      pendingDrafts?: Array<{ level: number; cardIds: [string, string, string] }>;
+      lastDraftedLevel?: number;
+    };
   };
 }
