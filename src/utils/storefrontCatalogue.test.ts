@@ -93,10 +93,6 @@ const ARMORER_IDS = [
   'chest_golden_muscled',
   'arms_manica',
   'legs_greaves_bronze',
-  'shield_wooden_wicker',
-  'shield_bronze_round',
-  'shield_iron_scuta',
-  'shield_steel_scuta',
   'arms_manica_iron',
   'arms_manica_steel',
   'arms_galerus_gilded',
@@ -107,6 +103,10 @@ const ARMORER_IDS = [
   'helm_champion_gilded',
   'chest_lorica_hamata',
   'chest_champion_gilded',
+  'shield_wooden_wicker',
+  'shield_bronze_round',
+  'shield_iron_scuta',
+  'shield_steel_scuta',
 ];
 
 const MERCHANT_IDS = [
@@ -118,8 +118,6 @@ const MERCHANT_IDS = [
   'steel_two_handed_spear',
   'helm_centurion',
   'chest_golden_muscled',
-  'shield_iron_scuta',
-  'shield_steel_scuta',
   'arms_manica_steel',
   'arms_galerus_gilded',
   'legs_greaves_steel',
@@ -127,6 +125,8 @@ const MERCHANT_IDS = [
   'helm_champion_gilded',
   'chest_lorica_hamata',
   'chest_champion_gilded',
+  'shield_iron_scuta',
+  'shield_steel_scuta',
 ];
 
 const MARKET_IDS = ITEMS_DB.map((item) => item.id);
