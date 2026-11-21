@@ -390,9 +390,9 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
   test('the resolution timer is scheduled from the table, exactly once', () => {
     // C-8.70C rebased the call (not the seam): the mode is the one new argument,
     // and Sand is its default, so the shipped pacing is unchanged.
-    // COMBAT-1 rebased the fourth argument: the 15 Nov cut removed
-    // weight-affects-speed, so the recovery multiplier is the neutral 1.
-    expect(duel.match(/\}, turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*1,\s*\)/g)?.length).toBe(1);
+    // Player recovery uses the saved body-weight profile; opponent recovery
+    // remains neutral. The single scheduling call must preserve that split.
+    expect(duel.match(/\},\s*turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer\s*\?\s*playerWeightProfile\.recoveryMultiplier\s*:\s*1,\s*\)/g)?.length).toBe(1);
     // The old fixed hold is no longer a timer argument anywhere, and no 1100 ms
     // literal survives in the scene at all — `cast_net` now carries 880.
     expect(duel).not.toMatch(/\}, 1100\);/);
