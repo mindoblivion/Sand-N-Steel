@@ -1,20 +1,18 @@
 /**
  * ===========================================================================
- * COMBAT-1 — Stagger, Knockback, Recovery (plus the fair-range fix and the
- * weight strip). The slice's pins, one section per brief requirement.
- * Nothing here restates a formula: every expectation is computed with the
- * SHIPPED functions (`combatCalculations.ts`, `combatModifiers.ts`,
- * `combatStagger.ts`, `DuelScene`'s own `turnResolutionMs`), so a change to a
- * formula or a constant moves the assertions with it — except the locked
- * design values (1 turn, 1.2 m, the 9.0 m separation bound, the ±7.5 m
- * position bounds), which are the point of those pins.
+ * COMBAT-1 — Stagger, Knockback, Recovery (plus the fair-range fix and
+ * player body-weight trade-offs). The slice's pins, one section per requirement.
+ * Assertions use shipped combat helpers and source-wiring checks. Locked
+ * design values (1 turn, 1.2 m, the 9.0 m separation bound, and ±7.5 m
+ * position bounds) are pinned explicitly. The weight section separately
+ * verifies the active player-only impact, stamina and recovery modifiers.
  *
  *   §1  the trigger            (power / crit / telegraphed heavy stagger)
  *   §2  the non-triggers       (quick never, blocked power never)
  *   §3  the forced recovery    (one turn, flag clears, player AND AI)
  *   §4  knockback              (1.2 m away, clamped; nobody moves otherwise)
  *   §5  the fair-range fix     (out of range: no stamina, no turn)
- *   §6  the weight strip       (identical cost / damage / hold, multipliers gone)
+ *   §6  the weight trade-offs  (player impact / stamina / recovery; opponents neutral)
  *   §P  persistence            (duel state only — nothing reaches a save)
  *   §X  the wiring, read out of the sources
  *
