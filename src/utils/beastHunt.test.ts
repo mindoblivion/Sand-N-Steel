@@ -40,6 +40,7 @@ import {
   beastFacingYaw,
   getBeastFleeTarget,
   syncBeastTargetPosition,
+  syncBeastTargetYaw,
   clipNameForBeastPose,
   normalizeBeastClipStart,
 } from '../components/3d/BeastFigure';
@@ -731,6 +732,15 @@ describe('D-2 §I — the surfaces the player reads', () => {
     const already = beastFleesWithMaster({ ...createBeastState(), pose: 'fled' });
     expect(already.pose).toBe('fled');
     expect(DUEL_SCENE).toContain('beastFleesWithMaster(beastRef.current)');
+  });
+
+  test('a parent rerender cannot overwrite Ferrum’s retreat heading', () => {
+    const retreatYaw = Math.PI * 1.5;
+    expect(syncBeastTargetYaw(retreatYaw, 0.2, 'fled')).toBe(retreatYaw);
+    expect(syncBeastTargetYaw(retreatYaw, 0.2, 'prowl')).toBe(0.2);
+    const figure = code('src/components/3d/BeastFigure.tsx');
+    expect(figure).toContain('syncBeastTargetYaw(targetYawRef.current, rotationY, pose)');
+    expect(figure).toContain('[rotationY, pose]');
   });
 
   test('a parent rerender cannot overwrite Ferrum’s retreat destination', () => {
