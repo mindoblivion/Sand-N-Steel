@@ -59,6 +59,7 @@ export const CityMovementDiagnosticsPanel: React.FC<CityMovementDiagnosticsPanel
         <span>World direction</span><b>{n(snapshot.worldDirection.x)} / {n(snapshot.worldDirection.z)}</b>
         <span>Expected / actual</span><b>{n(snapshot.expectedDistance)} / {n(snapshot.actualDistance)} m</b>
         <span>Movement ratio</span><b className={snapshot.collisionLimited ? 'text-amber-300' : ''}>{ratio}{snapshot.collisionLimited ? ' · limited' : ''}</b>
+        <span>Unexpected move</span><b className={snapshot.unexpectedDisplacement ? 'text-rose-300' : 'text-emerald-300'}>{snapshot.unexpectedDisplacement ? 'YES' : 'no'}</b>
       </div>
       <button type="button" onClick={copySnapshot} className="mt-2 min-h-9 w-full rounded border border-fuchsia-700 bg-fuchsia-950/60 px-2 text-fuchsia-100">
         {copyState === 'copied' ? 'Snapshot copied' : copyState === 'failed' ? 'Copy unavailable' : 'Copy diagnostic snapshot'}
