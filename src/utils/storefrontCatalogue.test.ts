@@ -162,8 +162,8 @@ describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
     expect(new Set(getStorefrontStock('forge'))).toEqual(new Set(FORGE_IDS));
   });
 
-  test('armorer offers all sixteen armor pieces', () => {
-    expect(getStorefrontStock('armorer')).toHaveLength(16);
+  test('armorer offers all twenty armor and shield pieces', () => {
+    expect(getStorefrontStock('armorer')).toHaveLength(20);
     expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set(ALL_ARMORS.map((a) => a.id)));
   });
 
@@ -239,7 +239,7 @@ describe('SHOP-1 §E — forge + armorer partition the market minus the starter'
 describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
     expect(ALL_WEAPONS).toHaveLength(24);
-    expect(ALL_ARMORS).toHaveLength(16);
+    expect(ALL_ARMORS).toHaveLength(20);
     expect(ITEMS_DB).toHaveLength(40);
   });
 
