@@ -16,9 +16,17 @@ export function getBracePresentation(weaponType: WeaponType): BracePresentation 
     };
   }
 
+  if (weaponType === 'sword_shield') {
+    return {
+      title: 'Shield Guard',
+      description: 'Brace behind your shield to absorb the incoming blow.',
+      combatLog: 'braces behind their shield.',
+    };
+  }
+
   return {
-    title: 'Shield Guard',
-    description: 'Brace behind your shield to absorb the incoming blow.',
-    combatLog: 'braces behind their shield.',
+    title: 'Weapon Brace',
+    description: 'Set your weapons to meet and deflect the incoming blow.',
+    combatLog: 'sets their weapons to meet the blow.',
   };
 }
