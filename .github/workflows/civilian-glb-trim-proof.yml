@@ -1,0 +1,36 @@
+name: Civilian GLB animation trim proof
+
+on:
+  pull_request:
+    paths:
+      - 'public/models/civilian.glb'
+      - 'scripts/prepare-civilian-glb.mjs'
+      - '.github/workflows/civilian-glb-trim-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trim-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Trim unused civilian animations and verify asset integrity
+        run: node scripts/prepare-civilian-glb.mjs public/models/civilian.glb /tmp/civilian-trimmed.glb
+
+      - name: Upload candidate GLB for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: civilian-animation-trim-candidate
+          path: /tmp/civilian-trimmed.glb
+          if-no-files-found: error
+          retention-days: 14
