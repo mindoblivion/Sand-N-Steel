@@ -18,7 +18,9 @@ describe('native Sand & Steel launcher branding', () => {
     expect(iconGenerator).toContain('resize(canvasSize, canvasSize, { fit: \'contain\' })');
     expect(iconSource).toContain('aria-label="Sand and Steel, two gladiators flanking the wordmark"');
     expect(iconSource).toContain('sand&amp;steel');
-    expect(iconSource.match(/<g transform="translate\(512 0\) scale\(-1 1\)">/g)).toHaveLength(1);
+    expect(iconSource).toContain('<g transform="translate(512 0) scale(-1 1)"');
+    expect(iconSource).toContain('translate(51.2 51.2) scale(.8) translate(-256 -256)');
+    expect(packageJson.scripts.build).toContain('node scripts/generateIconAssets.cjs && vite build');
   });
 
   test('the Android application and round icon resolve to adaptive launcher resources', () => {
