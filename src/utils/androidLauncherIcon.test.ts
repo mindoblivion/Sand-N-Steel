@@ -9,6 +9,7 @@ const adaptiveRound = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_
 const pwaManifest = read('../../public/manifest.webmanifest');
 const iconGenerator = read('../../scripts/generateIconAssets.cjs');
 const iconSource = read('../../public/icons/icon-source.svg');
+const packageJson = JSON.parse(read('../../package.json'));
 
 describe('native Sand & Steel launcher branding', () => {
   test('Android and PWA icon generator uses the approved SVG master', () => {
