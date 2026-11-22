@@ -107,7 +107,7 @@ import {
   rivalDriverRoutePosition,
 } from '../../utils/rivalDriver';
 import type { RivalDriverState, RivalRigSnapshot } from '../../utils/rivalDriver';
-import { applyRigSeparation, RIG_SEPARATION_PASSES } from '../../utils/raceRigCollision';
+import { applyRigSeparation } from '../../utils/raceRigCollision';
 import { getTeamWidth } from '../../utils/chariotTeamFormation';
 
 /**
@@ -689,15 +689,11 @@ const RaceRigResolver: React.FC<{
   useFrame(() => {
     if (frozen) return;
     const entries = [...registry.current.values()];
-    // A later pair can push a rig back into an earlier pair. Repeat the
-    // bounded pair sweep so the whole field settles within this frame.
-    for (let pass = 0; pass < RIG_SEPARATION_PASSES; pass += 1) {
-      for (let i = 0; i < entries.length; i += 1) {
-        for (let j = i + 1; j < entries.length; j += 1) {
-          // The collision module applies the pushes (the scene never does
-          // arithmetic on a motion — the movement module owns the motion).
-          applyRigSeparation(entries[i].motion, entries[j].motion);
-        }
+    for (let i = 0; i < entries.length; i += 1) {
+      for (let j = i + 1; j < entries.length; j += 1) {
+        // The collision module applies the pushes (the scene never does
+        // arithmetic on a motion — the movement module owns the motion).
+        applyRigSeparation(entries[i].motion, entries[j].motion);
       }
     }
   });
