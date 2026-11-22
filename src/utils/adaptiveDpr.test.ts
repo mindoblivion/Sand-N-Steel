@@ -135,7 +135,10 @@ describe('A. The tier table — one row per preset', () => {
     expect(CITY_TIERS.cinematic.dpr.max).toBe(2);
     expect(CITY_TIERS.cinematic.shadows).toBe(1024);
     expect(CITY_TIERS.balanced.shadows).toBe(768);
-    expect(CITY_TIERS.swift.shadows).toBe(512);
+    expect(CITY_TIERS.swift.shadows).toBe(0);
+    expect(CITY_TIERS.cinematic.shadowCasting).toBe(true);
+    expect(CITY_TIERS.balanced.shadowCasting).toBe(true);
+    expect(CITY_TIERS.swift.shadowCasting).toBe(false);
   });
 
   test('the ceilings descend from Cinematic to Swift, and Swift starts at its floor', () => {
@@ -416,6 +419,7 @@ describe('D. The wiring — one holder of the value', () => {
 
   test('the Canvas’s dpr is the scene’s own state, and the old constant is gone', () => {
     expect(sceneCode).toContain('dpr={cityDpr}');
+    expect(sceneCode).toContain('shadows={cityTier.shadowCasting}');
     expect(sceneCode).not.toContain('dpr={[1, 2]}');
     expect(sceneCode).toContain('useState<number>');
     expect(sceneSrc).toContain('CITY_TIERS[qualityPreset].dpr.start');
@@ -582,6 +586,7 @@ describe('E. The preset — a name, a legacy spelling, or a first-run default', 
 describe('F. The duel shares the player quality budget', () => {
   test('Duel Canvas adapts DPR, scales ambient particles and keeps shadows at the selected tier', () => {
     expect(duelCode).toContain('dpr={duelDpr}');
+    expect(duelCode).toContain('shadows={CITY_TIERS[qualityPreset].shadowCasting}');
     expect(duelCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
     expect(duelCode).toContain('tier={qualityPreset}');
     expect(duelCode).toContain('CITY_TIERS[qualityPreset].dpr.start');
@@ -596,6 +601,7 @@ describe('F. The duel shares the player quality budget', () => {
 describe('G. Circus racing shares the player quality budget', () => {
   test('Race Canvas adapts DPR and scales the large arena shadow map by tier', () => {
     expect(raceCode).toContain('dpr={raceDpr}');
+    expect(raceCode).toContain('shadows={CITY_TIERS[qualityPreset].shadowCasting}');
     expect(raceCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
     expect(raceCode).toContain('tier={qualityPreset}');
     expect(raceCode).toContain('CITY_TIERS[qualityPreset].dpr.start');

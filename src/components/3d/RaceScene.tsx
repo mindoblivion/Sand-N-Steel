@@ -1420,7 +1420,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
           onFallbackTo2D={handleAbort}
         >
           <Canvas
-            shadows
+            shadows={CITY_TIERS[qualityPreset].shadowCasting}
             frameloop={frameloopMode}
             dpr={raceDpr}
             camera={{ position: RACE_CAMERA_POSITION, fov: CHARIOT_CHASE_CAMERA.fovAtRest, near: 0.1, far: 160 }}

@@ -3876,7 +3876,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           onFallbackTo2D={onOpenArmory}
         >
           <Canvas
-            shadows
+            shadows={CITY_TIERS[qualityPreset].shadowCasting}
             dpr={duelDpr}
             frameloop={frameloopMode}
             camera={{ position: [0, 6, 12], fov: 45, near: 0.1, far: 80 }}
