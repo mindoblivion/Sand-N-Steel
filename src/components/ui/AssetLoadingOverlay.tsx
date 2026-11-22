@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useProgress } from '@react-three/drei';
+import { useProgress } from '@react-three/drei/core/Progress';
 import { Shield, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
 import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
 import { resolveAssetLoadingOverlayVisibility } from './assetLoadingOverlayState';
