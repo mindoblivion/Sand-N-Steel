@@ -184,9 +184,9 @@ keytool -genkeypair -noprompt \
 base64 -w 0 Sand-and-Steel-Rehearsal.keystore > rehearsal-keystore-base64.txt
 chmod 600 Sand-and-Steel-Rehearsal.keystore rehearsal-keystore-base64.txt
 
-printf 'STORE_PASSWORD: %s\\n' "$STORE_PASSWORD"
-printf 'KEY_PASSWORD: %s\\n' "$KEY_PASSWORD"
-printf 'KEY_ALIAS: rehearsal\\n'
+printf 'STORE_PASSWORD: %s\n' "$STORE_PASSWORD"
+printf 'KEY_PASSWORD: %s\n' "$KEY_PASSWORD"
+printf 'KEY_ALIAS: rehearsal\n'
 printf 'CERT_SHA256: '
 keytool -list -v -keystore Sand-and-Steel-Rehearsal.keystore \
   -storepass "$STORE_PASSWORD" -alias rehearsal | awk '/SHA256:/{print $2; exit}'
