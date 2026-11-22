@@ -1759,7 +1759,7 @@ const handleEnterBathhouse = useCallback(() => {
               position={lights.sunPosition}
               intensity={lights.keyIntensity}
               color={lights.keyColor}
-              castShadow={cityTier.shadowCasting}
+              castShadow
               shadow-mapSize={[cityTier.shadows, cityTier.shadows]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
