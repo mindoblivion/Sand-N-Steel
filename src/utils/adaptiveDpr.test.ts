@@ -495,6 +495,8 @@ describe('E. The preset — a name, a legacy spelling, or a first-run default', 
   });
 
   test('low RAM OR few logical cores independently selects the low-cost preset', () => {
+    expect(CHEAP_DEVICE_MEMORY_GB).toBe(4);
+    expect(CHEAP_DEVICE_CORES).toBe(4);
     expect(isCheapDevice({ deviceMemory: 2 })).toBe(true);
     expect(isCheapDevice({ deviceMemory: 4 })).toBe(true);
     expect(isCheapDevice({ hardwareConcurrency: 2 })).toBe(true);
