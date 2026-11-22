@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { Html, useThree } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
 import type { QualityPreset } from '../../services/settings';
 
 interface CityRenderSnapshot {
