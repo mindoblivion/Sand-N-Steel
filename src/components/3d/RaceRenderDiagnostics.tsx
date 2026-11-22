@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import type { RaceState } from '../../utils/raceState';
 
 type RaceDiagnosticsSnapshot = {
+  raceState: RaceState;
+  frozen: boolean;
   fps: number;
   frameMsAvg: number;
   frameMsP95: number;
@@ -22,7 +25,7 @@ type RaceDiagnosticsSnapshot = {
  * overlay is available only in this diagnostic component; it does not alter
  * scene quality, render settings, simulation timing, or production UI.
  */
-export function RaceRenderDiagnostics() {
+export function RaceRenderDiagnostics({ raceState, frozen }: { raceState: RaceState; frozen: boolean }) {
   const { gl } = useThree();
   const elapsed = useRef(0);
   const frameTimes = useRef<number[]>([]);
@@ -50,6 +53,8 @@ export function RaceRenderDiagnostics() {
       values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
     const drawingBuffer: [number, number] = [gl.domElement.width, gl.domElement.height];
     const nextSnapshot: RaceDiagnosticsSnapshot = {
+      raceState,
+      frozen,
       fps: Number((frameTimes.current.length / elapsed.current).toFixed(1)),
       frameMsAvg: Number(average(frameTimes.current).toFixed(2)),
       frameMsP95: Number(percentile95.toFixed(2)),
@@ -132,6 +137,7 @@ export function RaceRenderDiagnostics() {
       <div style={{ fontWeight: 700, color: '#e7c98b', marginBottom: 3 }}>
         RACE PROFILER · DEVELOPMENT
       </div>
+      <div>PHASE {snapshot.raceState.toUpperCase()} · {snapshot.frozen ? 'FROZEN' : 'LIVE'}</div>
       <div>FPS {snapshot.fps.toFixed(1)}  ·  AVG {snapshot.frameMsAvg.toFixed(1)} ms  ·  P95 {snapshot.frameMsP95.toFixed(1)} ms</div>
       <div>DRAW {snapshot.drawCallsAvg.toFixed(0)} avg / {snapshot.drawCallsPeak} peak  ·  TRI {snapshot.trianglesAvg.toLocaleString()}</div>
       <div>DPR {snapshot.pixelRatio.toFixed(2)}  ·  BUFFER {snapshot.drawingBuffer[0]}×{snapshot.drawingBuffer[1]}</div>
