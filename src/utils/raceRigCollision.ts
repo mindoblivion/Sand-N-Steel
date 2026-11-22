@@ -26,9 +26,6 @@ export interface RigOutline {
 }
 
 /** The movement module's body circle (r 1.05) and nose circle (r 0.7, 2.02 ahead). */
-/** Bounded Gauss-Seidel passes keep multi-rig separation stable after later pairs move earlier rigs. */
-export const RIG_SEPARATION_PASSES = 2;
-
 export const RIG_BODY_RADIUS = 1.05;
 export const RIG_NOSE_RADIUS = 0.7;
 export const RIG_NOSE_FORWARD = 2.02;
