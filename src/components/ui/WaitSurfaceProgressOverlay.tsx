@@ -1,7 +1,7 @@
 import React from 'react';
 import { useProgress } from '@react-three/drei/core/Progress';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { resolveWaitSurfaceProgress } from './waitSurfaceProgress';
+import { resolveWaitSurfaceProgressOverlay } from './waitSurfaceProgress';
 
 function reload(): void {
   try {
@@ -12,7 +12,7 @@ function reload(): void {
 }
 
 /** The Drei-backed portion is loaded only while a destination wait surface is mounted. */
-export const WaitSurfaceProgress: React.FC = () => {
+export const WaitSurfaceProgressOverlay: React.FC = () => {
   const { active, progress, loaded, total, errors } = useProgress();
   const hasErrors = errors && errors.length > 0;
 
@@ -39,7 +39,7 @@ export const WaitSurfaceProgress: React.FC = () => {
     );
   }
 
-  const { knowsCount, pct } = resolveWaitSurfaceProgress(active, total, progress);
+  const { knowsCount, pct } = resolveWaitSurfaceProgressOverlay(active, total, progress);
   return (
     <>
       <div
