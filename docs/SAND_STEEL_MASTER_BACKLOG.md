@@ -18,7 +18,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 
 ## Latest verified mainline reconciliation — 2026-11-22 (after PR #572)
 
-Main is at `0b82c4d9068ef9b0bb6a224e5f32d92f8b6974c7`. PR #572 is a documentation-only correction to the Android rehearsal-signing setup instructions. There are **no open pull requests** and three open acceptance/setup issues: #329, #456 and #458.
+Main is at `0b82c4d9068ef9b0bb6a224e5f32d92f8b6974c7`. PR #572 is a documentation-only correction to the Android rehearsal-signing setup instructions. The only open pull request is this backlog reconciliation, PR #573; the three open acceptance/setup issues are #329, #456 and #458.
 
 - **Android signing instructions:** PR [#572](https://github.com/mindoblivion/Sand-N-Steel/pull/572) merged as `0b82c4d`. It corrects three Termux `printf` format strings so generated values appear on separate lines. Both required CI checks passed on the exact PR head. No secrets, signing material, workflow logic, or game code changed.
 - **Movement and device acceptance:** issue [#329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) remains open. The six-second S24 movement trace is still the next decisive evidence; no movement-physics change is justified without it. The previously built profiler APK remains the current trace-collection artifact unless a later loading-surface or profiler change requires rebuilding.
