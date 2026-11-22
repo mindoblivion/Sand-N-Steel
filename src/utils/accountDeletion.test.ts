@@ -477,7 +477,12 @@ describe('E. The public surfaces', () => {
     const app = code('../App.tsx');
     expect(app).toContain('onDeleteAccount={authUser ? () => setDeleteAccountOpen(true) : undefined}');
     expect(app).toContain('onEraseDeviceData={authUser ? undefined : handleResetGame}');
-    expect(app).toContain('useEffect(() => subscribeAuthUser(setAuthUser), []);');
+    // Firebase session observation is deferred to the account settings lifecycle.
+    expect(app).toContain("if (!settingsOpen) return;");
+    expect(app).toContain("import('./services/googleAuth').then(({ subscribeAuthUser }) => {");
+    expect(app).toContain("if (active) unsubscribe = subscribeAuthUser(setAuthUser);");
+    expect(app).toContain("unsubscribe?.();");
+    expect(app).toContain("await import('./services/googleAuth')");
     expect(app).toContain('<DeleteAccountModal');
     expect(app).toContain('providerIds: authUser.providerData.map((provider) => provider.providerId)');
     // Success drops App's own profile state and returns to the title.
