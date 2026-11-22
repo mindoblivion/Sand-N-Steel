@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const assetLoadingSrc = readFileSync(new URL('../components/ui/AssetLoadingOverlayContent.tsx', import.meta.url), 'utf8');
 const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurfaceProgress.tsx', import.meta.url), 'utf8');
+const waitSurfaceShellSrc = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
 
 describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
   test('AssetLoadingOverlay checks useProgress errors and presents retry action instead of hiding silently', () => {
@@ -29,8 +30,9 @@ describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
 
   test('Both loading surfaces preserve Colosseum backdrop class and avoid touching local saves', () => {
     expect(assetLoadingSrc).toContain('COLOSSEUM_LOADING_CLASS');
-    expect(waitSurfaceSrc).toContain('COLOSSEUM_LOADING_CLASS');
+    expect(waitSurfaceShellSrc).toContain('COLOSSEUM_LOADING_CLASS');
     expect(assetLoadingSrc).not.toContain('localStorage');
     expect(waitSurfaceSrc).not.toContain('localStorage');
+    expect(waitSurfaceShellSrc).not.toContain('localStorage');
   });
 });
