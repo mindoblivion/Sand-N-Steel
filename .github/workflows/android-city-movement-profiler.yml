@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   profiler-apk:
-    name: Build isolated city movement diagnostic APK
+    name: Build isolated city performance diagnostic APK
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
