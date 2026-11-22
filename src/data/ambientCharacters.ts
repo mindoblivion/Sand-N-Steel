@@ -35,10 +35,23 @@ export const AMBIENT_CHARACTERS: FighterState[] = [
   createAmbientFighter('forge_smith', 'Smith', 'roman_warrior', [5, 0, 5], 0),
   createAmbientFighter('tavern_patron', 'Patron', 'roman_warrior', [-5, 0, -5], Math.PI),
   createAmbientFighter('gate_guard', 'Guard', 'roman_warrior', [0, 0, 10], 0),
-  createAmbientFighter('colosseum_guard_1', 'Guard', 'roman_warrior', [10, 0, 10], Math.PI/2),
-  createAmbientFighter('colosseum_gladiator_1', 'Gladiator', 'roman_warrior', [10, 0, 12], Math.PI/2),
   createAmbientFighter('academy_instructor', 'Instructor', 'roman_warrior', [-10, 0, -10], -Math.PI/2),
   createAmbientFighter('market_merchant', 'Merchant', 'roman_warrior', [5, 0, -5], Math.PI/4),
+  createAmbientFighter('colosseum_guard_1', 'Guard', 'roman_warrior', [10, 0, 10], Math.PI/2),
+  createAmbientFighter('colosseum_gladiator_1', 'Gladiator', 'roman_warrior', [10, 0, 12], Math.PI/2),
   createAmbientFighter('ludus_gladiator_1', 'Trainee', 'roman_warrior', [-5, 0, 5], Math.PI/4),
   createAmbientFighter('ludus_gladiator_2', 'Trainee', 'roman_warrior', [-7, 0, 5], -Math.PI/4),
 ];
+
+// Swift keeps the essential city-service NPCs but omits four decorative idle rigs.
+// The full roster remains available in Balanced and Cinematic.
+const LOW_END_AMBIENT_IDS = new Set([
+  'forge_smith',
+  'tavern_patron',
+  'gate_guard',
+  'academy_instructor',
+  'market_merchant',
+]);
+export const LOW_END_AMBIENT_CHARACTERS = AMBIENT_CHARACTERS.filter((fighter) =>
+  LOW_END_AMBIENT_IDS.has(fighter.id),
+);
