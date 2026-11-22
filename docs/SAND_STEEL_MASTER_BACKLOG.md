@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Latest verified mainline baseline: `40cd1401acc2a5f55e59c865ffef2207ccdcb109` (2026-11-22). Historical reconciliation entries below are retained as an audit trail; the newest reconciliation at the top is authoritative.
+> Living project index. Latest verified mainline baseline: `e31955ae0bcaffeb7dbe1db7dbc7bee8b6cd5ea2` (2026-11-22, after PR #570). Historical reconciliation entries below are retained as an audit trail; the newest reconciliation at the top is authoritative.
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -16,10 +16,11 @@ A task is **not complete** merely because code exists or CI passes. Use these st
 
 Never report physical-device validation, measured FPS, or visual acceptance without actual evidence. Distinguish confirmed defects from suspected causes. Keep unrelated fixes in separate PRs. Merge only after required checks and acceptance boundaries are satisfied; public release still requires explicit owner authorization.
 
-## Latest verified mainline reconciliation — 2026-11-22 (after PR #569)
+## Latest verified mainline reconciliation — 2026-11-22 (after PR #570)
 
-Main is at `40cd1401acc2a5f55e59c865ffef2207ccdcb109`. There are **no open engineering PRs** and three open acceptance/setup issues: #329, #456 and #458.
+Main is at `e31955ae0bcaffeb7dbe1db7dbc7bee8b6cd5ea2`. PR #570 is a documentation-only reconciliation update; there are **no open engineering PRs** and three open acceptance/setup issues: #329, #456 and #458.
 
+- **Backlog reconciliation:** PR [#570](https://github.com/mindoblivion/Sand-N-Steel/pull/570) merged as `e31955ae`; it updates the documentation baseline after the launcher-icon and movement-trace changes. No game code changed.
 - **Android launcher icon:** PR [#569](https://github.com/mindoblivion/Sand-N-Steel/pull/569) merged to main as `40cd1401`. The master SVG now depicts two opposing gladiators flanking the centered `sand&steel` wordmark; adaptive foreground, legacy launcher and PWA assets are generated from that source. The corrected icon transform and circular safe-area test passed. The packaged APK contains the expected density assets and adaptive launcher XML. Actual Samsung One UI installed-icon rendering remains unverified.
 - **Movement diagnostics:** PR [#568](https://github.com/mindoblivion/Sand-N-Steel/pull/568) merged as `c666fbd`. It adds a rolling trace of up to 40 samples at 150 ms intervals (approximately six seconds) to the development city diagnostics panel. The fresh profiler APK below is built from the corrected PR #569 head, so it includes both the trace export and launcher icon.
 - **Current movement-profiler APK:** workflow [44981150639](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/44981150639), artifact ID `14737169370`, package `com.phatass.sandandsteel.profiler`, SHA-256 `94cf65d8c806b8a94f41abcc1d0a21de60806e40d81116e3b37f945b9eb17fd4`. This is a development diagnostic build, not a public release. Its icon resources were inspected inside the APK; Samsung launcher-mask rendering and all movement behavior remain unverified.
