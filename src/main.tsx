@@ -32,7 +32,8 @@ const useCharacterHarness =
 // Combat animation audit — isolated, read-only inventory of the shipped Roman GLB.
 const useAnimationInventoryHarness =
   import.meta.env.DEV &&
-  new URLSearchParams(window.location.search).get('devHarness') === 'animations';
+  (new URLSearchParams(window.location.search).get('devHarness') === 'animations' ||
+    (import.meta.env as ImportMetaEnv & { VITE_DEV_ANIMATION_INVENTORY?: string }).VITE_DEV_ANIMATION_INVENTORY === '1');
 
 // Phase C-8.66C — development-only Chariot Workshop transaction harness.
 // Reachable ONLY in a Vite dev build, either through the exact
