@@ -60,6 +60,7 @@ import {
   resolveSettings,
 } from '../services/settings';
 import type { QualityPreset, Settings } from '../services/settings';
+import { AMBIENT_CHARACTERS, LOW_END_AMBIENT_CHARACTERS } from '../data/ambientCharacters';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -398,6 +399,14 @@ describe('C. stepAdaptiveDpr — pure, total, and banded', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('D. The wiring — one holder of the value', () => {
+  test('Swift retains service NPCs and removes only four decorative idle rigs', () => {
+    expect(AMBIENT_CHARACTERS).toHaveLength(9);
+    expect(LOW_END_AMBIENT_CHARACTERS.map((fighter) => fighter.id).sort()).toEqual([
+      'academy_instructor', 'forge_smith', 'gate_guard', 'market_merchant', 'tavern_patron',
+    ]);
+    expect(sceneCode).toContain('qualityPreset === \'swift\' ? LOW_END_AMBIENT_CHARACTERS : AMBIENT_CHARACTERS');
+  });
+
   test('the engine runs inside the Canvas, from the frame loop', () => {
     expect(hookCode).toContain("from '@react-three/fiber'");
     expect(hookCode).toContain('useFrame(');
