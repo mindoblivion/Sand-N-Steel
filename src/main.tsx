@@ -30,6 +30,8 @@ const useCharacterHarness =
   new URLSearchParams(window.location.search).get('devHarness') === 'character';
 
 // Combat animation audit — isolated, read-only inventory of the shipped Roman GLB.
+// The opt-in VITE_DEV_ANIMATION_INVENTORY flag is used only by the dedicated
+// unsigned profiler APK workflow; the import.meta.env.DEV guard remains mandatory.
 const useAnimationInventoryHarness =
   import.meta.env.DEV &&
   (new URLSearchParams(window.location.search).get('devHarness') === 'animations' ||
