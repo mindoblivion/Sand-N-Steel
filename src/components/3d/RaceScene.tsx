@@ -1434,7 +1434,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             {import.meta.env.DEV && (
               import.meta.env.VITE_DEV_RACE_STATS === '1' ||
               (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('devRaceStats') === '1')
-            ) && <RaceRenderDiagnostics />}
+            ) && <RaceRenderDiagnostics raceState={raceState} frozen={frozen} />}
             {/* Shared adaptive pixel governor; suspended while race settings are open. */}
             <RaceAdaptiveDpr
               tier={qualityPreset}
