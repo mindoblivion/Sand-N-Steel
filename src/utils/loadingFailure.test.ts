@@ -2,8 +2,8 @@
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-const assetLoadingSrc = readFileSync(new URL('../components/ui/AssetLoadingOverlay.tsx', import.meta.url), 'utf8');
-const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
+const assetLoadingSrc = readFileSync(new URL('../components/ui/AssetLoadingOverlayContent.tsx', import.meta.url), 'utf8');
+const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurfaceProgress.tsx', import.meta.url), 'utf8');
 
 describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
   test('AssetLoadingOverlay checks useProgress errors and presents retry action instead of hiding silently', () => {
@@ -19,6 +19,12 @@ describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
     expect(waitSurfaceSrc).toContain('hasErrors');
     expect(waitSurfaceSrc).toContain('Asset download failed');
     expect(waitSurfaceSrc).toContain('Try again');
+  });
+
+  test('the static wait shell defers the Drei-backed progress reader', () => {
+    const shell = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
+    expect(shell).toContain("import('./WaitSurfaceProgress')");
+    expect(shell).not.toContain('useProgress');
   });
 
   test('Both loading surfaces preserve Colosseum backdrop class and avoid touching local saves', () => {
