@@ -260,7 +260,7 @@ describe('A. PHASE_LIGHT — seven rows, verbatim', () => {
   });
 
   test('the ruling is recorded ON the table, where a future edit will see it', () => {
-    const source = load('./atmosphere.ts');
+    const source = load('./atmosphereData.ts');
     const rulingAt = source.indexOf('DIRECTOR RULING A (authoritative');
     const tableAt = source.indexOf('export const PHASE_LIGHT');
     expect(rulingAt).toBeGreaterThan(-1);

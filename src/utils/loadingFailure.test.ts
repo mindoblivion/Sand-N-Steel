@@ -2,8 +2,9 @@
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-const assetLoadingSrc = readFileSync(new URL('../components/ui/AssetLoadingOverlay.tsx', import.meta.url), 'utf8');
-const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
+const assetLoadingSrc = readFileSync(new URL('../components/ui/AssetLoadingOverlayContent.tsx', import.meta.url), 'utf8');
+const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurfaceProgressOverlay.tsx', import.meta.url), 'utf8');
+const waitSurfaceShellSrc = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
 
 describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
   test('AssetLoadingOverlay checks useProgress errors and presents retry action instead of hiding silently', () => {
@@ -21,10 +22,17 @@ describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
     expect(waitSurfaceSrc).toContain('Try again');
   });
 
+  test('the static wait shell defers the Drei-backed progress reader', () => {
+    const shell = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
+    expect(shell).toContain("import('./WaitSurfaceProgressOverlay')");
+    expect(shell).not.toContain('useProgress');
+  });
+
   test('Both loading surfaces preserve Colosseum backdrop class and avoid touching local saves', () => {
     expect(assetLoadingSrc).toContain('COLOSSEUM_LOADING_CLASS');
-    expect(waitSurfaceSrc).toContain('COLOSSEUM_LOADING_CLASS');
+    expect(waitSurfaceShellSrc).toContain('COLOSSEUM_LOADING_CLASS');
     expect(assetLoadingSrc).not.toContain('localStorage');
     expect(waitSurfaceSrc).not.toContain('localStorage');
+    expect(waitSurfaceShellSrc).not.toContain('localStorage');
   });
 });

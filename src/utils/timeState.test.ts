@@ -594,6 +594,7 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'components/hub/SettingsModal.tsx',
       'components/ui/PhaseMedallion.tsx',
       'utils/atmosphere.ts',
+      'utils/atmosphereData.ts',
       'utils/cityFixtureGlow.ts',
       // L2 daily merchant rotation is a pure resolver consumer, not a clock writer.
       'utils/cityRotation.ts',

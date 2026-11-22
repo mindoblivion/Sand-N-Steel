@@ -17,7 +17,7 @@ import { getArmatura } from '../../data/armaturae';
 import { getPalma, type Palma } from '../../data/palmae';
 // Day/Night T3 — the hour the bout is fought in, as FLAVOUR COPY: the duel card's own
 // Latin phase line. Availability, mode and every figure on this card are untouched.
-import { DEFAULT_PHASE } from '../../utils/atmosphere';
+import { DEFAULT_PHASE } from '../../utils/atmosphereData';
 import { duelPhaseLine } from '../../utils/phaseFlavor';
 import type { TimePhase } from '../../utils/timeState';
 // C-8.70C — the grudge's two sentences, built from the generated row itself.

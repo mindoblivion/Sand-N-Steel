@@ -34,4 +34,34 @@ describe('deferred title and Ludus screens', () => {
     expect(app).toContain("if (!settingsOpen) return;");
   });
 
+  test('the title import graph defers Drei-backed progress readers until a destination transition', () => {
+    const waitSurface = readFileSync('src/components/ui/WaitSurface.tsx', 'utf8');
+    const waitProgress = readFileSync('src/components/ui/WaitSurfaceProgressOverlay.tsx', 'utf8');
+    const overlayShell = readFileSync('src/components/ui/AssetLoadingOverlay.tsx', 'utf8');
+    const overlayContent = readFileSync('src/components/ui/AssetLoadingOverlayContent.tsx', 'utf8');
+    expect(app).toContain("import { WaitSurface } from './components/ui/WaitSurface';");
+    expect(app).toContain("import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';");
+    expect(app).toContain("{currentScreen !== 'title' && <AssetLoadingOverlay />}");
+    expect(waitSurface).toContain("import('./WaitSurfaceProgressOverlay')");
+    expect(waitSurface).not.toContain('useProgress');
+    expect(overlayShell).toContain("import('./AssetLoadingOverlayContent')");
+    expect(overlayShell).not.toContain('useProgress');
+    expect(waitProgress).toContain("from '@react-three/drei/core/Progress'");
+    expect(overlayContent).toContain("from '@react-three/drei/core/Progress'");
+  });
+
+  test('startup settings use Three-free atmosphere data instead of the renderer module', () => {
+    const settings = readFileSync('src/services/settings.ts', 'utf8');
+    const atmosphereData = readFileSync('src/utils/atmosphereData.ts', 'utf8');
+    const atmosphereRenderer = readFileSync('src/utils/atmosphere.ts', 'utf8');
+    const timeState = readFileSync('src/utils/timeState.ts', 'utf8');
+
+    expect(settings).toContain("from '../utils/atmosphereData'");
+    expect(settings).not.toContain("from '../utils/atmosphere'");
+    expect(atmosphereData).not.toMatch(/from ['\"]three['\"]/);
+    expect(atmosphereData).not.toContain('THREE.');
+    expect(timeState).not.toMatch(/from ['\"]three['\"]/);
+    expect(atmosphereRenderer).toContain("import * as THREE from 'three'");
+  });
+
 });

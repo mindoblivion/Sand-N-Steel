@@ -35,7 +35,7 @@
  * other phase, and `crowdDress` is 0 in both. Do not extend the spectacle to a non-boss
  * fight, and do not move a boss moment into this module.
  */
-import { PHASE_LIGHT, sunDirection, type PhaseLight } from './atmosphere';
+import { PHASE_LIGHT, sunDirection, type PhaseLight } from './atmosphereData';
 import type { TimePhase } from './timeState';
 
 /** Fog bands for the ring, in world units. */

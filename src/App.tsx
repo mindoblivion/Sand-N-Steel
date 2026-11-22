@@ -2377,7 +2377,7 @@ export function App() {
   return (
     <div className="w-full h-full min-h-[100dvh] bg-neutral-950 text-amber-100 overflow-hidden select-none">
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
-        <AssetLoadingOverlay />
+        {currentScreen !== 'title' && <AssetLoadingOverlay />}
 
         {/* START-1 — the offline surface. Non-blocking on purpose: the service-worker
             shell may still hold a playable game, so this informs and offers a Retry

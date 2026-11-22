@@ -77,7 +77,9 @@ const bootShellSrc = load('./bootShell.ts');
 const nudgeSrc = load('./postOathNudge.ts');
 const failureSrc = load('../components/ui/GameFailureSurface.tsx');
 const waitSurfaceSrc = load('../components/ui/WaitSurface.tsx');
-const assetLoadingSrc = load('../components/ui/AssetLoadingOverlay.tsx');
+const waitSurfaceProgressSrc = load('../components/ui/WaitSurfaceProgressOverlay.tsx');
+const assetLoadingSrc = load('../components/ui/AssetLoadingOverlayContent.tsx');
+const assetLoadingShellSrc = load('../components/ui/AssetLoadingOverlay.tsx');
 const packageJson = JSON.parse(load('../../package.json'));
 const assetCheckSrc = load('../../scripts/startupAssetCheck.ts');
 
@@ -279,13 +281,17 @@ describe('D. The sequence', () => {
     expect(assetLoadingSrc).toContain('setTimeout(() => setRecoveryAvailable(true), 30000)');
     expect(assetLoadingSrc).toContain('clearTimeout(recoveryTimer)');
     expect(assetLoadingSrc).toContain('Continue in background');
-    for (const source of [waitSurfaceSrc, assetLoadingSrc]) {
+    for (const source of [waitSurfaceProgressSrc, assetLoadingSrc]) {
       expect(source).toContain('data-loading-cover="true"');
       expect(source).toContain('data-loading-progress="true"');
       expect(source).toContain("bottom: 'max(4vh, calc(env(safe-area-inset-bottom, 0px) + 24px))'");
       expect(source).toContain('role="progressbar"');
       expect(source).toContain('wait-sweep');
     }
+    expect(waitSurfaceSrc).toContain("import('./WaitSurfaceProgressOverlay')");
+    expect(waitSurfaceSrc).not.toContain('useProgress');
+    expect(assetLoadingShellSrc).toContain("import('./AssetLoadingOverlayContent')");
+    expect(appSrc).toContain("{currentScreen !== 'title' && <AssetLoadingOverlay />}");
     // City, Tavern, Colosseum, Forge, character creation and school hub lazy fallbacks.
     expect(appSrc.split('<WaitSurface destination="city_hub" />').length - 1).toBeGreaterThanOrEqual(4);
     expect(appSrc).toContain('<WaitSurface destination="character_creation" rotate={false} />');
