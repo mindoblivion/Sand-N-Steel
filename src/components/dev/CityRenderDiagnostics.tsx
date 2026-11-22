@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { QualityPreset } from '../../services/settings';
@@ -15,6 +15,7 @@ interface CityRenderSnapshot {
   drawingBuffer: [number, number];
   geometries: number;
   textures: number;
+  gpuRenderer: string;
 }
 
 /**
@@ -30,6 +31,16 @@ export function CityRenderDiagnostics({ qualityPreset }: { qualityPreset: Qualit
   const triangles = useRef<number[]>([]);
   const [snapshot, setSnapshot] = useState<CityRenderSnapshot | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  useEffect(() => {
+    // Never combine samples from two different quality tiers.
+    elapsed.current = 0;
+    frameTimes.current = [];
+    drawCalls.current = [];
+    triangles.current = [];
+    setSnapshot(null);
+    setCopyState('idle');
+  }, [qualityPreset]);
 
   useFrame((_state, delta) => {
     elapsed.current += delta;
@@ -47,6 +58,11 @@ export function CityRenderDiagnostics({ qualityPreset }: { qualityPreset: Qualit
       Math.floor(sortedFrameTimes.length * 0.95),
     )] ?? 0;
 
+    const context = gl.getContext();
+    const debugInfo = context.getExtension('WEBGL_debug_renderer_info');
+    const gpuRenderer = debugInfo
+      ? String(context.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL))
+      : String(context.getParameter(context.RENDERER));
     setSnapshot({
       qualityPreset,
       fps: Number((frameTimes.current.length / elapsed.current).toFixed(1)),
@@ -59,6 +75,7 @@ export function CityRenderDiagnostics({ qualityPreset }: { qualityPreset: Qualit
       drawingBuffer: [gl.domElement.width, gl.domElement.height],
       geometries: gl.info.memory.geometries,
       textures: gl.info.memory.textures,
+      gpuRenderer,
     });
     setCopyState('idle');
 
@@ -73,6 +90,11 @@ export function CityRenderDiagnostics({ qualityPreset }: { qualityPreset: Qualit
     const report = JSON.stringify({
       capturedAt: new Date().toISOString(),
       sampleWindowSeconds: 5,
+      device: {
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency ?? null,
+        deviceMemoryGb: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null,
+      },
       ...snapshot,
     }, null, 2);
     try {
