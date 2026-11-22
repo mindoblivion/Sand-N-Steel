@@ -4,6 +4,17 @@ export function getExpectedCityMovementDistance(speed: number, frameDeltaSeconds
   return speed * Math.min(Math.max(0, frameDeltaSeconds), CITY_MOVEMENT_MAX_DELTA_SECONDS);
 }
 
+export const CITY_MOVEMENT_TRACE_SAMPLE_LIMIT = 40;
+
+export function appendCityMovementDiagnosticSample(
+  samples: CityMovementDiagnosticSnapshot[],
+  next: CityMovementDiagnosticSnapshot,
+  maxSamples = CITY_MOVEMENT_TRACE_SAMPLE_LIMIT,
+): CityMovementDiagnosticSnapshot[] {
+  const limit = Math.max(1, Math.floor(maxSamples));
+  return [...samples, next].slice(-limit);
+}
+
 export interface CityMovementDiagnosticSnapshot {
   capturedAtMs: number;
   position: [number, number, number];
