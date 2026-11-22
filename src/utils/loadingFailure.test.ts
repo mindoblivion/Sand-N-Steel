@@ -3,7 +3,7 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 const assetLoadingSrc = readFileSync(new URL('../components/ui/AssetLoadingOverlayContent.tsx', import.meta.url), 'utf8');
-const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurfaceProgress.tsx', import.meta.url), 'utf8');
+const waitSurfaceSrc = readFileSync(new URL('../components/ui/WaitSurfaceProgressOverlay.tsx', import.meta.url), 'utf8');
 const waitSurfaceShellSrc = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
 
 describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
@@ -24,7 +24,7 @@ describe('Loading and Asset Failure Recovery Flow (Audit PR)', () => {
 
   test('the static wait shell defers the Drei-backed progress reader', () => {
     const shell = readFileSync(new URL('../components/ui/WaitSurface.tsx', import.meta.url), 'utf8');
-    expect(shell).toContain("import('./WaitSurfaceProgress')");
+    expect(shell).toContain("import('./WaitSurfaceProgressOverlay')");
     expect(shell).not.toContain('useProgress');
   });
 
