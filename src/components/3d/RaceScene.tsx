@@ -1456,7 +1456,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               position={raceKeyPosition}
               intensity={raceLight.sunIntensity}
               color={raceLight.sunColor}
-              castShadow={CITY_TIERS[qualityPreset].shadowCasting}
+              castShadow
               shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
