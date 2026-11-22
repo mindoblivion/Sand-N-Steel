@@ -3,13 +3,13 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
 
-const largeChunkCompositionReport = {
+const largeChunkCompositionReport: import('vite').Plugin = {
   name: 'large-chunk-composition-report',
-  apply: 'build' as const,
-  generateBundle(_options: unknown, bundle: Record<string, { type: string; fileName: string; code?: string; modules?: Record<string, { renderedLength: number; originalLength: number }> }>) {
+  apply: 'build',
+  generateBundle(_options, bundle) {
     for (const item of Object.values(bundle)) {
-      if (item.type !== 'chunk' || !item.code || item.code.length < 500 * 1024) continue;
-      const largestModules = Object.entries(item.modules ?? {})
+      if (item.type !== 'chunk' || item.code.length < 500 * 1024) continue;
+      const largestModules = Object.entries(item.modules)
         .map(([id, module]) => ({
           module: id.replace(`${process.cwd()}/`, ''),
           renderedBytes: module.renderedLength,
@@ -17,7 +17,7 @@ const largeChunkCompositionReport = {
         }))
         .sort((a, b) => b.renderedBytes - a.renderedBytes)
         .slice(0, 30);
-      this.info(`[bundle-composition] ${item.fileName} (${item.code.length} bytes): ${JSON.stringify(largestModules)}`);
+      console.info(`[bundle-composition] ${item.fileName} (${item.code.length} bytes): ${JSON.stringify(largestModules)}`);
     }
   },
 };
