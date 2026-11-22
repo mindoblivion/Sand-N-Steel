@@ -34,4 +34,18 @@ describe('deferred title and Ludus screens', () => {
     expect(app).toContain("if (!settingsOpen) return;");
   });
 
+  test('startup settings use Three-free atmosphere data instead of the renderer module', () => {
+    const settings = readFileSync('src/services/settings.ts', 'utf8');
+    const atmosphereData = readFileSync('src/utils/atmosphereData.ts', 'utf8');
+    const atmosphereRenderer = readFileSync('src/utils/atmosphere.ts', 'utf8');
+    const timeState = readFileSync('src/utils/timeState.ts', 'utf8');
+
+    expect(settings).toContain("from '../utils/atmosphereData'");
+    expect(settings).not.toContain("from '../utils/atmosphere'");
+    expect(atmosphereData).not.toMatch(/from ['\"]three['\"]/);
+    expect(atmosphereData).not.toContain('THREE.');
+    expect(timeState).not.toMatch(/from ['\"]three['\"]/);
+    expect(atmosphereRenderer).toContain("import * as THREE from 'three'");
+  });
+
 });
