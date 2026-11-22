@@ -315,6 +315,14 @@ describe('rivalDriver — one-move defense', () => {
 });
 
 describe('rivalDriver — the pace cap', () => {
+  test('corner-speed analysis respects the 0.8 u/s floor', () => {
+    expect(RIVAL_CORNER_WINDOW).toBe(1.5);
+    expect(cornerSpeedForCurvature(1_000_000)).toBe(0.8);
+    const analysis = analyzeRivalRoute(-1);
+    expect(Math.min(...analysis.cornerSpeed)).toBe(0.8);
+    expect(Math.min(...analysis.cornerSpeed)).toBeGreaterThanOrEqual(0.8);
+  });
+
   test('the pace cap is derived from the lap time (58 / lap seconds), not hand-typed', () => {
     for (const competitor of [...LEAGUE_POOL, ...ROOKIE_POOL]) {
       const profile = resolveRivalDriverProfile(competitor);
@@ -628,6 +636,7 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
     let totalDriverMs = 0;
     let totalDriverCalls = 0;
     let maxOverlap = 0;
+    let maxRestOverlap = 0;
     let totalContact = 0;
     let totalOutline = 0;
     const allLapTimes: { id: string; profile: number; driven: number }[] = [];
@@ -641,6 +650,7 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
       totalDriverMs += result.driverMeanMs;
       totalDriverCalls++;
       if (result.maxOverlap > maxOverlap) maxOverlap = result.maxOverlap;
+      if (result.maxRestOverlap > maxRestOverlap) maxRestOverlap = result.maxRestOverlap;
       totalContact += result.contactTicks;
       totalOutline += result.outlineViolations;
       for (const lt of result.lapTimes) {
@@ -651,6 +661,7 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
         expect(lt.driven.length, `${lt.id} completes its lap (race ${race})`).toBeGreaterThanOrEqual(1);
       }
       expect(result.outlineViolations, `race ${race}: no outline breach`).toBe(0);
+      expect(result.maxRestOverlap, `race ${race}: separation leaves no overlap at rest`).toBeLessThan(0.05);
       // The pace cap is never exceeded, per profile, per tick. The
       // margin (+0.22) is the fixed-timestep overshoot: the bang-bang
       // throttle can stay on for two ticks while the speed is just below
@@ -681,15 +692,14 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
         }
       }
     }
-    // Lap times are reported. The band is [profile − 1, profile + 25]:
-    // the hook queue (a near-cusp turn that drops the corner limit toward
-    // 0.2, so a five-rig field queues behind the turning rig) adds up to
-    // ~20 s to the first lap, and the formation gap up to 3 s. The 58–67 s
-    // band in the brief is therefore NOT met exactly for a five-rig field
-    // through this hook; the knob is the corner window (1.5, the
-    // peak-curvature read) and the formation order (fastest-first, as the
-    // pools define it). A hook redesign or a faster hook traversal is a
-    // 1C/1E follow-up, not a silent pass.
+    // Lap times are reported. The band is [profile − 1, profile + 25].
+    // Important: cornerSpeedForCurvature clamps at 0.8 u/s; the older 0.2
+    // figure in this comment was impossible under the shipped solver. The
+    // 1.5-unit window still creates a measurable hook queue (the historical
+    // soak note estimates roughly 20 s on the first lap, plus up to 3 s from
+    // formation spacing). The 58–67 s brief band is therefore NOT met exactly
+    // for a five-rig field. Keep the measured tradeoff visible; a hook redesign
+    // or faster traversal remains a separate follow-up, not a silent pass.
     for (const lt of allLapTimes) {
       expect(lt.driven).toBeGreaterThan(lt.profile - 1);
       expect(lt.driven).toBeLessThan(lt.profile + 25);
@@ -700,7 +710,7 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
     expect(meanMs).toBeLessThan(0.05);
     // The soak's own numbers, for the report (not assertions — they are
     // the measured behaviour, and they move with the tuning).
-    console.log(`[1B2 soak] 20 races: passes=${[...passCounts.values()].reduce((a, b) => a + b, 0)} maxOverlap=${maxOverlap.toFixed(3)} contactTicks=${totalContact} outline=${totalOutline} driverMeanMs=${meanMs.toFixed(4)} lapTimes=${allLapTimes.length}`);
+    console.log(`[1B2 soak] 20 races: passes=${[...passCounts.values()].reduce((a, b) => a + b, 0)} maxOverlap=${maxOverlap.toFixed(3)} maxRestOverlap=${maxRestOverlap.toFixed(3)} contactTicks=${totalContact} outline=${totalOutline} driverMeanMs=${meanMs.toFixed(4)} lapTimes=${allLapTimes.length}`);
   }, 120_000);
 
   test('a simulated 3-lap race completes with lap times ordered by profile', () => {
