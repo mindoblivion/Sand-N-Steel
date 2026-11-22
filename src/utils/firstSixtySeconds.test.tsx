@@ -216,7 +216,7 @@ describe('FSS C §C — non-modal, pointer-transparent, fades and hands over', (
 
   test('it fades on the shipped day-banner rhythm and calls onDone once', () => {
     const banner = code('components/ui/SessionGreetingBanner.tsx');
-    expect(banner).toContain("import { DAY_BANNER_HOLD_MS, DAY_FADE_MS } from './DayBanner'");
+    expect(banner).toContain("import { DAY_BANNER_HOLD_MS, DAY_FADE_MS } from './dayBannerTiming'");
     expect(banner).toContain('opacity: veiled ? 1 : 0');
     expect(banner).toContain('transition: `opacity ${DAY_FADE_MS}ms ease-in-out`');
     expect(banner).toContain('requestAnimationFrame(() => setVeiled(true))');
@@ -228,7 +228,7 @@ describe('FSS C §C — non-modal, pointer-transparent, fades and hands over', (
     expect(banner.match(/clearTimeout\(/g)?.length).toBe(2);
     expect(banner).toContain('cancelAnimationFrame(raf)');
     // The shipped day banner itself is untouched.
-    expect(code('components/ui/DayBanner.tsx')).toContain('DAY_FADE_MS = 600');
+    expect(code('components/ui/dayBannerTiming.ts')).toContain('DAY_FADE_MS = 600');
   });
 });
 

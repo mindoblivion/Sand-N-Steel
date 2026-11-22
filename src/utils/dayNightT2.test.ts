@@ -346,7 +346,7 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(banner).toContain('transition');
     // Two opacity transitions and two timers: no per-frame work at all.
     expect(banner).not.toContain('useFrame');
-    expect(load('../components/ui/DayBanner.tsx')).toContain('DAY_FADE_MS = 600');
+    expect(load('../components/ui/dayBannerTiming.ts')).toContain('DAY_FADE_MS = 600');
   });
 });
 

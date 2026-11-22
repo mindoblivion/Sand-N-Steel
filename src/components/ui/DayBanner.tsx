@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { DAY_BANNER_HOLD_MS, DAY_FADE_MS } from './dayBannerTiming';
 
 /**
  * DayBanner — Day/Night T2's day-boundary beat in the city.
@@ -12,12 +13,6 @@ import React, { useEffect, useRef, useState } from 'react';
  * `onDone` is held in a ref so a parent re-render cannot restart the timing; the veil and
  * the hold are two timers, both cleared on unmount.
  */
-
-/** How long the veil takes to close (and to open again). */
-export const DAY_FADE_MS = 600;
-
-/** How long the day's name is held at full dark before the veil lifts. */
-export const DAY_BANNER_HOLD_MS = 2400;
 
 interface DayBannerProps {
   /** The new day's number — carried for diagnostics and the test hooks. */
