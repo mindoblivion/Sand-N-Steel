@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run check:startup-assets",
+    "build": "node scripts/generateIconAssets.cjs && vite build && npm run check:startup-assets",
     "check:startup-assets": "tsx scripts/startupAssetCheck.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
