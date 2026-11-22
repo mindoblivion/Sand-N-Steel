@@ -1,6 +1,6 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
-import { createCityMovementDiagnosticSnapshot, getExpectedCityMovementDistance } from './cityMovementDiagnostics';
+import { appendCityMovementDiagnosticSample, createCityMovementDiagnosticSnapshot, getExpectedCityMovementDistance } from './cityMovementDiagnostics';
 
 const base = {
   capturedAtMs: 1234,
@@ -24,6 +24,19 @@ const base = {
 };
 
 describe('city movement diagnostic snapshots', () => {
+  test('keeps a bounded recent trace in chronological order without mutating prior samples', () => {
+    const first = createCityMovementDiagnosticSnapshot({ ...base, capturedAtMs: 1 });
+    const second = createCityMovementDiagnosticSnapshot({ ...base, capturedAtMs: 2 });
+    const third = createCityMovementDiagnosticSnapshot({ ...base, capturedAtMs: 3 });
+    const prior = [first, second];
+
+    const trace = appendCityMovementDiagnosticSample(prior, third, 2);
+
+    expect(trace.map((sample) => sample.capturedAtMs)).toEqual([2, 3]);
+    expect(prior.map((sample) => sample.capturedAtMs)).toEqual([1, 2]);
+    expect(appendCityMovementDiagnosticSample([], first, 0)).toEqual([first]);
+  });
+
   test('uses the same 100ms timestep cap as the collision resolver for expected distance', () => {
     expect(getExpectedCityMovementDistance(3.8, 0.5)).toBeCloseTo(0.38, 8);
     expect(getExpectedCityMovementDistance(3.8, 0.05)).toBeCloseTo(0.19, 8);
