@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Latest verified mainline baseline: `0b82c4d9068ef9b0bb6a224e5f32d92f8b6974c7` (2026-11-22, after PR #572). Historical reconciliation entries below are retained as an audit trail; the newest reconciliation at the top is authoritative.
+> Living project index. Latest verified mainline baseline: `9032981fc0987f8026a7939803c9d29465580d81` (2026-11-22, after PR #573). Historical reconciliation entries below are retained as an audit trail; the newest reconciliation at the top is authoritative.
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -16,16 +16,18 @@ A task is **not complete** merely because code exists or CI passes. Use these st
 
 Never report physical-device validation, measured FPS, or visual acceptance without actual evidence. Distinguish confirmed defects from suspected causes. Keep unrelated fixes in separate PRs. Merge only after required checks and acceptance boundaries are satisfied; public release still requires explicit owner authorization.
 
-## Latest verified mainline reconciliation — 2026-11-22 (after PR #572)
+## Latest verified mainline reconciliation — 2026-11-22 (after PR #573)
 
-Main is at `0b82c4d9068ef9b0bb6a224e5f32d92f8b6974c7`. PR #572 is a documentation-only correction to the Android rehearsal-signing setup instructions. The only open pull request is this backlog reconciliation, PR #573; the three open acceptance/setup issues are #329, #456 and #458.
+Main is at `9032981fc0987f8026a7939803c9d29465580d81`. PR #573 is a documentation-only backlog reconciliation. There are **no open pull requests** and three open acceptance/setup issues: #329, #456 and #458.
 
-- **Android signing instructions:** PR [#572](https://github.com/mindoblivion/Sand-N-Steel/pull/572) merged as `0b82c4d`. It corrects three Termux `printf` format strings so generated values appear on separate lines. Both required CI checks passed on the exact PR head. No secrets, signing material, workflow logic, or game code changed.
-- **Movement and device acceptance:** issue [#329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) remains open. The six-second S24 movement trace is still the next decisive evidence; no movement-physics change is justified without it. The previously built profiler APK remains the current trace-collection artifact unless a later loading-surface or profiler change requires rebuilding.
+- **Backlog reconciliation:** PR [#573](https://github.com/mindoblivion/Sand-N-Steel/pull/573) merged as `9032981`. It records PR #572's Termux signing-instruction correction and preserves the outstanding device-acceptance dependencies. Its required tests, TypeScript checks, production build, and startup-asset verification passed on the exact final PR head.
+- **Android signing instructions:** PR [#572](https://github.com/mindoblivion/Sand-N-Steel/pull/572) merged as `0b82c4d`. It corrects three Termux `printf` format strings so generated values appear on separate lines. No secrets, signing material, workflow logic, or game code changed.
+- **Movement and device acceptance:** issue [#329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) remains open. The six-second S24 movement trace is still the next decisive evidence; no movement-physics change is justified without it. The current profiler APK is from workflow [44981150639](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/44981150639), artifact ID `14737169370`, SHA-256 `94cf65d8c806b8a94f41abcc1d0a21de60806e40d81116e3b37f945b9eb17fd4`.
 - **City walkability:** issue [#456](https://github.com/mindoblivion/Sand-N-Steel/issues/456) remains open pending rendered paving review and a full Samsung pedestrian walkthrough.
 - **Stable rehearsal signing:** issue [#458](https://github.com/mindoblivion/Sand-N-Steel/issues/458) remains open pending owner configuration of the five rehearsal-only GitHub Actions secrets and in-place update acceptance. Never request secret values in chat.
 
-This entry supersedes the PR #570 baseline immediately below it. The prior reconciliation is retained as audit history.
+This entry supersedes the PR #572 baseline immediately below it. The prior reconciliation is retained as audit history.
+
 
 ## Latest verified mainline reconciliation — 2026-11-22 (after PR #570)
 
