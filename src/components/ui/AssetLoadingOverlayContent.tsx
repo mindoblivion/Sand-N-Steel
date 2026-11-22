@@ -175,6 +175,16 @@ export const AssetLoadingOverlayContent: React.FC = () => {
         </button>
       )}
 
+      {/* Dark lower overlay panel obscuring artwork's baked-in loading bar & 72% text */}
+      <div
+        data-loading-cover="true"
+        className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center justify-end pointer-events-none bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 pb-[max(2.5vh,calc(env(safe-area-inset-bottom,0px)+12px))]"
+        style={{
+          height: '34%',
+          minHeight: '160px',
+        }}
+      />
+
       {/* Live progress indicator with premium Roman metallic-gold bar & ornamental frame */}
       {!hasErrors && (
         <div
