@@ -1,125 +1,78 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Sand &amp; Steel gladius and laurel">
-  <!-- Sand & Steel - the gladius-and-laurel device on deep stone.
-       Master artwork for the installable web app icons. The PNG rasters are
-       generated from this file, so the art can be replaced later without
-       touching code:
-         rsvg-convert -w 512 -h 512 icon-source.svg -o icon-512.png
-         rsvg-convert -w 512 -h 512 icon-source.svg -o icon-maskable-512.png
-         rsvg-convert -w 192 -h 192 icon-source.svg -o icon-192.png
-         rsvg-convert -w 180 -h 180 icon-source.svg -o apple-touch-icon.png
-       Every drawn point stays inside a centred circle of 80% of the canvas,
-       so the one mark is safe for both "any" and "maskable" icons. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Sand and Steel, two gladiators flanking the wordmark">
   <defs>
-    <radialGradient id="stone" cx="50%" cy="42%" r="78%">
-      <stop offset="0" stop-color="#1d1917"/>
-      <stop offset="0.6" stop-color="#141110"/>
-      <stop offset="1" stop-color="#0c0a09"/>
+    <radialGradient id="arena" cx="50%" cy="42%" r="75%">
+      <stop offset="0" stop-color="#30251a"/>
+      <stop offset=".58" stop-color="#17120f"/>
+      <stop offset="1" stop-color="#090807"/>
     </radialGradient>
-    <linearGradient id="bronze" gradientUnits="userSpaceOnUse" x1="0" y1="60" x2="0" y2="456">
-      <stop offset="0" stop-color="#f6d27a"/>
-      <stop offset="0.5" stop-color="#c9902f"/>
-      <stop offset="1" stop-color="#8a5a16"/>
+    <linearGradient id="bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4d18a"/>
+      <stop offset=".48" stop-color="#c28a3d"/>
+      <stop offset="1" stop-color="#70451d"/>
     </linearGradient>
-    <linearGradient id="steel" gradientUnits="userSpaceOnUse" x1="228" y1="0" x2="284" y2="0">
-      <stop offset="0" stop-color="#6f7b88"/>
-      <stop offset="0.42" stop-color="#eef3f8"/>
-      <stop offset="0.62" stop-color="#b9c4cf"/>
-      <stop offset="1" stop-color="#5f6a76"/>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6e2d8"/>
+      <stop offset=".5" stop-color="#8e999e"/>
+      <stop offset="1" stop-color="#39434a"/>
     </linearGradient>
-    <linearGradient id="grip" gradientUnits="userSpaceOnUse" x1="238" y1="0" x2="274" y2="0">
-      <stop offset="0" stop-color="#4a2a12"/>
-      <stop offset="0.5" stop-color="#8a5524"/>
-      <stop offset="1" stop-color="#3a2010"/>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9c3d2c"/>
+      <stop offset="1" stop-color="#421913"/>
     </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
   </defs>
-  <rect width="512" height="512" fill="url(#stone)"/>
-  <circle cx="256" cy="256" r="206" fill="#131110" opacity="0.78"/>
-  <circle cx="256" cy="256" r="206" fill="none" stroke="#2a2320" stroke-width="2"/>
-  <g stroke="url(#bronze)" stroke-width="7" stroke-linecap="round" fill="none">
-    <path d="M230.3 401.8 L214.6 398.1 L199.5 392.8 L184.9 385.8 L171.3 377.3 L158.6 367.4 L147.1 356.2 L136.9 343.8 L128.0 330.3 L120.7 316.0 L115.0 301.0 L111.0 285.4 L108.6 269.5 L108.0 253.4 L109.2 237.4 L112.1 221.5 L116.7 206.1 L122.9 191.3 L130.7 177.2 L140.0 164.1 L150.6 152.1 L162.6 141.2 L175.6 131.8 L189.5 123.8 L204.3 117.3 L219.6 112.5 L235.4 109.4"/>
-    <path d="M281.7 401.8 L297.4 398.1 L312.5 392.8 L327.1 385.8 L340.7 377.3 L353.4 367.4 L364.9 356.2 L375.1 343.8 L384.0 330.3 L391.3 316.0 L397.0 301.0 L401.0 285.4 L403.4 269.5 L404.0 253.4 L402.8 237.4 L399.9 221.5 L395.3 206.1 L389.1 191.3 L381.3 177.2 L372.0 164.1 L361.4 152.1 L349.4 141.2 L336.4 131.8 L322.5 123.8 L307.7 117.3 L292.4 112.5 L276.6 109.4"/>
+  <rect width="512" height="512" fill="url(#arena)"/>
+  <g transform="translate(51.2 51.2) scale(.8)">
+  <circle cx="256" cy="256" r="202" fill="none" stroke="#a8793d" stroke-opacity=".16" stroke-width="2"/>
+  <path d="M104 225V190C104 111 168 65 256 65s152 46 152 125v35" fill="none" stroke="#b8894b" stroke-opacity=".17" stroke-width="9"/>
+  <path d="M128 215v-22c0-65 53-105 128-105s128 40 128 105v22" fill="none" stroke="#e3c18a" stroke-opacity=".12" stroke-width="3"/>
+  <ellipse cx="256" cy="263" rx="170" ry="105" fill="#d29a4d" opacity=".08" filter="url(#softGlow)"/>
+  <!-- Left gladiator: crested helmet, shoulder armour, shield and gladius. -->
+  <g stroke="#26180f" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M102 179Q91 132 125 104Q145 86 172 100L184 127L171 151L151 165L132 190Z" fill="url(#bronze)"/>
+    <path d="M110 135Q124 80 163 73Q154 101 145 121Z" fill="#9e3527"/>
+    <path d="M123 132Q146 116 169 128L160 151L134 157Z" fill="#22201d"/>
+    <path d="M132 139L160 137" stroke="#e8d2a6" stroke-width="4"/>
+    <path d="M126 171Q153 151 181 169L196 216L183 276L116 276L104 218Z" fill="url(#steel)"/>
+    <path d="M127 177L151 199L178 176" fill="none" stroke="#e8c17b" stroke-width="7"/>
+    <path d="M116 214L90 235L83 304L119 316L139 260Z" fill="url(#red)"/>
+    <path d="M91 238L75 260L77 307L110 320L124 291L113 253Z" fill="url(#bronze)"/>
+    <path d="M86 258L111 274M82 282L115 294" fill="none" stroke="#4a2a15" stroke-width="4"/>
+    <path d="M171 205L190 222L202 293L184 303L161 239Z" fill="#9d6733"/>
+    <path d="M185 295L203 312L190 369L176 365L178 325Z" fill="url(#steel)"/>
+    <path d="M126 270L166 270L174 337L151 373L119 355Z" fill="#32251d"/>
+    <path d="M132 350L154 352L146 401L121 401Z" fill="url(#bronze)"/>
+    <path d="M163 350L184 352L193 399L169 402Z" fill="url(#bronze)"/>
+    <path d="M198 214L219 201L225 207L204 229L218 305L210 310L191 235Z" fill="url(#steel)"/>
+    <path d="M203 201L222 186L229 193L211 216Z" fill="url(#bronze)"/>
   </g>
-  <!-- laurel leaves -->
-    <g transform="translate(230.3 401.8) rotate(128.0) scale(0.682)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(175.1 379.9) rotate(151.1) scale(0.727)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(132.9 338.1) rotate(174.3) scale(0.773)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(110.5 283.2) rotate(197.4) scale(0.818)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(111.5 223.8) rotate(220.6) scale(0.864)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(135.8 169.6) rotate(243.7) scale(0.909)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(179.5 129.3) rotate(266.9) scale(0.955)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(235.4 109.4) rotate(290.0) scale(1.000)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(281.7 401.8) rotate(52.0) scale(0.682)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(336.9 379.9) rotate(28.9) scale(0.727)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(379.1 338.1) rotate(5.7) scale(0.773)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(401.5 283.2) rotate(-17.4) scale(0.818)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(400.5 223.8) rotate(-40.6) scale(0.864)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(376.2 169.6) rotate(-63.7) scale(0.909)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(332.5 129.3) rotate(-86.9) scale(0.955)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-    <g transform="translate(276.6 109.4) rotate(-110.0) scale(1.000)">
-      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
-      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
-    </g>
-  <!-- laurel tie -->
-  <path d="M248 396 L230 440" stroke="#7f1d1d" stroke-width="11" stroke-linecap="round" fill="none"/>
-  <path d="M264 396 L282 440" stroke="#7f1d1d" stroke-width="11" stroke-linecap="round" fill="none"/>
-  <rect x="226" y="392" width="60" height="20" rx="7" fill="url(#bronze)"/>
-  <rect x="232" y="398" width="48" height="8" rx="4" fill="#6d4712" opacity="0.55"/>
-  <!-- gladius -->
-  <path d="M256 130 C264 152 276 168 282 186 L282 300 L230 300 L230 186 C236 168 248 152 256 130 Z" fill="url(#steel)"/>
-  <path d="M256 152 L256 296" stroke="#ffffff" stroke-width="3" opacity="0.30"/>
-  <path d="M240 190 L240 296" stroke="#ffffff" stroke-width="2" opacity="0.16"/>
-  <path d="M270 190 L270 296" stroke="#0f172a" stroke-width="2" opacity="0.18"/>
-  <rect x="215" y="298" width="82" height="16" rx="8" fill="url(#bronze)"/>
-  <rect x="240" y="314" width="32" height="44" fill="url(#grip)"/>
-  <rect x="238" y="322" width="36" height="3" fill="#2a1608" opacity="0.5"/>
-  <rect x="238" y="332" width="36" height="3" fill="#2a1608" opacity="0.5"/>
-  <rect x="238" y="342" width="36" height="3" fill="#2a1608" opacity="0.5"/>
-  <ellipse cx="256" cy="366" rx="20" ry="14" fill="url(#bronze)"/>
-  <ellipse cx="249" cy="361" rx="6" ry="4" fill="#fde9b0" opacity="0.35"/>
+  <!-- Right gladiator: mirrored opposing fighter with round shield and spear. -->
+  <g transform="translate(512 0) scale(-1 1)" stroke="#26180f" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M102 179Q91 132 125 104Q145 86 172 100L184 127L171 151L151 165L132 190Z" fill="url(#bronze)"/>
+    <path d="M110 135Q124 80 163 73Q154 101 145 121Z" fill="#9e3527"/>
+    <path d="M123 132Q146 116 169 128L160 151L134 157Z" fill="#22201d"/>
+    <path d="M132 139L160 137" stroke="#e8d2a6" stroke-width="4"/>
+    <path d="M126 171Q153 151 181 169L196 216L183 276L116 276L104 218Z" fill="url(#steel)"/>
+    <path d="M127 177L151 199L178 176" fill="none" stroke="#e8c17b" stroke-width="7"/>
+    <path d="M116 214L90 235L83 304L119 316L139 260Z" fill="url(#red)"/>
+    <path d="M91 238L75 260L77 307L110 320L124 291L113 253Z" fill="url(#bronze)"/>
+    <path d="M86 258L111 274M82 282L115 294" fill="none" stroke="#4a2a15" stroke-width="4"/>
+    <path d="M171 205L190 222L202 293L184 303L161 239Z" fill="#9d6733"/>
+    <path d="M185 295L203 312L190 369L176 365L178 325Z" fill="url(#steel)"/>
+    <path d="M126 270L166 270L174 337L151 373L119 355Z" fill="#32251d"/>
+    <path d="M132 350L154 352L146 401L121 401Z" fill="url(#bronze)"/>
+    <path d="M163 350L184 352L193 399L169 402Z" fill="url(#bronze)"/>
+    <path d="M198 214L219 201L225 207L204 229L218 305L210 310L191 235Z" fill="url(#steel)"/>
+    <path d="M203 201L222 186L229 193L211 216Z" fill="url(#bronze)"/>
+  </g>
+  <!-- Wordmark stays centered and high-contrast at launcher scale. -->
+  <rect x="132" y="218" width="248" height="76" rx="9" fill="#0b0908" stroke="#b8884d" stroke-width="3"/>
+  <path d="M145 229H367M145 283H367" stroke="#e3c18a" stroke-opacity=".28" stroke-width="1.5"/>
+  <text x="256" y="266" text-anchor="middle" fill="#f2dfbd" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="bold" letter-spacing="1.1">sand&amp;steel</text>
+  <text x="256" y="322" text-anchor="middle" fill="#c79a5b" font-family="Georgia, serif" font-size="13" letter-spacing="5">GLADIATOR RPG</text>
+  <path d="M210 345H302" stroke="#b8894b" stroke-width="2" opacity=".7"/>
+  </g>
 </svg>

@@ -8,15 +8,29 @@ const adaptive = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_launc
 const adaptiveRound = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml');
 const pwaManifest = read('../../public/manifest.webmanifest');
 const iconGenerator = read('../../scripts/generateIconAssets.cjs');
+const iconSource = read('../../public/icons/icon-source.svg');
+const packageJson = JSON.parse(read('../../package.json'));
 
 describe('native Sand & Steel launcher branding', () => {
-  test('adaptive foreground square fits inside Android circular safe zone', () => {
-    const ratioMatch = iconGenerator.match(/const ADAPTIVE_SAFE_ZONE_RATIO = ([0-9.]+);/);
-    expect(ratioMatch).not.toBeNull();
-    const ratio = Number(ratioMatch?.[1]);
-    // Android safe zone is a circle: the square diagonal must not exceed its diameter.
-    expect(ratio * Math.sqrt(2)).toBeLessThanOrEqual(0.66);
-    expect(iconGenerator).toContain('const ADAPTIVE_EDGE_CROP_RATIO = 0.04;');
+  test('Android and PWA icon generator uses the approved SVG master', () => {
+    expect(iconGenerator).toContain("../public/icons/icon-source.svg");
+    expect(iconGenerator).not.toContain("file_00000000445881f587bb682b9f8ef1bb_a38986d0.png");
+    expect(iconGenerator).toContain('resize(canvasSize, canvasSize, { fit: \'contain\' })');
+    expect(iconSource).toContain('aria-label="Sand and Steel, two gladiators flanking the wordmark"');
+    expect(iconSource).toContain('sand&amp;steel');
+    expect(iconSource).toContain('<g transform="translate(512 0) scale(-1 1)"');
+    const centeredScale = iconSource.match(/<g transform="([^"]+)">/);
+    expect(centeredScale?.[1]).toBe('translate(51.2 51.2) scale(.8)');
+    // Check representative outer points of the helmet, plume, shield and boots
+    // after the 80% center-preserving transform against Android's 66% safe circle.
+    const safeRadius = 512 * 0.66 / 2;
+    const sourcePoints = [[110, 135], [163, 73], [75, 260], [121, 401]];
+    for (const [x, y] of sourcePoints) {
+      const transformedX = 51.2 + x * 0.8;
+      const transformedY = 51.2 + y * 0.8;
+      expect(Math.hypot(transformedX - 256, transformedY - 256)).toBeLessThan(safeRadius);
+    }
+    expect(packageJson.scripts.build).toContain('node scripts/generateIconAssets.cjs && vite build');
   });
 
   test('the Android application and round icon resolve to adaptive launcher resources', () => {
