@@ -1704,7 +1704,7 @@ const handleEnterBathhouse = useCallback(() => {
           onFallbackTo2D={() => onOpenTab('tournament')}
         >
           <Canvas
-            shadows
+            shadows={cityTier.shadowCasting}
             frameloop={frameloopMode}
             /* SF-1 — the tier's band replaces the old [1, 2]: Balanced, the default,
                now tops out at the studio budget's 1.5 instead of asking for 2. */
@@ -1759,7 +1759,7 @@ const handleEnterBathhouse = useCallback(() => {
               position={lights.sunPosition}
               intensity={lights.keyIntensity}
               color={lights.keyColor}
-              castShadow
+              castShadow={cityTier.shadowCasting}
               shadow-mapSize={[cityTier.shadows, cityTier.shadows]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
