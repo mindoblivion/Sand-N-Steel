@@ -43,6 +43,11 @@ export const WaitSurfaceProgressOverlay: React.FC = () => {
   return (
     <>
       <div
+        data-loading-cover="true"
+        className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center justify-end pointer-events-none bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 pb-[max(2.5vh,calc(env(safe-area-inset-bottom,0px)+12px))]"
+        style={{ height: '34%', minHeight: '160px' }}
+      />
+      <div
         data-loading-progress="true"
         className="absolute left-1/2 -translate-x-1/2 z-20 text-center px-4"
         style={{ bottom: 'max(4vh, calc(env(safe-area-inset-bottom, 0px) + 24px))', width: 'min(82vw, 440px)' }}

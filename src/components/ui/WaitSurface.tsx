@@ -51,6 +51,7 @@ function useDocumentHidden(): boolean {
 
 const ProgressFallback: React.FC = () => (
   <>
+    <div data-loading-cover="true" className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center justify-end pointer-events-none bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 pb-[max(2.5vh,calc(env(safe-area-inset-bottom,0px)+12px))]" style={{ height: '34%', minHeight: '160px' }} />
     <div data-loading-progress="true" className="absolute left-1/2 -translate-x-1/2 z-20 text-center px-4" style={{ bottom: 'max(4vh, calc(env(safe-area-inset-bottom, 0px) + 24px))', width: 'min(82vw, 440px)' }}>
       <div role="progressbar" aria-label="Loading game assets" aria-valuemin={0} aria-valuemax={100} className="relative w-full p-[3px] rounded-xl bg-gradient-to-b from-amber-900/90 via-amber-950 to-neutral-950 border-2 border-amber-600/70 shadow-[0_0_20px_rgba(217,119,6,0.35)] backdrop-blur-md">
         <div className="relative h-2.5 sm:h-3 w-full overflow-hidden rounded-lg bg-neutral-950/90 border border-amber-950">
