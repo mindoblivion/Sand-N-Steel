@@ -123,7 +123,7 @@ import {
   suppressHeraldForEntry,
   type HeraldState,
 } from './utils/cityHerald';
-import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
+// Firebase Auth is loaded only when the player signs in or opens account settings.
 import type { User } from 'firebase/auth';
 
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
@@ -508,7 +508,18 @@ export function App() {
   // Follow the Firebase session — the account rows' own source of truth.  It writes
   // nothing and reads no save, and it re-subscribes never (the unsubscribe is the
   // effect's cleanup).
-  useEffect(() => subscribeAuthUser(setAuthUser), []);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+    void import('./services/googleAuth').then(({ subscribeAuthUser }) => {
+      if (active) unsubscribe = subscribeAuthUser(setAuthUser);
+    });
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [settingsOpen]);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -823,6 +834,7 @@ export function App() {
     setAuthError(null);
     setIsGoogleLoading(true);
     try {
+      const { googleSignIn } = await import('./services/googleAuth');
       const res = await googleSignIn();
       if (!res) return;
 
