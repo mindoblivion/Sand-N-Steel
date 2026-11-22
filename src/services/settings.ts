@@ -40,7 +40,7 @@
 
 import { getLeftyMode, setLeftyMode } from './storage';
 // Atmosphere A1 — the city's two sky/sun/fog profiles. The names and the default live
-// in `utils/atmosphere.ts`, so this record stores a choice and never restates a value.
+// in `utils/atmosphereData.ts`, so this record stores a choice and never restates a value.
 import { ATMOSPHERE_NAMES, DEFAULT_ATMOSPHERE } from '../utils/atmosphereData';
 import type { AtmosphereProfileName } from '../utils/atmosphereData';
 
