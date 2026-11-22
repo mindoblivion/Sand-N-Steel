@@ -47,7 +47,7 @@ describe('3D asset preloader code splitting', () => {
   test('Drei is loaded dynamically when a preload stage is requested', () => {
     const preloader = readFileSync('src/utils/preloadAssets.ts', 'utf8');
     expect(preloader).not.toContain("import { useGLTF } from '@react-three/drei'");
-    expect(preloader).toContain("import('@react-three/drei')");
+    expect(preloader).toContain("import('@react-three/drei/core/Gltf')");
     expect(preloader).toContain('useGLTF.preload(assetPath)');
   });
 

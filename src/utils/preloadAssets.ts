@@ -5,7 +5,7 @@ export type PreloadStage = keyof typeof PRELOAD_STAGES;
 
 type DreiPreloadModule = { useGLTF: { preload: (assetPath: string) => void } };
 type DreiLoader = () => Promise<DreiPreloadModule>;
-const loadDrei: DreiLoader = () => import('@react-three/drei');
+const loadDrei: DreiLoader = () => import('@react-three/drei/core/Gltf');
 const triggered: Record<PreloadStage, boolean> = { 1: false, 2: false };
 
 /** Load Drei only when a preload is requested, keeping its 3D runtime out of the initial application chunk. */

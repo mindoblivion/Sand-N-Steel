@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useProgress } from '@react-three/drei';
+import { useProgress } from '@react-three/drei/core/Progress';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   keeperLineAt,
