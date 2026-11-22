@@ -1,0 +1,93 @@
+# Opt-in Android build for the isolated Roman animation inventory and hand-pose viewer.
+# Development-only, unsigned, and installed beside the normal app under the .profiler ID.
+name: Build Android animation-inventory profiler APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/android-animation-inventory-profiler.yml'
+      - 'android/**'
+      - 'src/main.tsx'
+      - 'src/components/dev/AnimationInventoryHarness.tsx'
+      - 'public/models/arena_roman.glb'
+      - 'package.json'
+      - 'bun.lock*'
+      - 'capacitor.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-animation-inventory-profiler-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  profiler-apk:
+    name: Build isolated Roman animation diagnostics APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install from the committed lockfile
+        run: bun install --frozen-lockfile
+
+      - name: Run tests
+        run: bun test
+
+      - name: Typecheck
+        run: bun run lint
+
+      # The DEV guard remains mandatory; this opt-in flag only mounts the
+      # read-only inventory harness in this isolated, unsigned diagnostic APK.
+      - name: Build development web assets and sync Capacitor
+        env:
+          NODE_ENV: development
+          VITE_DEV_ANIMATION_INVENTORY: '1'
+          BUILD_COMMIT: ${{ github.sha }}
+        run: bun run cap:sync
+
+      - name: Build unsigned debug APK
+        working-directory: android
+        run: bash ./gradlew assembleDebug --no-daemon
+
+      - name: Verify isolated profiler application ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$SDK_ROOT" ]]; then
+            echo "::error::Android SDK path is not configured."
+            exit 1
+          fi
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt -print | sort -V | tail -n 1)"
+          if [[ -z "$AAPT" ]]; then
+            echo "::error::Android build-tools aapt executable was not found."
+            exit 1
+          fi
+          PACKAGE="$("$AAPT" dump badging "$APK" | awk -F"'" '/^package: name=/ { print $2; exit }')"
+          if [[ "$PACKAGE" != "com.phatass.sandandsteel.profiler" ]]; then
+            echo "::error::Expected isolated profiler package ID, got '$PACKAGE'."
+            exit 1
+          fi
+          echo "::notice::Verified isolated profiler package ID: $PACKAGE"
+
+      - name: Upload development-only animation diagnostics APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: animation-inventory-profiler-development-apk-do-not-release
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
