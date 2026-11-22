@@ -663,6 +663,9 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
       expect(result.outlineViolations, `race ${race}: no outline breach`).toBe(0);
       // Residual overlap is aggregated across all 20 races below; do not stop early,
       // because the full distribution is needed to set an evidence-based bound.
+      // The aggregate ceiling is asserted after all 20 races, so a regression
+      // cannot truncate the measurement. The observed maximum was 0.11286;
+      // 0.12 allows a 0.00714-unit (~6.3%) deterministic envelope.
       // The pace cap is never exceeded, per profile, per tick. The
       // margin (+0.22) is the fixed-timestep overshoot: the bang-bang
       // throttle can stay on for two ticks while the speed is just below
@@ -675,6 +678,9 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
         expect(maxSpeed, `${id} never exceeds its pace cap`).toBeLessThanOrEqual(cap + 0.22);
       }
     }
+    // Bound the complete 20-race post-separation envelope, not each race
+    // independently; keep the full sample visible if a future regression fails.
+    expect(maxRestOverlap, '20-race maximum residual overlap').toBeLessThan(0.12);
     // Passes happen (the field is not a procession): at least one pass
     // per pairing that has a pace gap of 0.15 u/s or more across the 20
     // races, reported per pairing. Only pairings WITHIN one rung count —
