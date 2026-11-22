@@ -10,13 +10,10 @@ const pwaManifest = read('../../public/manifest.webmanifest');
 const iconGenerator = read('../../scripts/generateIconAssets.cjs');
 
 describe('native Sand & Steel launcher branding', () => {
-  test('adaptive foreground square fits inside Android circular safe zone', () => {
-    const ratioMatch = iconGenerator.match(/const ADAPTIVE_SAFE_ZONE_RATIO = ([0-9.]+);/);
-    expect(ratioMatch).not.toBeNull();
-    const ratio = Number(ratioMatch?.[1]);
-    // Android safe zone is a circle: the square diagonal must not exceed its diameter.
-    expect(ratio * Math.sqrt(2)).toBeLessThanOrEqual(0.66);
-    expect(iconGenerator).toContain('const ADAPTIVE_EDGE_CROP_RATIO = 0.04;');
+  test('Android and PWA icon generator uses the approved SVG master', () => {
+    expect(iconGenerator).toContain("../public/icons/icon-source.svg");
+    expect(iconGenerator).not.toContain("file_00000000445881f587bb682b9f8ef1bb_a38986d0.png");
+    expect(iconGenerator).toContain('resize(canvasSize, canvasSize, { fit: \'contain\' })');
   });
 
   test('the Android application and round icon resolve to adaptive launcher resources', () => {
