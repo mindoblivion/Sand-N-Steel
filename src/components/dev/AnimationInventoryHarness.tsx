@@ -4,6 +4,8 @@ import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 
+type HandPose = { right: string; left: string };
+
 type ClipRecord = {
   index: number;
   name: string;
@@ -21,13 +23,33 @@ const RomanAnimationPreview: React.FC<{
   loop: boolean;
   speed: number;
   onLoaded: (clips: ClipRecord[]) => void;
-}> = ({ selectedClip, loop, speed, onLoaded }) => {
+  onRigBones: (bones: string[]) => void;
+  onHandPose: (pose: HandPose) => void;
+}> = ({ selectedClip, loop, speed, onLoaded, onRigBones, onHandPose }) => {
   const gltf = useGLTF(MODEL_URL);
   const clonedScene = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
   const activeActionRef = useRef<THREE.AnimationAction | null>(null);
+  const handBonesRef = useRef<{ right: THREE.Bone | null; left: THREE.Bone | null }>({ right: null, left: null });
+  const poseSampleElapsed = useRef(0);
+  const rightHandPosition = useMemo(() => new THREE.Vector3(), []);
+  const leftHandPosition = useMemo(() => new THREE.Vector3(), []);
 
   useEffect(() => {
+    const candidates: string[] = [];
+    let right: THREE.Bone | null = null;
+    let left: THREE.Bone | null = null;
+    clonedScene.traverse((object) => {
+      if (!(object as THREE.Bone).isBone) return;
+      const name = object.name.toLowerCase();
+      if (name.includes('hand') || name.includes('wrist')) {
+        candidates.push(object.name);
+        if ((name.includes('right') || /(^|[_ .])r($|[_ .])/.test(name)) && !right) right = object as THREE.Bone;
+        if ((name.includes('left') || /(^|[_ .])l($|[_ .])/.test(name)) && !left) left = object as THREE.Bone;
+      }
+    });
+    handBonesRef.current = { right, left };
+    onRigBones(candidates);
     const records = gltf.animations.map((clip, index) => ({
       index,
       name: clip.name,
@@ -37,7 +59,7 @@ const RomanAnimationPreview: React.FC<{
       tracks: clip.tracks.map((track) => track.name),
     }));
     onLoaded(records);
-  }, [gltf.animations, onLoaded]);
+  }, [clonedScene, gltf.animations, onLoaded, onRigBones]);
 
   useEffect(() => {
     mixer.stopAllAction();
@@ -69,6 +91,20 @@ const RomanAnimationPreview: React.FC<{
 
   useFrame((_, delta) => {
     mixer.update(Math.min(delta, 0.05));
+    poseSampleElapsed.current += delta;
+    if (poseSampleElapsed.current < 0.12) return;
+    poseSampleElapsed.current = 0;
+    const { right, left } = handBonesRef.current;
+    clonedScene.updateWorldMatrix(true, true);
+    const format = (bone: THREE.Bone | null, target: THREE.Vector3) => {
+      if (!bone) return 'not detected';
+      bone.getWorldPosition(target);
+      return `${target.x.toFixed(3)}, ${target.y.toFixed(3)}, ${target.z.toFixed(3)}`;
+    };
+    onHandPose({
+      right: format(right, rightHandPosition),
+      left: format(left, leftHandPosition),
+    });
   });
 
   useEffect(() => () => {
@@ -90,8 +126,12 @@ export const AnimationInventoryHarness: React.FC = () => {
   const [selectedClip, setSelectedClip] = useState<number | null>(null);
   const [loop, setLoop] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [handBones, setHandBones] = useState<string[]>([]);
+  const [handPose, setHandPose] = useState<HandPose>({ right: 'waiting for rig', left: 'waiting for rig' });
 
   const handleLoaded = useCallback((records: ClipRecord[]) => setClips(records), []);
+  const handleRigBones = useCallback((bones: string[]) => setHandBones(bones), []);
+  const handleHandPose = useCallback((pose: HandPose) => setHandPose(pose), []);
   const visibleClips = useMemo(() => {
     const query = filter.trim().toLowerCase();
     return (clips ?? []).filter((clip) => {
@@ -158,6 +198,8 @@ export const AnimationInventoryHarness: React.FC = () => {
                   loop={loop}
                   speed={speed}
                   onLoaded={handleLoaded}
+                  onRigBones={handleRigBones}
+                  onHandPose={handleHandPose}
                 />
               </Suspense>
               <gridHelper args={[8, 16, '#806348', '#3b2d22']} position={[0, -0.01, 0]} />
@@ -184,6 +226,17 @@ export const AnimationInventoryHarness: React.FC = () => {
             </span>
           </div>
         </div>
+
+        <aside style={{ marginTop: 16, padding: 14, background: '#211a15', border: '1px solid #60472f', borderRadius: 8 }}>
+          <strong style={{ color: '#e9b86e', fontSize: 14 }}>Two-hand grip diagnostics</strong>
+          <p style={{ ...muted, margin: '6px 0 10px' }}>Live world-space hand positions after animation-mixer updates. Coordinates are model-space scene units; this panel is diagnostic only and does not alter the rig or equipment.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, fontFamily: 'monospace', fontSize: 12 }}>
+            <div>Right hand: <strong>{handPose.right}</strong></div>
+            <div>Left hand: <strong>{handPose.left}</strong></div>
+          </div>
+          <div style={{ ...muted, marginTop: 8 }}>Detected hand / wrist bones: {handBones.length ? handBones.join(' · ') : 'none found'}</div>
+          {(!handBones.some((name) => /right|(^|[_ .])r($|[_ .])/i.test(name)) || !handBones.some((name) => /left|(^|[_ .])l($|[_ .])/i.test(name))) && <div style={{ color: '#e9b86e', fontSize: 12, marginTop: 8 }}>One or both sides may need manual bone-name mapping before the two-hand constraint can be implemented.</div>}
+        </aside>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', margin: '18px 0 10px' }}>
           <div style={{ flex: '1 1 260px' }}>
