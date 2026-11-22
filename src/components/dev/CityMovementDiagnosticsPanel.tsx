@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import type { CityMovementDiagnosticSnapshot } from '../../utils/cityMovementDiagnostics';
+import React, { useEffect, useRef, useState } from 'react';
+import { appendCityMovementDiagnosticSample, CITY_MOVEMENT_TRACE_SAMPLE_LIMIT, type CityMovementDiagnosticSnapshot } from '../../utils/cityMovementDiagnostics';
 
 interface CityMovementDiagnosticsPanelProps {
   snapshotRef: React.MutableRefObject<CityMovementDiagnosticSnapshot>;
@@ -17,10 +17,14 @@ export const CityMovementDiagnosticsPanel: React.FC<CityMovementDiagnosticsPanel
 }) => {
   const [snapshot, setSnapshot] = useState(snapshotRef.current);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [traceCopyState, setTraceCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const traceRef = useRef<CityMovementDiagnosticSnapshot[]>([]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setSnapshot({ ...snapshotRef.current });
+      const next = { ...snapshotRef.current };
+      traceRef.current = appendCityMovementDiagnosticSample(traceRef.current, next);
+      setSnapshot(next);
     }, 150);
     return () => window.clearInterval(timer);
   }, [snapshotRef]);
@@ -31,6 +35,20 @@ export const CityMovementDiagnosticsPanel: React.FC<CityMovementDiagnosticsPanel
       setCopyState('copied');
     } catch {
       setCopyState('failed');
+    }
+  };
+
+  const copyRecentTrace = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({
+        sampleIntervalMs: 150,
+        sampleLimit: CITY_MOVEMENT_TRACE_SAMPLE_LIMIT,
+        sampleCount: traceRef.current.length,
+        samples: traceRef.current,
+      }, null, 2));
+      setTraceCopyState('copied');
+    } catch {
+      setTraceCopyState('failed');
     }
   };
 
@@ -64,7 +82,10 @@ export const CityMovementDiagnosticsPanel: React.FC<CityMovementDiagnosticsPanel
       <button type="button" onClick={copySnapshot} className="mt-2 min-h-9 w-full rounded border border-fuchsia-700 bg-fuchsia-950/60 px-2 text-fuchsia-100">
         {copyState === 'copied' ? 'Snapshot copied' : copyState === 'failed' ? 'Copy unavailable' : 'Copy diagnostic snapshot'}
       </button>
-      <p className="mt-1 text-[9px] text-fuchsia-200/70">Development-only. No save data is read or written by this panel.</p>
+      <button type="button" onClick={copyRecentTrace} className="mt-1 min-h-9 w-full rounded border border-fuchsia-700 bg-neutral-900 px-2 text-fuchsia-100">
+        {traceCopyState === 'copied' ? 'Recent trace copied' : traceCopyState === 'failed' ? 'Trace copy unavailable' : 'Copy recent 6-second trace'}
+      </button>
+      <p className="mt-1 text-[9px] text-fuchsia-200/70">Development-only. Keeps at most 40 recent samples; no save data is read or written.</p>
     </section>
   );
 };
