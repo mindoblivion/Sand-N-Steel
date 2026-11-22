@@ -19,7 +19,17 @@ describe('native Sand & Steel launcher branding', () => {
     expect(iconSource).toContain('aria-label="Sand and Steel, two gladiators flanking the wordmark"');
     expect(iconSource).toContain('sand&amp;steel');
     expect(iconSource).toContain('<g transform="translate(512 0) scale(-1 1)"');
-    expect(iconSource).toContain('translate(51.2 51.2) scale(.8) translate(-256 -256)');
+    const centeredScale = iconSource.match(/<g transform="([^"]+)">/);
+    expect(centeredScale?.[1]).toBe('translate(51.2 51.2) scale(.8)');
+    // Check representative outer points of the helmet, plume, shield and boots
+    // after the 80% center-preserving transform against Android's 66% safe circle.
+    const safeRadius = 512 * 0.66 / 2;
+    const sourcePoints = [[110, 135], [163, 73], [75, 260], [121, 401]];
+    for (const [x, y] of sourcePoints) {
+      const transformedX = 51.2 + x * 0.8;
+      const transformedY = 51.2 + y * 0.8;
+      expect(Math.hypot(transformedX - 256, transformedY - 256)).toBeLessThan(safeRadius);
+    }
     expect(packageJson.scripts.build).toContain('node scripts/generateIconAssets.cjs && vite build');
   });
 
