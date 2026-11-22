@@ -51,6 +51,30 @@ function sizeOf(relPath: string): number {
   return statSync(resolve(ROOT, relPath)).size;
 }
 
+/**
+ * Validate raster bytes, not just filenames. Browsers may sniff some formats, but
+ * a mislabeled public asset can still break optimized loading, caching, and tooling.
+ */
+function imageFormatMatches(relPath: string, url: string, location: string): void {
+  const extension = url.toLowerCase().split('.').pop();
+  if (extension !== 'webp' && extension !== 'png') return;
+
+  const bytes = readFileSync(resolve(ROOT, relPath));
+  const isPng =
+    extension === 'png' &&
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const isWebp =
+    extension === 'webp' &&
+    bytes.length >= 12 &&
+    bytes.toString('ascii', 0, 4) === 'RIFF' &&
+    bytes.toString('ascii', 8, 12) === 'WEBP';
+
+  if (!isPng && !isWebp) {
+    fail(`WRONG IMAGE FORMAT: ${location} ${relPath} is declared as .${extension} but its file signature does not match.`);
+  }
+}
+
 /** Every `/asset` URL an inline `<style>` block references. */
 function styleUrls(html: string): string[] {
   const found: string[] = [];
@@ -105,6 +129,7 @@ function report(): void {
       fail(`MISSING IN REPO: ${repoPath} (declared as ${url} in src/utils/startupAssets.ts)`);
       continue;
     }
+    imageFormatMatches(repoPath, url, 'public/');
     sizes.push(`${url} — ${sizeOf(repoPath).toLocaleString()} bytes`);
   }
 
@@ -117,6 +142,7 @@ function report(): void {
       if (!existsSync(resolve(ROOT, distPath))) {
         fail(`MISSING IN dist/: ${distPath} — a startup asset the title/boot path needs did not reach the build.`);
       }
+      else imageFormatMatches(distPath, url, 'dist/');
     }
   }
 
