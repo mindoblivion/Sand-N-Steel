@@ -36,13 +36,13 @@ describe('deferred title and Ludus screens', () => {
 
   test('the title import graph defers Drei-backed progress readers until a destination transition', () => {
     const waitSurface = readFileSync('src/components/ui/WaitSurface.tsx', 'utf8');
-    const waitProgress = readFileSync('src/components/ui/WaitSurfaceProgress.tsx', 'utf8');
+    const waitProgress = readFileSync('src/components/ui/WaitSurfaceProgressOverlay.tsx', 'utf8');
     const overlayShell = readFileSync('src/components/ui/AssetLoadingOverlay.tsx', 'utf8');
     const overlayContent = readFileSync('src/components/ui/AssetLoadingOverlayContent.tsx', 'utf8');
     expect(app).toContain("import { WaitSurface } from './components/ui/WaitSurface';");
     expect(app).toContain("import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';");
     expect(app).toContain("{currentScreen !== 'title' && <AssetLoadingOverlay />}");
-    expect(waitSurface).toContain("import('./WaitSurfaceProgress')");
+    expect(waitSurface).toContain("import('./WaitSurfaceProgressOverlay')");
     expect(waitSurface).not.toContain('useProgress');
     expect(overlayShell).toContain("import('./AssetLoadingOverlayContent')");
     expect(overlayShell).not.toContain('useProgress');
