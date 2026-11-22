@@ -77,7 +77,7 @@ const bootShellSrc = load('./bootShell.ts');
 const nudgeSrc = load('./postOathNudge.ts');
 const failureSrc = load('../components/ui/GameFailureSurface.tsx');
 const waitSurfaceSrc = load('../components/ui/WaitSurface.tsx');
-const waitSurfaceProgressSrc = load('../components/ui/WaitSurfaceProgress.tsx');
+const waitSurfaceProgressSrc = load('../components/ui/WaitSurfaceProgressOverlay.tsx');
 const assetLoadingSrc = load('../components/ui/AssetLoadingOverlayContent.tsx');
 const assetLoadingShellSrc = load('../components/ui/AssetLoadingOverlay.tsx');
 const packageJson = JSON.parse(load('../../package.json'));
@@ -288,7 +288,7 @@ describe('D. The sequence', () => {
       expect(source).toContain('role="progressbar"');
       expect(source).toContain('wait-sweep');
     }
-    expect(waitSurfaceSrc).toContain("import('./WaitSurfaceProgress')");
+    expect(waitSurfaceSrc).toContain("import('./WaitSurfaceProgressOverlay')");
     expect(waitSurfaceSrc).not.toContain('useProgress');
     expect(assetLoadingShellSrc).toContain("import('./AssetLoadingOverlayContent')");
     expect(appSrc).toContain("{currentScreen !== 'title' && <AssetLoadingOverlay />}");
