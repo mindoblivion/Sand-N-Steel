@@ -29,6 +29,7 @@ export function RaceRenderDiagnostics() {
   const drawCalls = useRef<number[]>([]);
   const triangles = useRef<number[]>([]);
   const [snapshot, setSnapshot] = useState<RaceDiagnosticsSnapshot | null>(null);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   useFrame((_state, delta) => {
     // The renderer's auto-reset info counters describe the last completed frame
@@ -66,12 +67,41 @@ export function RaceRenderDiagnostics() {
       ...nextSnapshot,
     });
     setSnapshot(nextSnapshot);
+    setCopyState('idle');
 
     elapsed.current = 0;
     frameTimes.current = [];
     drawCalls.current = [];
     triangles.current = [];
   });
+
+  const copySnapshot = async () => {
+    if (!snapshot) return;
+    const report = JSON.stringify({
+      capturedAt: new Date().toISOString(),
+      sampleWindowSeconds: 2,
+      ...snapshot,
+    }, null, 2);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(report);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = report;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('Clipboard copy was not accepted');
+      }
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+  };
 
   if (typeof document === 'undefined' || !snapshot) return null;
 
@@ -84,7 +114,7 @@ export function RaceRenderDiagnostics() {
         top: 'max(8px, env(safe-area-inset-top))',
         left: 'max(8px, env(safe-area-inset-left))',
         zIndex: 10000,
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
         padding: '7px 9px',
         border: '1px solid rgba(255,255,255,0.24)',
         borderRadius: 6,
@@ -107,6 +137,27 @@ export function RaceRenderDiagnostics() {
       <div>DPR {snapshot.pixelRatio.toFixed(2)}  ·  BUFFER {snapshot.drawingBuffer[0]}×{snapshot.drawingBuffer[1]}</div>
       <div>GEOMETRIES {snapshot.geometries}  ·  TEXTURES {snapshot.textures}</div>
       <div style={{ opacity: 0.7, marginTop: 2 }}>Rolling 2-second sample</div>
+      <button
+        type="button"
+        onClick={copySnapshot}
+        aria-label="Copy race performance sample"
+        style={{
+          display: 'block',
+          width: '100%',
+          minHeight: 30,
+          marginTop: 6,
+          padding: '4px 7px',
+          border: '1px solid rgba(231,201,139,0.65)',
+          borderRadius: 4,
+          background: 'rgba(105,75,31,0.45)',
+          color: '#f4f0e7',
+          font: 'inherit',
+          fontWeight: 700,
+          pointerEvents: 'auto',
+        }}
+      >
+        {copyState === 'copied' ? 'SAMPLE COPIED' : copyState === 'failed' ? 'COPY FAILED · RETRY' : 'COPY SAMPLE'}
+      </button>
     </aside>
     </Html>
   );
