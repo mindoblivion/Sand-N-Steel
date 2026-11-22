@@ -4,7 +4,14 @@ import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 
-type HandPose = { right: string; left: string };
+type HandPose = {
+  right: string;
+  left: string;
+  rightQuaternion: string;
+  leftQuaternion: string;
+  clipTimeSeconds: number | null;
+  sampledAt: string;
+};
 
 type ClipRecord = {
   index: number;
@@ -34,6 +41,8 @@ const RomanAnimationPreview: React.FC<{
   const poseSampleElapsed = useRef(0);
   const rightHandPosition = useMemo(() => new THREE.Vector3(), []);
   const leftHandPosition = useMemo(() => new THREE.Vector3(), []);
+  const rightHandQuaternion = useMemo(() => new THREE.Quaternion(), []);
+  const leftHandQuaternion = useMemo(() => new THREE.Quaternion(), []);
 
   useEffect(() => {
     const candidates: string[] = [];
@@ -96,14 +105,23 @@ const RomanAnimationPreview: React.FC<{
     poseSampleElapsed.current = 0;
     const { right, left } = handBonesRef.current;
     clonedScene.updateWorldMatrix(true, true);
-    const format = (bone: THREE.Bone | null, target: THREE.Vector3) => {
+    const formatPosition = (bone: THREE.Bone | null, target: THREE.Vector3) => {
       if (!bone) return 'not detected';
       bone.getWorldPosition(target);
-      return `${target.x.toFixed(3)}, ${target.y.toFixed(3)}, ${target.z.toFixed(3)}`;
+      return `${target.x.toFixed(4)}, ${target.y.toFixed(4)}, ${target.z.toFixed(4)}`;
+    };
+    const formatQuaternion = (bone: THREE.Bone | null, target: THREE.Quaternion) => {
+      if (!bone) return 'not detected';
+      bone.getWorldQuaternion(target);
+      return `${target.x.toFixed(4)}, ${target.y.toFixed(4)}, ${target.z.toFixed(4)}, ${target.w.toFixed(4)}`;
     };
     onHandPose({
-      right: format(right, rightHandPosition),
-      left: format(left, leftHandPosition),
+      right: formatPosition(right, rightHandPosition),
+      left: formatPosition(left, leftHandPosition),
+      rightQuaternion: formatQuaternion(right, rightHandQuaternion),
+      leftQuaternion: formatQuaternion(left, leftHandQuaternion),
+      clipTimeSeconds: activeActionRef.current?.time ?? null,
+      sampledAt: new Date().toISOString(),
     });
   });
 
@@ -127,7 +145,12 @@ export const AnimationInventoryHarness: React.FC = () => {
   const [loop, setLoop] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [handBones, setHandBones] = useState<string[]>([]);
-  const [handPose, setHandPose] = useState<HandPose>({ right: 'waiting for rig', left: 'waiting for rig' });
+  const [handPose, setHandPose] = useState<HandPose>({
+    right: 'waiting for rig', left: 'waiting for rig',
+    rightQuaternion: 'waiting for rig', leftQuaternion: 'waiting for rig',
+    clipTimeSeconds: null, sampledAt: 'not sampled',
+  });
+  const [exportState, setExportState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const handleLoaded = useCallback((records: ClipRecord[]) => setClips(records), []);
   const handleRigBones = useCallback((bones: string[]) => setHandBones(bones), []);
@@ -142,6 +165,23 @@ export const AnimationInventoryHarness: React.FC = () => {
     });
   }, [clips, filter, candidatesOnly]);
   const selected = clips?.find((clip) => clip.index === selectedClip) ?? null;
+  const copyPoseReport = async () => {
+    const report = {
+      model: MODEL_URL,
+      selectedClip: selected,
+      playback: { loop, speed },
+      detectedHandBones: handBones,
+      handPose,
+      exportedAt: new Date().toISOString(),
+      note: 'World-space hand positions and quaternions sampled after animation mixer updates. Model-space scene units; no rig or equipment modifications.',
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+      setExportState('copied');
+    } catch {
+      setExportState('failed');
+    }
+  };
 
   const panel: React.CSSProperties = {
     minHeight: '100vh',
@@ -231,10 +271,17 @@ export const AnimationInventoryHarness: React.FC = () => {
           <strong style={{ color: '#e9b86e', fontSize: 14 }}>Two-hand grip diagnostics</strong>
           <p style={{ ...muted, margin: '6px 0 10px' }}>Live world-space hand positions after animation-mixer updates. Coordinates are model-space scene units; this panel is diagnostic only and does not alter the rig or equipment.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, fontFamily: 'monospace', fontSize: 12 }}>
-            <div>Right hand: <strong>{handPose.right}</strong></div>
-            <div>Left hand: <strong>{handPose.left}</strong></div>
+            <div>Right hand position: <strong>{handPose.right}</strong></div>
+            <div>Left hand position: <strong>{handPose.left}</strong></div>
+            <div>Right hand quaternion (x,y,z,w): <strong>{handPose.rightQuaternion}</strong></div>
+            <div>Left hand quaternion (x,y,z,w): <strong>{handPose.leftQuaternion}</strong></div>
+            <div>Clip time: <strong>{handPose.clipTimeSeconds === null ? 'stopped' : `${handPose.clipTimeSeconds.toFixed(3)} s`}</strong></div>
           </div>
           <div style={{ ...muted, marginTop: 8 }}>Detected hand / wrist bones: {handBones.length ? handBones.join(' · ') : 'none found'}</div>
+          <button type="button" style={{ ...controlStyle, marginTop: 10 }} onClick={copyPoseReport}>
+            {exportState === 'copied' ? 'Pose report copied' : exportState === 'failed' ? 'Clipboard unavailable' : 'Copy pose report'}
+          </button>
+          <span style={{ ...muted, display: 'block', marginTop: 6 }}>Select an animation, let it reach the pose you want, then copy the report. Includes both hand positions, orientations, bone names, clip and playback speed.</span>
           {(!handBones.some((name) => /right|(^|[_ .])r($|[_ .])/i.test(name)) || !handBones.some((name) => /left|(^|[_ .])l($|[_ .])/i.test(name))) && <div style={{ color: '#e9b86e', fontSize: 12, marginTop: 8 }}>One or both sides may need manual bone-name mapping before the two-hand constraint can be implemented.</div>}
         </aside>
 
