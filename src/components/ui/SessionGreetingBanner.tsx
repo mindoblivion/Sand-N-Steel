@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { DAY_BANNER_HOLD_MS, DAY_FADE_MS } from './DayBanner';
+import { DAY_BANNER_HOLD_MS, DAY_FADE_MS } from './dayBannerTiming';
 
 /**
  * SessionGreetingBanner — FIRST SIXTY SECONDS' opening beat (§5, retention
