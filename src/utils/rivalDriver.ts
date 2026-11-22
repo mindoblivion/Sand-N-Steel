@@ -139,7 +139,7 @@ export const RIVAL_PACE_ADVANTAGE_MARGIN = 0.02;
 export const RIVAL_DRIVER_SPEED_HYSTERESIS = 0.05;
 /** How far above the corner limit the speed must be before the driver brakes. */
 export const RIVAL_DRIVER_BRAKE_MARGIN = 0.5;
-/** The corner-speed lookahead window, in route units (the driver's lookahead scale). 2.5 units — the middle of the trade: the hook's 2.58-rad turn is concentrated in 0.6 units of arc, so a 4-unit window averages it with the straights around it and gives a 0.8 limit the rig cannot turn at (it swings wide and, in a field, strands itself), while a 1.5-unit window reads the peak curvature and drops the limit toward 0.2, so the rig nearly stops and turns in place (it finishes, but a five-rig field queues behind the stopped rig and the back markers wait minutes). 2.5 splits it: slow enough to make the turn, fast enough that the queue flows. */
+/** The corner-speed lookahead window, in route units. The current 1.5-unit window reads the hook's concentrated curvature closely enough for the rival to make the turn without leaving the driveable outline. The full-field soak records the resulting queue and lap-time tradeoff; do not change this value without rerunning that simulation and the Samsung race profiler. */
 export const RIVAL_CORNER_WINDOW = 1.5;
 /** The warned initiator's clearance: this far outside its lane, at this pace fraction. */
 export const RIVAL_WARNING_CLEAR_OFFSET = -0.5;
