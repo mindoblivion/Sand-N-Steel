@@ -3876,7 +3876,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           onFallbackTo2D={onOpenArmory}
         >
           <Canvas
-            shadows
+            shadows={CITY_TIERS[qualityPreset].shadowCasting}
             dpr={duelDpr}
             frameloop={frameloopMode}
             camera={{ position: [0, 6, 12], fov: 45, near: 0.1, far: 80 }}
@@ -3921,7 +3921,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               position={duelLight.keyPosition}
               intensity={sceneDeltas?.sunIntensity ?? duelLight.keyIntensity}
               color={sceneDeltas?.sunColor ?? duelLight.keyColor}
-              castShadow
+              castShadow={CITY_TIERS[qualityPreset].shadowCasting}
               shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}
               shadow-camera-left={-22}
               shadow-camera-right={22}
