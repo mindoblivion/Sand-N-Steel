@@ -411,6 +411,9 @@ describe('D. The wiring — one holder of the value', () => {
     expect(profilerCode).toContain('frameMsP95');
     expect(profilerCode).toContain('sampleWindowSeconds: 5');
     expect(profilerCode).toContain('qualityPreset');
+    expect(profilerCode).toContain('gpuRenderer');
+    expect(profilerCode).toContain('deviceMemoryGb');
+    expect(profilerCode).toContain('hardwareConcurrency');
   });
   test('Swift retains service NPCs and removes only four decorative idle rigs', () => {
     expect(AMBIENT_CHARACTERS).toHaveLength(9);
