@@ -1,0 +1,74 @@
+name: Install verified Colosseum loading artwork
+
+on:
+  push:
+    branches:
+      - fix/install-colosseum-loading-artwork
+
+permissions:
+  contents: write
+
+jobs:
+  install-artwork:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the artwork branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/install-colosseum-loading-artwork
+
+      - name: Verify archive and install exact image binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import pathlib
+          import shutil
+          import tempfile
+          import zipfile
+
+          root = pathlib.Path.cwd()
+          archive = root / "public/colosseum-loading-assets.zip"
+          expected_archive = "06380d9c89b7f3fdc5ec2b6a93d06852f67c56cd534c971113fdc1e97a2ee674"
+          expected = {
+              "colosseum_loading.webp": "bf7d31df887b4894f99de529cf0a44db40a4d46ac312ba0d8386ef9f480a0f58",
+              "colosseum_loading.png": "7a0de025426f22f3305b40aa9e4e313bc6c410eb495e2a51fa0ded2948fa0e56",
+          }
+
+          archive_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
+          if archive_hash != expected_archive:
+              raise SystemExit(f"Archive SHA-256 mismatch: {archive_hash}")
+          with zipfile.ZipFile(archive) as zf:
+              bad = zf.testzip()
+              if bad:
+                  raise SystemExit(f"Corrupt ZIP member: {bad}")
+              with tempfile.TemporaryDirectory() as tmp:
+                  zf.extractall(tmp)
+                  for name, digest in expected.items():
+                      source = pathlib.Path(tmp) / name
+                      data = source.read_bytes()
+                      actual = hashlib.sha256(data).hexdigest()
+                      if actual != digest:
+                          raise SystemExit(f"{name} SHA-256 mismatch: {actual}")
+                      if name.endswith(".png") and not data.startswith(bytes.fromhex("89504e470d0a1a0a")):
+                          raise SystemExit("PNG signature mismatch")
+                      if name.endswith(".webp") and not (data[:4] == b"RIFF" and data[8:12] == b"WEBP"):
+                          raise SystemExit("WebP signature mismatch")
+                      shutil.copyfile(source, root / "public" / name)
+                      print(f"Installed {name}: {len(data)} bytes, SHA-256 {actual}")
+          PY
+
+      - name: Commit only the two verified image replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/colosseum_loading.webp public/colosseum_loading.png
+          if git diff --cached --quiet; then
+            echo "The exact verified artwork is already installed."
+            exit 0
+          fi
+          git commit -m "Install verified Colosseum loading artwork"
+          git push origin HEAD:fix/install-colosseum-loading-artwork
