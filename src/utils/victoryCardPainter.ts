@@ -36,7 +36,7 @@
  * box, and every unusual API is feature-checked rather than assumed.
  */
 
-import { PHASE_LIGHT } from './atmosphere';
+import { PHASE_LIGHT } from './atmosphereData';
 import {
   VICTORY_CARD_FRAME_LABEL,
   type VictoryCardData,
