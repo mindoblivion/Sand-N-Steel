@@ -59,7 +59,7 @@ import { resolveTimeState } from '../../../utils/timeState';
 import { getPhaseLight } from '../../../utils/atmosphere';
 import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
-import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
+import { AMBIENT_CHARACTERS, LOW_END_AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
 import { CLOSE_BUTTON_CLASS } from '../../ui/controlStyles';
@@ -1933,7 +1933,7 @@ const handleEnterBathhouse = useCallback(() => {
               <Suspense fallback={null}>
                 <GladiatorMesh fighter={cityPlayerFighter} isLeftyMode={isLeftyMode} positionRef={playerPosRef} rotationRef={playerRotYRef} />
                 {/* Ambient Characters */}
-                {AMBIENT_CHARACTERS.map(fighter => (
+                {(qualityPreset === 'swift' ? LOW_END_AMBIENT_CHARACTERS : AMBIENT_CHARACTERS).map(fighter => (
                     <GladiatorMesh key={fighter.id} fighter={fighter} />
                 ))}
                 {/* Living City L17 — scheduled traders reuse the existing fighter mesh. */}
