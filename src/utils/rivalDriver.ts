@@ -50,17 +50,15 @@
 // when the speed is more than 0.5 above the CORNER limit ahead, never to
 // chase the pace cap (the handoff's 5 u/s roll speed decays by coasting).
 //
-// The corner limit is the other half of the pace: the route's curvature
-// ahead caps the speed, because the turn rate at race pace (~0.59 rad/s)
-// cannot follow the south hook (radius ~2.5, needs ~1.08 rad/s). The limit
-// is solved from the movement module's own turn-rate curve
-// (`v·κ ≤ 0.35 + 0.0885·v`), over a 6-unit forward window (the lookahead
-// scale — the pure pursuit smooths the route over its lookahead, so the
-// rig's effective curvature is the heading change over that window, not
-// the raw per-sample tangent, which near-cusps at the hook's end). The
-// cost is real — a driven lap runs several seconds over its profile lap
-// time, and the rig swings wide (off the sand, inside the driveable
-// outline) to make the hook — and the soak reports it rather than hiding it.
+// The corner limit is the other half of the pace: route curvature ahead
+// caps speed using the movement module's own turn-rate curve
+// (`v·κ ≤ 0.35 + 0.0885·v`). Curvature is measured over the forward
+// `RIVAL_CORNER_WINDOW` (currently 1.5 route units), not the steering
+// controller's separate 2-unit pursuit target. This deliberately reads the
+// concentrated south-hook curvature closely; the tradeoff is a slow hook and
+// a queue in full-field races. The soak records the resulting lap-time spread
+// rather than hiding it. Any change to this window needs the full-field soak
+// and driveable-outline regression, not just a single-rig lap.
 //
 // ── The windows ─────────────────────────────────────────────────────────────
 // A pass is honest: it opens only when the lateral room on the inside, from
