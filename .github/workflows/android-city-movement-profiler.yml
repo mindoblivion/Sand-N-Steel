@@ -1,6 +1,6 @@
-# Opt-in Android build with a development-only city movement telemetry panel.
+# Opt-in Android build with development-only city movement and renderer telemetry.
 # This is an isolated, unsigned diagnostic APK; never use it as a release artifact.
-name: Build Android city-movement profiler APK
+name: Build Android city-performance profiler APK
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ on:
       - 'android/**'
       - 'src/components/3d/city/CityHubScene.tsx'
       - 'src/components/dev/CityMovementDiagnosticsPanel.tsx'
+      - 'src/components/dev/CityRenderDiagnostics.tsx'
       - 'src/utils/cityMovementDiagnostics.ts'
       - 'src/utils/cityMovementDiagnostics.test.ts'
       - 'src/hooks/useCameraDrag.ts'
@@ -33,12 +34,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-city-movement-profiler-${{ github.ref }}
+  group: android-city-performance-profiler-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   profiler-apk:
-    name: Build isolated city movement diagnostic APK
+    name: Build isolated city performance diagnostic APK
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -63,12 +64,13 @@ jobs:
       - name: Typecheck
         run: bun run lint
 
-      # DEV keeps the telemetry behind import.meta.env.DEV; the VITE flag opts
-      # this isolated build into the panel without requiring a browser query string.
+      # DEV keeps diagnostics out of production; the VITE flags opt this isolated
+      # profiler build into both movement and renderer telemetry without URL flags.
       - name: Build development web assets and sync Capacitor
         env:
           NODE_ENV: development
           VITE_DEV_CITY_MOVEMENT: '1'
+          VITE_DEV_CITY_STATS: '1'
           BUILD_COMMIT: ${{ github.sha }}
         run: bun run cap:sync
 
@@ -98,10 +100,10 @@ jobs:
           fi
           echo "::notice::Verified isolated profiler package ID: $PACKAGE"
 
-      - name: Upload development-only movement profiler APK
+      - name: Upload development-only city performance profiler APK
         uses: actions/upload-artifact@v4
         with:
-          name: city-movement-profiler-development-apk-do-not-release
+          name: city-performance-profiler-development-apk-do-not-release
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
