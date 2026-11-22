@@ -221,6 +221,9 @@ export interface CityExitPose {
 const CityMovementDiagnosticsPanel = React.lazy(() =>
   import('../../dev/CityMovementDiagnosticsPanel').then((module) => ({ default: module.CityMovementDiagnosticsPanel })),
 );
+const CityRenderDiagnostics = React.lazy(() =>
+  import('../../dev/CityRenderDiagnostics').then((module) => ({ default: module.CityRenderDiagnostics })),
+);
 
 const CityAdaptiveDpr: React.FC<{
   tier: QualityPreset;
@@ -714,6 +717,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const movementDiagnosticsEnabled = import.meta.env.DEV && (
     new URLSearchParams(window.location.search).get('devHarness') === 'city-movement' ||
     (import.meta.env as ImportMetaEnv & { VITE_DEV_CITY_MOVEMENT?: string }).VITE_DEV_CITY_MOVEMENT === '1'
+  );
+  // Opt-in renderer telemetry for low-end performance acceptance; never shipped in production.
+  const cityRenderDiagnosticsEnabled = import.meta.env.DEV && (
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('devCityStats') === '1') ||
+    (import.meta.env as ImportMetaEnv & { VITE_DEV_CITY_STATS?: string }).VITE_DEV_CITY_STATS === '1'
   );
   const [movementDiagnosticsVisible, setMovementDiagnosticsVisible] = useState(movementDiagnosticsEnabled);
   const movementDiagnosticsRef = useRef<CityMovementDiagnosticSnapshot>({
@@ -1718,6 +1726,11 @@ const handleEnterBathhouse = useCallback(() => {
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="CityHubMetropolis" />
+            {cityRenderDiagnosticsEnabled && (
+              <Suspense fallback={null}>
+                <CityRenderDiagnostics qualityPreset={qualityPreset} />
+              </Suspense>
+            )}
             {/* SF-1 — the city's pixel governor, inside the Canvas because only here
                 does a frame's own duration exist. */}
             <CityAdaptiveDpr

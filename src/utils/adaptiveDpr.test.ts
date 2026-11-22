@@ -78,6 +78,8 @@ const raceSrc = load('../components/3d/RaceScene.tsx');
 const hookSrc = load('../hooks/useAdaptiveDpr.ts');
 const settingsSrc = load('../services/settings.ts');
 const modalSrc = load('../components/hub/SettingsModal.tsx');
+const profilerSrc = load('../components/dev/CityRenderDiagnostics.tsx');
+const profilerCode = code(profilerSrc);
 
 const sceneCode = code(sceneSrc);
 const duelCode = code(duelSrc);
@@ -399,6 +401,20 @@ describe('C. stepAdaptiveDpr — pure, total, and banded', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('D. The wiring — one holder of the value', () => {
+  test('city renderer profiler is opt-in and samples real renderer counters', () => {
+    expect(sceneCode).toContain("get('devCityStats') === '1'");
+    expect(sceneCode).toContain('cityRenderDiagnosticsEnabled');
+    expect(profilerCode).toContain('gl.info.render.calls');
+    expect(profilerCode).toContain('gl.info.render.triangles');
+    expect(profilerCode).toContain('gl.info.memory.geometries');
+    expect(profilerCode).toContain('gl.info.memory.textures');
+    expect(profilerCode).toContain('frameMsP95');
+    expect(profilerCode).toContain('sampleWindowSeconds: 5');
+    expect(profilerCode).toContain('qualityPreset');
+    expect(profilerCode).toContain('gpuRenderer');
+    expect(profilerCode).toContain('deviceMemoryGb');
+    expect(profilerCode).toContain('hardwareConcurrency');
+  });
   test('Swift retains service NPCs and removes only four decorative idle rigs', () => {
     expect(AMBIENT_CHARACTERS).toHaveLength(9);
     expect(LOW_END_AMBIENT_CHARACTERS.map((fighter) => fighter.id).sort()).toEqual([
