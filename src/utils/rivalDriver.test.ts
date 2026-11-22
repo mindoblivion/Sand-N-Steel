@@ -49,7 +49,7 @@ import {
   type RivalRigSnapshot,
 } from './rivalDriver';
 import { RACE_ROUTE_LENGTH } from './raceRival';
-import { resolveRigSeparation, rigOverlap } from './raceRigCollision';
+import { resolveRigSeparation, rigOverlap, RIG_SEPARATION_PASSES } from './raceRigCollision';
 import { resolveFormationSlots, FORMATION_ROW_GAP } from './raceGrid';
 
 const DT = 1 / 60;
@@ -544,16 +544,19 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
         if (rig.lapTimes.length >= laps) rig.finished = true;
       }
     }
-    // Separation (all pairs, once), exactly as the scene's resolver does.
-    for (let i = 0; i < rigs.length; i++) {
-      for (let j = i + 1; j < rigs.length; j++) {
+    // Separation uses the same bounded pair sweeps as the live scene. Record
+    // contact diagnostics on the first sweep only, then settle any overlap
+    // reintroduced when a later pair moves an earlier rig.
+    for (let pass = 0; pass < RIG_SEPARATION_PASSES; pass += 1) {
+      for (let i = 0; i < rigs.length; i++) {
+        for (let j = i + 1; j < rigs.length; j++) {
         const a = rigs[i];
         const b = rigs[j];
         if (a.rolling || b.rolling || !a.motion || !b.motion) continue;
-        const overlap = rigOverlap(
+        const overlap = pass === 0 ? rigOverlap(
           { x: a.motion.x, z: a.motion.z, heading: a.motion.heading },
           { x: b.motion.x, z: b.motion.z, heading: b.motion.heading },
-        );
+        ) : 0;
         if (overlap > 0) {
           contactTicks++;
           if (overlap > maxOverlap) maxOverlap = overlap;
@@ -570,6 +573,7 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
           a.motion.z += pushes.pushA.z;
           b.motion.x += pushes.pushB.x;
           b.motion.z += pushes.pushB.z;
+        }
         }
       }
     }
