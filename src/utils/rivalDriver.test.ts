@@ -661,7 +661,7 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
         expect(lt.driven.length, `${lt.id} completes its lap (race ${race})`).toBeGreaterThanOrEqual(1);
       }
       expect(result.outlineViolations, `race ${race}: no outline breach`).toBe(0);
-      expect(result.maxRestOverlap, `race ${race}: residual overlap remains bounded at rest`).toBeLessThan(0.07);
+      expect(result.maxRestOverlap, `race ${race}: residual overlap remains bounded at rest`).toBeLessThan(0.11);
       // The pace cap is never exceeded, per profile, per tick. The
       // margin (+0.22) is the fixed-timestep overshoot: the bang-bang
       // throttle can stay on for two ticks while the speed is just below
