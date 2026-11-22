@@ -282,9 +282,9 @@ export function analyzeRivalRoute(side: 1 | -1): RivalRouteAnalysis {
   // swings 2.58 rad in 0.6 units of arc) that no rig follows literally. A
   // forward window also never smears a corner BACKWARD past the line: at
   // s = 0 the window is the straight ahead, so the limit there is the cap.
-  // The window is 4 units, not 6: the hook's sharp part needs ~0.8 u/s,
-  // and a 6-unit window averages it up to ~1.4 — fast enough to swing the
-  // rig wide west off the sand and beach its nose on the west wall.
+  // The active window is `RIVAL_CORNER_WINDOW` (currently 1.5 units).
+  // Keep this explanation tied to the constant: changing the tuning requires
+  // rerunning the full-field soak and checking the driveable-outline result.
   const cornerStep = 0.5;
   const cornerCount = Math.ceil(route.length / cornerStep);
   const cornerSpeed: number[] = new Array(cornerCount);
@@ -534,13 +534,10 @@ export function resolveDriverPaceCap(profile: RivalDriverProfile): number {
 }
 
 /**
- * The corner-speed limit at a route distance: the array value there. The
- * array's forward window (6 units, the lookahead scale) IS the
- * anticipation — the limit drops as a corner enters the window, so the rig
- * sheds speed on the approach instead of arriving at the corner too fast.
- * The turn rate at race pace (~0.59 rad/s) cannot follow the south hook's
- * near-cusp, so the limit there is ~1.0–1.4 u/s and the rig swings wide
- * (off the sand, inside the driveable outline) to make the turn.
+ * The corner-speed limit at a route distance: the precomputed value for the
+ * forward `RIVAL_CORNER_WINDOW` arc. This is the anticipation distance used
+ * by route analysis; the value is tuned against the full-field soak, while
+ * actual steering and driveable-outline recovery remain movement-system work.
  */
 export function rivalSpeedLimitAt(analysis: RivalRouteAnalysis, s: number): number {
   const wrapped = ((s % analysis.length) + analysis.length) % analysis.length;
