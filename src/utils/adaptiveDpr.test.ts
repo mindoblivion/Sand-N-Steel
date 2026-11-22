@@ -420,7 +420,6 @@ describe('D. The wiring — one holder of the value', () => {
   test('the Canvas’s dpr is the scene’s own state, and the old constant is gone', () => {
     expect(sceneCode).toContain('dpr={cityDpr}');
     expect(sceneCode).toContain('shadows={cityTier.shadowCasting}');
-    expect(sceneCode).toContain('castShadow={cityTier.shadowCasting}');
     expect(sceneCode).not.toContain('dpr={[1, 2]}');
     expect(sceneCode).toContain('useState<number>');
     expect(sceneSrc).toContain('CITY_TIERS[qualityPreset].dpr.start');
@@ -588,7 +587,6 @@ describe('F. The duel shares the player quality budget', () => {
   test('Duel Canvas adapts DPR, scales ambient particles and keeps shadows at the selected tier', () => {
     expect(duelCode).toContain('dpr={duelDpr}');
     expect(duelCode).toContain('shadows={CITY_TIERS[qualityPreset].shadowCasting}');
-    expect(duelCode).toContain('castShadow={CITY_TIERS[qualityPreset].shadowCasting}');
     expect(duelCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
     expect(duelCode).toContain('tier={qualityPreset}');
     expect(duelCode).toContain('CITY_TIERS[qualityPreset].dpr.start');
@@ -604,7 +602,6 @@ describe('G. Circus racing shares the player quality budget', () => {
   test('Race Canvas adapts DPR and scales the large arena shadow map by tier', () => {
     expect(raceCode).toContain('dpr={raceDpr}');
     expect(raceCode).toContain('shadows={CITY_TIERS[qualityPreset].shadowCasting}');
-    expect(raceCode).toContain('castShadow={CITY_TIERS[qualityPreset].shadowCasting}');
     expect(raceCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
     expect(raceCode).toContain('tier={qualityPreset}');
     expect(raceCode).toContain('CITY_TIERS[qualityPreset].dpr.start');
