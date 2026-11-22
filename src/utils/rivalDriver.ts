@@ -50,17 +50,14 @@
 // when the speed is more than 0.5 above the CORNER limit ahead, never to
 // chase the pace cap (the handoff's 5 u/s roll speed decays by coasting).
 //
-// The corner limit is the other half of the pace: the route's curvature
-// ahead caps the speed, because the turn rate at race pace (~0.59 rad/s)
-// cannot follow the south hook (radius ~2.5, needs ~1.08 rad/s). The limit
-// is solved from the movement module's own turn-rate curve
-// (`v·κ ≤ 0.35 + 0.0885·v`), over a 6-unit forward window (the lookahead
-// scale — the pure pursuit smooths the route over its lookahead, so the
-// rig's effective curvature is the heading change over that window, not
-// the raw per-sample tangent, which near-cusps at the hook's end). The
-// cost is real — a driven lap runs several seconds over its profile lap
-// time, and the rig swings wide (off the sand, inside the driveable
-// outline) to make the hook — and the soak reports it rather than hiding it.
+// The corner limit is the other half of the pace: route curvature ahead
+// caps speed using the movement module's own turn-rate curve
+// (`v·κ ≤ 0.35 + 0.0885·v`). Curvature is measured over the forward
+// `RIVAL_CORNER_WINDOW` (1.5 route units), separately from the 2-unit
+// pure-pursuit steering target. The speed solver has a hard 0.8 u/s floor;
+// the full-field soak records the resulting hook queue and lap-time penalty.
+// Do not tune this window from a single-rig lap: rerun the full-field soak
+// and verify the driveable-outline and post-separation overlap gates.
 //
 // ── The windows ─────────────────────────────────────────────────────────────
 // A pass is honest: it opens only when the lateral room on the inside, from
@@ -139,7 +136,7 @@ export const RIVAL_PACE_ADVANTAGE_MARGIN = 0.02;
 export const RIVAL_DRIVER_SPEED_HYSTERESIS = 0.05;
 /** How far above the corner limit the speed must be before the driver brakes. */
 export const RIVAL_DRIVER_BRAKE_MARGIN = 0.5;
-/** The corner-speed lookahead window, in route units (the driver's lookahead scale). 2.5 units — the middle of the trade: the hook's 2.58-rad turn is concentrated in 0.6 units of arc, so a 4-unit window averages it with the straights around it and gives a 0.8 limit the rig cannot turn at (it swings wide and, in a field, strands itself), while a 1.5-unit window reads the peak curvature and drops the limit toward 0.2, so the rig nearly stops and turns in place (it finishes, but a five-rig field queues behind the stopped rig and the back markers wait minutes). 2.5 splits it: slow enough to make the turn, fast enough that the queue flows. */
+/** The forward route-arc window used to estimate corner curvature. Kept separate from the 2-unit steering target; the resulting speed limit is clamped to a minimum of 0.8 u/s. The 1.5-unit value is retained because it lets the rival complete the tight south hook without leaving the driveable outline, but it creates a measurable full-field queue. Re-evaluate only with the multi-rig soak and device profiler. */
 export const RIVAL_CORNER_WINDOW = 1.5;
 /** The warned initiator's clearance: this far outside its lane, at this pace fraction. */
 export const RIVAL_WARNING_CLEAR_OFFSET = -0.5;
@@ -282,9 +279,9 @@ export function analyzeRivalRoute(side: 1 | -1): RivalRouteAnalysis {
   // swings 2.58 rad in 0.6 units of arc) that no rig follows literally. A
   // forward window also never smears a corner BACKWARD past the line: at
   // s = 0 the window is the straight ahead, so the limit there is the cap.
-  // The window is 4 units, not 6: the hook's sharp part needs ~0.8 u/s,
-  // and a 6-unit window averages it up to ~1.4 — fast enough to swing the
-  // rig wide west off the sand and beach its nose on the west wall.
+  // The active curvature window is `RIVAL_CORNER_WINDOW` (1.5 route units),
+  // not the separate 2-unit pure-pursuit steering target. Keep this tied to
+  // the constant so future tuning cannot silently drift from the analysis.
   const cornerStep = 0.5;
   const cornerCount = Math.ceil(route.length / cornerStep);
   const cornerSpeed: number[] = new Array(cornerCount);
@@ -534,13 +531,11 @@ export function resolveDriverPaceCap(profile: RivalDriverProfile): number {
 }
 
 /**
- * The corner-speed limit at a route distance: the array value there. The
- * array's forward window (6 units, the lookahead scale) IS the
- * anticipation — the limit drops as a corner enters the window, so the rig
- * sheds speed on the approach instead of arriving at the corner too fast.
- * The turn rate at race pace (~0.59 rad/s) cannot follow the south hook's
- * near-cusp, so the limit there is ~1.0–1.4 u/s and the rig swings wide
- * (off the sand, inside the driveable outline) to make the turn.
+ * The corner-speed limit at a route distance: the precomputed value for the
+ * forward `RIVAL_CORNER_WINDOW` arc. This window supplies anticipation; it is
+ * distinct from the pure-pursuit steering target. The curvature solver clamps
+ * the result to at least 0.8 u/s, and the full-field soak measures the queue
+ * and lap-time cost of that conservative hook speed.
  */
 export function rivalSpeedLimitAt(analysis: RivalRouteAnalysis, s: number): number {
   const wrapped = ((s % analysis.length) + analysis.length) % analysis.length;
