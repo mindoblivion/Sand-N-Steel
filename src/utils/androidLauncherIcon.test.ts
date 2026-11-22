@@ -8,12 +8,16 @@ const adaptive = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_launc
 const adaptiveRound = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml');
 const pwaManifest = read('../../public/manifest.webmanifest');
 const iconGenerator = read('../../scripts/generateIconAssets.cjs');
+const iconSource = read('../../public/icons/icon-source.svg');
 
 describe('native Sand & Steel launcher branding', () => {
   test('Android and PWA icon generator uses the approved SVG master', () => {
     expect(iconGenerator).toContain("../public/icons/icon-source.svg");
     expect(iconGenerator).not.toContain("file_00000000445881f587bb682b9f8ef1bb_a38986d0.png");
     expect(iconGenerator).toContain('resize(canvasSize, canvasSize, { fit: \'contain\' })');
+    expect(iconSource).toContain('aria-label="Sand and Steel, two gladiators flanking the wordmark"');
+    expect(iconSource).toContain('sand&amp;steel');
+    expect(iconSource.match(/<g transform="translate\(512 0\) scale\(-1 1\)">/g)).toHaveLength(1);
   });
 
   test('the Android application and round icon resolve to adaptive launcher resources', () => {
