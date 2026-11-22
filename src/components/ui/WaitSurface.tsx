@@ -20,8 +20,8 @@ export interface WaitSurfaceProps {
 
 export const WAIT_ROTATE_MS = 2600;
 
-const WaitSurfaceProgress = React.lazy(() =>
-  import('./WaitSurfaceProgress').then((module) => ({ default: module.WaitSurfaceProgress })),
+const WaitSurfaceProgressOverlay = React.lazy(() =>
+  import('./WaitSurfaceProgressOverlay').then((module) => ({ default: module.WaitSurfaceProgressOverlay })),
 );
 
 function usePrefersReducedMotion(): boolean {
@@ -90,7 +90,7 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
         </button>
       </div>
       <Suspense fallback={<ProgressFallback />}>
-        <WaitSurfaceProgress />
+        <WaitSurfaceProgressOverlay />
       </Suspense>
     </div>
   );
