@@ -123,33 +123,30 @@ const LEGACY_QUALITY_PRESETS: Record<string, QualityPreset> = {
 };
 
 /**
- * The cheap-device heuristic's thresholds: a dense screen on few cores.  BOTH
- * halves must hold — a dense screen alone is not a cheap device.
+ * Conservative first-run hardware thresholds. Screen density is deliberately
+ * excluded: DPR measures display pixels, not the CPU/GPU/RAM budget available
+ * to render them. Either independently constrained RAM or CPU is sufficient to
+ * start with the low-cost preset.
  */
-export const CHEAP_DEVICE_DPR = 2.5;
+export const CHEAP_DEVICE_MEMORY_GB = 4;
 export const CHEAP_DEVICE_CORES = 4;
 
-/** The two device facts the first-run default reads. */
+/** Hardware facts exposed by Chromium where available. */
 export interface DeviceProfile {
   devicePixelRatio?: number;
   hardwareConcurrency?: number;
+  deviceMemory?: number;
 }
 
-/**
- * Whether this device should start at Swift (SF-1's first-run default).  An
- * unknown core count is not evidence of a cheap device — a browser that withholds
- * `hardwareConcurrency` is usually not the slow one.
- */
+/** Start constrained devices at Swift; missing signals alone are not a verdict. */
 export function isCheapDevice(device: DeviceProfile): boolean {
-  const dpr = device.devicePixelRatio;
+  const memory = device.deviceMemory;
   const cores = device.hardwareConcurrency;
-  return (
-    typeof dpr === 'number' &&
-    typeof cores === 'number' &&
-    dpr > CHEAP_DEVICE_DPR &&
-    cores >= 1 &&
-    cores <= CHEAP_DEVICE_CORES
-  );
+  const lowMemory = typeof memory === 'number' && Number.isFinite(memory) &&
+    memory > 0 && memory <= CHEAP_DEVICE_MEMORY_GB;
+  const lowCpu = typeof cores === 'number' && Number.isFinite(cores) &&
+    cores >= 1 && cores <= CHEAP_DEVICE_CORES;
+  return lowMemory || lowCpu;
 }
 export const BRIGHTNESS_LEVELS: readonly Brightness[] = ['dim', 'standard', 'bright'];
 export const CAMERA_DISTANCES: readonly CameraDistance[] = ['near', 'standard', 'far'];
@@ -221,9 +218,9 @@ function asRecord(stored: unknown): Record<string, unknown> {
  * `false` when there is none.  It is used ONLY when the record is silent about
  * lefty: a record that carries a boolean lefty wins, either way round.
  *
- * `device` is the device's own two facts (`window.devicePixelRatio`,
- * `navigator.hardwareConcurrency`), read by `loadSettings` and passed in by the
- * suite.  It is consulted ONLY where the record carries no usable preset, which is
+ * `device` is the device's reported hardware profile (memory and logical cores),
+ * read by `loadSettings` and passed in by the suite. It is consulted ONLY where
+ * the record carries no usable preset, which is
  * what makes it a FIRST-RUN default rather than a policy.
  */
 /**
@@ -315,6 +312,7 @@ function readDeviceProfile(): DeviceProfile {
   return {
     devicePixelRatio: window.devicePixelRatio,
     hardwareConcurrency: window.navigator?.hardwareConcurrency,
+    deviceMemory: (window.navigator as Navigator & { deviceMemory?: number })?.deviceMemory,
   };
 }
 

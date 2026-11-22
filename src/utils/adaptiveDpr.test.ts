@@ -51,7 +51,7 @@ import {
 import type { AdaptiveDprState } from '../hooks/useAdaptiveDpr';
 import {
   CHEAP_DEVICE_CORES,
-  CHEAP_DEVICE_DPR,
+  CHEAP_DEVICE_MEMORY_GB,
   DEFAULT_SETTINGS,
   QUALITY_PRESETS,
   getEffectiveAtmosphereMotion,
@@ -494,22 +494,28 @@ describe('E. The preset — a name, a legacy spelling, or a first-run default', 
     expect(resolveQualityPreset('high', { devicePixelRatio: 3, hardwareConcurrency: 4 })).toBe('cinematic');
   });
 
-  test('the cheap-device heuristic needs BOTH a dense screen and few cores', () => {
-    expect(isCheapDevice({ devicePixelRatio: 3, hardwareConcurrency: 4 })).toBe(true);
-    expect(isCheapDevice({ devicePixelRatio: 2.51, hardwareConcurrency: 4 })).toBe(true);
-    expect(isCheapDevice({ devicePixelRatio: 4, hardwareConcurrency: 2 })).toBe(true);
-    // Exactly the threshold is NOT past it: the rule is `dpr > 2.5`.
-    expect(isCheapDevice({ devicePixelRatio: CHEAP_DEVICE_DPR, hardwareConcurrency: 4 })).toBe(false);
-    expect(isCheapDevice({ devicePixelRatio: 3, hardwareConcurrency: CHEAP_DEVICE_CORES + 1 })).toBe(false);
-    // A browser that withholds a fact is not evidence of a cheap device.
+  test('low RAM OR few logical cores independently selects the low-cost preset', () => {
+    expect(CHEAP_DEVICE_MEMORY_GB).toBe(4);
+    expect(CHEAP_DEVICE_CORES).toBe(4);
+    expect(isCheapDevice({ deviceMemory: 2 })).toBe(true);
+    expect(isCheapDevice({ deviceMemory: 4 })).toBe(true);
+    expect(isCheapDevice({ hardwareConcurrency: 2 })).toBe(true);
+    expect(isCheapDevice({ hardwareConcurrency: CHEAP_DEVICE_CORES })).toBe(true);
+    // Display density is not a proxy for rendering capability.
+    expect(isCheapDevice({ devicePixelRatio: 3, hardwareConcurrency: 8, deviceMemory: 8 })).toBe(false);
+    expect(isCheapDevice({ devicePixelRatio: 1, hardwareConcurrency: 4 })).toBe(true);
+    expect(isCheapDevice({ deviceMemory: 3, hardwareConcurrency: 8 })).toBe(true);
+    expect(isCheapDevice({ deviceMemory: 8, hardwareConcurrency: 4 })).toBe(true);
+    expect(isCheapDevice({ hardwareConcurrency: CHEAP_DEVICE_CORES + 1, deviceMemory: 8 })).toBe(false);
+    // Unknown or invalid signals alone do not classify a device.
     expect(isCheapDevice({})).toBe(false);
     expect(isCheapDevice({ devicePixelRatio: 3 })).toBe(false);
-    expect(isCheapDevice({ hardwareConcurrency: 4 })).toBe(false);
-    expect(isCheapDevice({ devicePixelRatio: 3, hardwareConcurrency: 0 })).toBe(false);
+    expect(isCheapDevice({ hardwareConcurrency: 0, deviceMemory: 0 })).toBe(false);
+    expect(isCheapDevice({ hardwareConcurrency: -1, deviceMemory: NaN })).toBe(false);
   });
 
   test('the heuristic is a FIRST-RUN default, never a policy over the player’s choice', () => {
-    const cheap = { devicePixelRatio: 3, hardwareConcurrency: 4 };
+    const cheap = { devicePixelRatio: 1, hardwareConcurrency: 4 };
     expect(resolveSettings({}, false, cheap).qualityPreset).toBe('swift');
     expect(resolveSettings(null, false, cheap).qualityPreset).toBe('swift');
     expect(resolveSettings(undefined, false, cheap).qualityPreset).toBe('swift');
@@ -535,9 +541,10 @@ describe('E. The preset — a name, a legacy spelling, or a first-run default', 
     expect(settingsCode).toContain('readDeviceProfile');
     expect(settingsCode).toContain('window.devicePixelRatio');
     expect(settingsCode).toContain('navigator?.hardwareConcurrency');
+    expect(settingsCode).toContain('deviceMemory');
     expect(settingsCode).toContain('loadSettings');
-    // A missing window (or a browser withholding the facts) is an empty profile, and an
-    // empty profile is Balanced.
+    // A missing window (or a browser withholding all hardware facts) is an empty
+    // profile, and an empty profile is Balanced.
     expect(settingsCode).toContain("typeof window === 'undefined'");
   });
 
