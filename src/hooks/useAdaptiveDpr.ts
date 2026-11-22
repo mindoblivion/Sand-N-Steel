@@ -58,8 +58,10 @@ export interface CityTier {
   readonly dpr: DprBand;
   /** Dust particles the city draws at this tier (0 = none at all). */
   readonly sparkles: number;
-  /** Square directional-light shadow-map resolution in pixels. */
+  /** Square directional-light shadow-map resolution in pixels (0 when disabled). */
   readonly shadows: number;
+  /** Whether the tier runs a real-time shadow pass. */
+  readonly shadowCasting: boolean;
 }
 
 /**
@@ -72,9 +74,10 @@ export interface CityTier {
  * tier below it.
  */
 export const CITY_TIERS: Record<QualityPreset, CityTier> = {
-  cinematic: { dpr: { min: 1.5, max: 2.0, start: 2.0 }, sparkles: 90, shadows: 1024 },
-  balanced: { dpr: { min: 1.0, max: 1.5, start: 1.5 }, sparkles: 60, shadows: 768 },
-  swift: { dpr: { min: 1.0, max: 1.25, start: 1.0 }, sparkles: 0, shadows: 512 },
+  cinematic: { dpr: { min: 1.5, max: 2.0, start: 2.0 }, sparkles: 90, shadows: 1024, shadowCasting: true },
+  balanced: { dpr: { min: 1.0, max: 1.5, start: 1.5 }, sparkles: 60, shadows: 768, shadowCasting: true },
+  // Swift skips the shadow-map render pass entirely; ambient lighting remains.
+  swift: { dpr: { min: 1.0, max: 1.25, start: 1.0 }, sparkles: 0, shadows: 0, shadowCasting: false },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
