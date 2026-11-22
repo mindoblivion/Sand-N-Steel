@@ -102,7 +102,7 @@ import { getTerrainY } from '../../../utils/terrainHeight';
 import { checkMoatRespawn } from '../../../utils/drawbridge';
 import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityStrideSpeed } from '../../../utils/cityMovementSpeed';
-import { createCityMovementDiagnosticSnapshot, type CityMovementDiagnosticSnapshot } from '../../../utils/cityMovementDiagnostics';
+import { createCityMovementDiagnosticSnapshot, getExpectedCityMovementDistance, type CityMovementDiagnosticSnapshot } from '../../../utils/cityMovementDiagnostics';
 import { getCityFacingYaw } from '../../../utils/cityFacing';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
@@ -1381,7 +1381,7 @@ const handleEnterBathhouse = useCallback(() => {
 
         // Grounded, controlled gladiator stride speed with analog control
         speed = resolveCityStrideSpeed(3.8 * mag, bodyWeightLbRef.current);
-        expectedDistance = speed * delta;
+        expectedDistance = getExpectedCityMovementDistance(speed, delta);
         const nextPos = resolveCityMovement(playerPosRef.current, worldDx, worldDz, speed, delta);
         // Phase 34G: Apply terrain height from the motte ramp/summit.
         // getTerrainY returns 0 on flat city ground, so existing

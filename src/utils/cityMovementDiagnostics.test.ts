@@ -1,6 +1,6 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
-import { createCityMovementDiagnosticSnapshot } from './cityMovementDiagnostics';
+import { createCityMovementDiagnosticSnapshot, getExpectedCityMovementDistance } from './cityMovementDiagnostics';
 
 const base = {
   capturedAtMs: 1234,
@@ -24,6 +24,11 @@ const base = {
 };
 
 describe('city movement diagnostic snapshots', () => {
+  test('uses the same 100ms timestep cap as the collision resolver for expected distance', () => {
+    expect(getExpectedCityMovementDistance(3.8, 0.5)).toBeCloseTo(0.38, 8);
+    expect(getExpectedCityMovementDistance(3.8, 0.05)).toBeCloseTo(0.19, 8);
+    expect(getExpectedCityMovementDistance(3.8, -1)).toBe(0);
+  });
   test('records an unconstrained stride without reporting a collision or anomaly', () => {
     const snapshot = createCityMovementDiagnosticSnapshot(base);
     expect(snapshot.actualDistance).toBeCloseTo(0.38, 8);

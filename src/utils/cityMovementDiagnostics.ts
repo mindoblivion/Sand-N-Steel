@@ -1,3 +1,9 @@
+import { CITY_MOVEMENT_MAX_DELTA_SECONDS } from './cityCollisions';
+
+export function getExpectedCityMovementDistance(speed: number, frameDeltaSeconds: number): number {
+  return speed * Math.min(Math.max(0, frameDeltaSeconds), CITY_MOVEMENT_MAX_DELTA_SECONDS);
+}
+
 export interface CityMovementDiagnosticSnapshot {
   capturedAtMs: number;
   position: [number, number, number];
