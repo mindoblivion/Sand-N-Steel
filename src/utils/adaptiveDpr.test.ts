@@ -60,7 +60,6 @@ import {
   resolveSettings,
 } from '../services/settings';
 import type { QualityPreset, Settings } from '../services/settings';
-import { CityRenderDiagnostics } from '../components/dev/CityRenderDiagnostics';
 import { AMBIENT_CHARACTERS, LOW_END_AMBIENT_CHARACTERS } from '../data/ambientCharacters';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
