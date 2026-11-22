@@ -3,9 +3,28 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
 
+const largeChunkCompositionReport = {
+  name: 'large-chunk-composition-report',
+  apply: 'build' as const,
+  generateBundle(_options: unknown, bundle: Record<string, { type: string; fileName: string; code?: string; modules?: Record<string, { renderedLength: number; originalLength: number }> }>) {
+    for (const item of Object.values(bundle)) {
+      if (item.type !== 'chunk' || !item.code || item.code.length < 500 * 1024) continue;
+      const largestModules = Object.entries(item.modules ?? {})
+        .map(([id, module]) => ({
+          module: id.replace(`${process.cwd()}/`, ''),
+          renderedBytes: module.renderedLength,
+          originalBytes: module.originalLength,
+        }))
+        .sort((a, b) => b.renderedBytes - a.renderedBytes)
+        .slice(0, 30);
+      this.info(`[bundle-composition] ${item.fileName} (${item.code.length} bytes): ${JSON.stringify(largestModules)}`);
+    }
+  },
+};
+
 export default defineConfig(() => {
   return {
-    plugins: [tailwindcss(), react()],
+    plugins: [tailwindcss(), react(), largeChunkCompositionReport],
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),
