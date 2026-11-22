@@ -41,8 +41,8 @@
 import { getLeftyMode, setLeftyMode } from './storage';
 // Atmosphere A1 — the city's two sky/sun/fog profiles. The names and the default live
 // in `utils/atmosphere.ts`, so this record stores a choice and never restates a value.
-import { ATMOSPHERE_NAMES, DEFAULT_ATMOSPHERE } from '../utils/atmosphere';
-import type { AtmosphereProfileName } from '../utils/atmosphere';
+import { ATMOSPHERE_NAMES, DEFAULT_ATMOSPHERE } from '../utils/atmosphereData';
+import type { AtmosphereProfileName } from '../utils/atmosphereData';
 
 /** The one settings record. */
 export const SETTINGS_STORAGE_KEY = 'sand_and_steel_settings_v1';
