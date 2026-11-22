@@ -27,8 +27,11 @@ describe('deferred title and Ludus screens', () => {
     expect(app).toContain("await (await import('./services/appleAuth')).appleSignIn();");
     expect(app).toContain("await (await import('./services/microsoftAuth')).microsoftSignIn();");
     expect(app).toContain("const { listDriveSaves, loadProfileFromDrive } = await import('./services/googleDrive');");
-    // Google auth remains eagerly available for Firebase session observation and Drive token state.
-    expect(app).toContain("import { googleSignIn, subscribeAuthUser } from './services/googleAuth';");
+    // Google auth is loaded only for an explicit sign-in or when account settings open.
+    expect(app).not.toContain("import { googleSignIn, subscribeAuthUser } from './services/googleAuth';");
+    expect(app).toContain("await import('./services/googleAuth')");
+    expect(app).toContain("import('./services/googleAuth').then(({ subscribeAuthUser }) => {");
+    expect(app).toContain("if (!settingsOpen) return;");
   });
 
 });
