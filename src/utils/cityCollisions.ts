@@ -668,6 +668,8 @@ function recoveryEscape(
   return best;
 }
 
+export const CITY_MOVEMENT_MAX_DELTA_SECONDS = 0.1;
+
 export function resolveCityMovement(
   currentPos: [number, number, number],
   dx: number,
@@ -685,7 +687,7 @@ export function resolveCityMovement(
   // below 10fps the game time-dilates slightly instead of teleporting the
   // player. That is the correct behavior. Clamped here (inside the resolver,
   // not at call sites) so all current and future callers are protected.
-  delta = Math.min(delta, 0.1);
+  delta = Math.min(delta, CITY_MOVEMENT_MAX_DELTA_SECONDS);
   const r = PLAYER_RADIUS;
   let x = currentPos[0];
   let z = currentPos[2];
