@@ -2,15 +2,11 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const SOURCE_IMAGE = path.join(__dirname, '../public/assets/aistudio/file_00000000445881f587bb682b9f8ef1bb_a38986d0.png');
+const SOURCE_IMAGE = path.join(__dirname, '../public/icons/icon-source.svg');
 
-// Keep the complete approved artwork for store/legacy icons. Adaptive icons
-// need a tighter composition: trim only the decorative outer 4% before fitting
-// the art inside Android's central circular safe zone.
-// A square's diagonal must fit within the 66% safe-zone circle.
-// 0.46 is a conservative inscribed-square ratio (0.66 / sqrt(2) ≈ 0.467). 
-const ADAPTIVE_SAFE_ZONE_RATIO = 0.46;
-const ADAPTIVE_EDGE_CROP_RATIO = 0.04;
+// The SVG master is the single source of truth for Android and PWA icons.
+// Its important artwork is composed inside Android's central 66% circular safe zone.
+
 
 async function createCircularMask(size) {
   const svg = `<svg width="${size}" height="${size}">
@@ -20,45 +16,12 @@ async function createCircularMask(size) {
 }
 
 async function createAdaptiveForeground(canvasSize) {
-  // Android adaptive icons use a 108dp canvas with a central ~66dp safe zone.
-  // Crop the decorative frame slightly so the title/gladiators read larger,
-  // while keeping all four foreground corners inside the circular safe-zone boundary.
-  const innerSize = Math.round(canvasSize * ADAPTIVE_SAFE_ZONE_RATIO);
-  const offset = Math.round((canvasSize - innerSize) / 2);
-  const metadata = await sharp(SOURCE_IMAGE).metadata();
-  if (!metadata.width || !metadata.height) throw new Error('Unable to read launcher source dimensions');
-  const cropX = Math.round(metadata.width * ADAPTIVE_EDGE_CROP_RATIO);
-  const cropY = Math.round(metadata.height * ADAPTIVE_EDGE_CROP_RATIO);
-  const cropWidth = metadata.width - cropX * 2;
-  const cropHeight = metadata.height - cropY * 2;
-
-  // Adaptive-only crop; all other icon outputs retain the full original artwork.
-  const resizedArt = await sharp(SOURCE_IMAGE)
-    .extract({ left: cropX, top: cropY, width: cropWidth, height: cropHeight })
-    .resize(innerSize, innerSize, { fit: 'cover' })
+  // Render the complete square SVG into the adaptive canvas. The source artwork
+  // itself keeps both fighters and the wordmark inside Android's circular safe zone.
+  return await sharp(SOURCE_IMAGE)
+    .resize(canvasSize, canvasSize, { fit: 'contain' })
     .png()
     .toBuffer();
-
-  // Center the inscribed square on the transparent adaptive-icon canvas.
-  const foreground = await sharp({
-    create: {
-      width: canvasSize,
-      height: canvasSize,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 }
-    }
-  })
-  .composite([
-    {
-      input: resizedArt,
-      top: offset,
-      left: offset
-    }
-  ])
-  .png()
-  .toBuffer();
-
-  return foreground;
 }
 
 async function createAdaptiveBackground(canvasSize) {
