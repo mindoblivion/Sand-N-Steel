@@ -273,7 +273,7 @@ describe('D. The sequence', () => {
     expect(waitDestination('not-a-destination' as WaitDestinationId)).toEqual(WAIT_DESTINATIONS.city_hub);
   });
 
-  test('the Colosseum loading backdrop class, dark lower cover overlay and safe-area progress bar are used by every transition surface', () => {
+  test('the Colosseum artwork remains unobscured while every transition surface keeps its safe-area progress bar', () => {
     expect(waitSurfaceSrc).toContain('COLOSSEUM_LOADING_CLASS');
     expect(assetLoadingSrc).toContain('COLOSSEUM_LOADING_CLASS');
     expect(assetLoadingSrc).not.toContain('timedOut');
@@ -281,8 +281,8 @@ describe('D. The sequence', () => {
     expect(assetLoadingSrc).toContain('setTimeout(() => setRecoveryAvailable(true), 30000)');
     expect(assetLoadingSrc).toContain('clearTimeout(recoveryTimer)');
     expect(assetLoadingSrc).toContain('Continue in background');
-    for (const source of [waitSurfaceProgressSrc, assetLoadingSrc]) {
-      expect(source).toContain('data-loading-cover="true"');
+    for (const source of [waitSurfaceSrc, waitSurfaceProgressSrc, assetLoadingSrc]) {
+      expect(source).not.toContain('data-loading-cover="true"');
       expect(source).toContain('data-loading-progress="true"');
       expect(source).toContain("bottom: 'max(4vh, calc(env(safe-area-inset-bottom, 0px) + 24px))'");
       expect(source).toContain('role="progressbar"');
