@@ -1,7 +1,7 @@
 import React from 'react';
 import { useProgress } from '@react-three/drei/core/Progress';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { resolveWaitSurfaceProgressOverlay } from './waitSurfaceProgress';
+import { resolveWaitSurfaceProgress } from './waitSurfaceProgress';
 
 function reload(): void {
   try {
@@ -39,7 +39,7 @@ export const WaitSurfaceProgressOverlay: React.FC = () => {
     );
   }
 
-  const { knowsCount, pct } = resolveWaitSurfaceProgressOverlay(active, total, progress);
+  const { knowsCount, pct } = resolveWaitSurfaceProgress(active, total, progress);
   return (
     <>
       <div
