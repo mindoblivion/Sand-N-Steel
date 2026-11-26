@@ -84,7 +84,14 @@ describe('A. The scene drives the pure movement module', () => {
     // crossing (`phase.raceElapsedMs`), not from GO: the player crosses
     // 1.5–3.0 s after the leader, so a duration measured from the leader's
     // crossing would expire before the player can drive.
-    expect(sceneCode).toContain('advanceChariot(motion, input, delta, launchAccelScale(launch, phase.raceElapsedMs))');
+    // LADDER-1C (Director rebase, not weakened): the brief's §4 mandates the
+    // incident drag as a 5th `dragScale` argument on this exact call — the
+    // 4-argument literal cannot survive any correct implementation, because
+    // `accelScale` cannot decelerate and scene-side speed mutation is
+    // forbidden by this suite's test A. The intent is preserved exactly:
+    // `delta` still passes through unclamped, the launch scale is still the
+    // 4th argument, and the scene still holds no accumulator.
+    expect(sceneCode).toContain('advanceChariot(motion, steeredInput, delta, launchAccelScale(launch, phase.raceElapsedMs), dragScale)');
     expect(CHARIOT_MOVEMENT.maxFrameDt).toBe(0.1);
     expect(movementSrc).toContain('maxFrameDt');
     expect(sceneCode).not.toContain('accumulator +=');
