@@ -531,8 +531,11 @@ describe('CF-6 §C — the telegraph glow', () => {
     // predicate's own suite (regularTelegraph.test.ts §2).
     expect(prop).toContain('presentsTelegraphGlow(opponent)');
     // The player's mesh is untouched: no glow prop on it at all.
+    // PHASE1-SMOOTH rebased this pin, not weakened it: the player mount now
+    // also carries positionRef + overrideAction (the smoothing wiring); the
+    // assertion is still the full mount literal, which contains no telegraphGlow.
     expect(DUEL_SCENE).toContain(
-      '<GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />',
+      "<GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} positionRef={playerPosRef} overrideAction={player.action === 'walk' ? (fighterMoving.player ? 'walk' : 'idle') : undefined} />",
     );
   });
 
@@ -768,8 +771,12 @@ describe('CF-6 §F — mechanics, rates and timing unchanged', () => {
     expect(module_).not.toContain('performance.now');
     expect(module_).not.toContain('Math.random');
     expect(DUEL_SCENE).not.toContain('isLeftyMode={telegraphGlow');
+    // PHASE1-SMOOTH rebased this pin, not weakened it: the player mount now
+    // also carries positionRef + overrideAction (the smoothing wiring);
+    // isLeftyMode={isLeftyMode} is unchanged on the player mount only —
+    // opponentsLadder §A verifies the once-only fact.
     expect(DUEL_SCENE).toContain(
-      '<GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />',
+      "<GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} positionRef={playerPosRef} overrideAction={player.action === 'walk' ? (fighterMoving.player ? 'walk' : 'idle') : undefined} />",
     );
   });
 });
