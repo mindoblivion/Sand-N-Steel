@@ -36,6 +36,9 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
   // P5 — the Ludus Training Yard sets stat training's price (and only that).
   const cost = trainingCost(profile);
   const canAfford = canDebitGold(profile.gold, cost);
+  // PHASE2-TRAINING — the day's sessions are a hard cap: at zero every drill
+  // is disabled and the yard refuses, the same gate App's handler enforces.
+  const noSessionsLeft = profile.trainingSessionsLeft <= 0;
   // L5 — the same timeState-derived timetable drives the cards and App's transaction gate.
   const trainingSchedule = resolveTrainingSchedule(profile);
   const restingIds = new Set(trainingSchedule.resting.map((action) => action.id));
@@ -65,8 +68,9 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
         <p className="text-sm text-neutral-300 font-serif">
           Condition your body for the arena. Training costs <strong className="text-yellow-300">{cost} Gold</strong> per session.
         </p>
-        {/* LUDI PHASE A — THE DAY'S SESSIONS, shown and NOT enforced. The Acta's rollover
-            refreshes them (two, or three on Dies Quietus), and this row remains informational.
+        {/* LUDI PHASE A — THE DAY'S SESSIONS, enforced since PHASE2-TRAINING.
+            The Acta's rollover refreshes them (two, or three on Dies Quietus);
+            a training session spends one, and at zero every drill is disabled.
             L5's separate deterministic timetable governs which drill is resting today. */}
         <p
           data-training-sessions={profile.trainingSessionsLeft}
@@ -101,10 +105,10 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
                   sounds.playClick();
                   onTrainStat(opt.id);
                 }}
-                disabled={!canAfford || resting}
+                disabled={!canAfford || resting || noSessionsLeft}
                 className="w-full min-h-[48px] py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md"
               >
-                {resting ? 'Resting today' : `Train (+1 ${opt.id.toUpperCase()})`}
+                {resting ? 'Resting today' : noSessionsLeft ? 'No sessions left today' : `Train (+1 ${opt.id.toUpperCase()})`}
               </button>
             </div>
           );
