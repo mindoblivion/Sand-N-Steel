@@ -90,7 +90,7 @@ export function resolveActiveInjury(
  * `won` is the duel's outcome; a loss is the only thing that can inflict, and every
  * outcome (including a loss taken while already hurt) advances an existing injury's
  * clock by one.  The fresh-injury branch returns before the decrement, which is what
- * keeps a new wound at its full three fights.
+ * keeps a new wound at its full two fights.
  */
 export function resolveInjuryAfterDuel<T extends InjuryRecord>(
   profile: T,

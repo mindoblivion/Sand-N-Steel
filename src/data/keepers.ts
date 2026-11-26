@@ -189,7 +189,7 @@ export const KEEPERS: Keeper[] = [
     origoLine:
       "A {province} frame, and {god} named on it — I know how it mends. Sit. I have stitched worse and sent them back to the sand.",
     firstVisitLine:
-      'Sit — before you fall and make it two injuries. A lost fight leaves you hurt: weaker and slower for three fights after. I end it here for 75 gold, whole and clean.',
+      'Sit — before you fall and make it two injuries. A lost fight leaves you hurt: weaker and slower for two fights after. Rest the day under my roof and wake whole and clean.',
     repeatLines: [
       'Back again. At this rate I should charge the Colosseum rent — you are here more often than its statues.',
     ],
@@ -197,7 +197,7 @@ export const KEEPERS: Keeper[] = [
     // injury, so she has no uninjured line: one would be dead content.
     stateLines: {
       injured:
-        'Injured, then — I can see it from here. 75 gold, and I close it whole and clean; by supper neither of us will remember it.',
+        'Injured, then — I can see it from here. Rest the day under my roof and wake whole and clean; by supper neither of us will remember it.',
     },
   },
   {
