@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { aiTurnDelayMs, turnResolutionMs } from '../components/duel/DuelScene';
-import { ATTACK_WINDUP_MS } from './attackWindup';
+import { getWeaponWindupMs } from './duelWeaponFeel';
 import type { CombatActionType } from '../components/ui/TurnActionPanel';
 
 const SRC_DIR = fileURLToPath(new URL('../', import.meta.url));
@@ -371,7 +371,14 @@ describe('CF-5 §C full-fight duration', () => {
 // ── §D THE PACING IS PRESENTATION, NOT GAME LOGIC ───────────────────────────
 describe('CF-5 §D the timing seam is the only thing that moved', () => {
   test('offensive strikes animate before their hit roll and damage resolve', () => {
-    expect(ATTACK_WINDUP_MS).toBe(650);
+    // PHASE1-WEAPONFEEL — rebased, not weakened: the windup is per-weapon
+    // now, so the pin is the TABLE (sword 650, the shipped value, through to
+    // mace 800), not the flat constant. The source order below is unchanged:
+    // gate → animation set → timer schedule → damage.
+    expect(getWeaponWindupMs('sword_shield')).toBe(650);
+    expect(getWeaponWindupMs('spear')).toBe(600);
+    expect(getWeaponWindupMs('dual_blades')).toBe(500);
+    expect(getWeaponWindupMs('mace')).toBe(800);
     const gate = duel.indexOf('if (isAttackAction && !afterWindup)');
     const animation = duel.indexOf("const action = actionType === 'quick_attack' ? 'attack_light' : 'attack_heavy';", gate);
     const schedule = duel.indexOf('attackWindupTimerRef.current = setTimeout', gate);
@@ -392,7 +399,11 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
     // and Sand is its default, so the shipped pacing is unchanged.
     // Player recovery uses the saved body-weight profile; opponent recovery
     // remains neutral. The single scheduling call must preserve that split.
-    expect(duel.match(/\},\s*turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer\s*\?\s*playerWeightProfile\.recoveryMultiplier\s*:\s*1,\s*\)/g)?.length).toBe(1);
+    // PHASE1-WEAPONFEEL — rebased, not weakened: the call gained a fifth
+    // argument, the acting fighter's live weapon type, which sets the attack
+    // hold inside the resolver. The shape pinned here — one call, this
+    // argument order, this recovery split — is unchanged.
+    expect(duel.match(/\},\s*turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer\s*\?\s*playerWeightProfile\.recoveryMultiplier\s*:\s*1,\s*attackerWeapon\.type,\s*\)/g)?.length).toBe(1);
     // The old fixed hold is no longer a timer argument anywhere, and no 1100 ms
     // literal survives in the scene at all — `cast_net` now carries 880.
     expect(duel).not.toMatch(/\}, 1100\);/);
@@ -499,7 +510,11 @@ describe('CF-5 §E resolution timer lifecycle', () => {
 describe('CF-5 §F terminal turn guards', () => {
   test('a completed match cannot re-enter combat from an expired attack wind-up', () => {
     const windupStart = duel.indexOf('attackWindupTimerRef.current = setTimeout(() => {');
-    const windupEnd = duel.indexOf('}, ATTACK_WINDUP_MS);', windupStart);
+    // PHASE1-WEAPONFEEL — rebased, not weakened: the timer delay is the
+    // per-weapon windup read from the attacker's live weapon, not the flat
+    // constant. The callback shape below (null-out, match-over guard,
+    // re-entry) is unchanged.
+    const windupEnd = duel.indexOf('}, getWeaponWindupMs(attackerWeaponType));', windupStart);
     const callback = duel.slice(windupStart, windupEnd);
 
     expect(windupStart).toBeGreaterThan(-1);
