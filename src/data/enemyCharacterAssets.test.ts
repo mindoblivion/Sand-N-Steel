@@ -18,6 +18,8 @@ describe('enemy character asset catalogue', () => {
       dimachaerus: '/models/dimachaerus.glb',
       // COMBAT-4 — Aurelius's champion body, built in Blender on the Roman rig.
       aurelius_champion: '/models/aurelius_champion.glb',
+      // PHASE1-SCAEVOLA — Scaevola's distinct body, built in Blender on the Roman rig.
+      scaevola_twice_slain: '/models/scaevola_twice_slain.glb',
     });
   });
 

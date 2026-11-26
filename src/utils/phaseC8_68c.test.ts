@@ -762,6 +762,7 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
 
   test('the phase added no racing model or horse asset to public/', () => {
     // The inventory includes the independently uploaded civilian NPC model.
+    // COMBAT-4 added aurelius_champion.glb; PHASE1-SCAEVOLA added scaevola_twice_slain.glb.
     expect(readdirSync(repo('public/models')).sort()).toEqual([
       'amazonian.glb',
       'arena_roman.glb',
@@ -771,6 +772,7 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
       'lion.glb',
       'minotaur.glb',
       'netfighter.glb',
+      'scaevola_twice_slain.glb',
       'weapons',
     ]);
     // The three horse uploads remain the only horse files, and

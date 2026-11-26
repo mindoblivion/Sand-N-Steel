@@ -19,6 +19,10 @@ export const ENEMY_CHARACTER_ASSETS: Readonly<Record<EnemyGlbModelType, string>>
   // COMBAT-4 — Aurelius's champion body, built in Blender on the shared Roman
   // rig (crested helm, heavy pauldrons, broadened torso).
   aurelius_champion: '/models/aurelius_champion.glb',
+  // PHASE1-SCAEVOLA — Scaevola's distinct body, built in Blender on the shared
+  // Roman rig (aged veteran: grey beard and ponytail, weathered skin, dark
+  // worn armor, swept fore-aft crest, eclipse motif on the chest).
+  scaevola_twice_slain: '/models/scaevola_twice_slain.glb',
 };
 
 /** Resolve an opponent model key. Unknown/absent keys safely use the Roman rig. */
