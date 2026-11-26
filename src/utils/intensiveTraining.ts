@@ -11,9 +11,10 @@
  * (3) The Intensive is a session, not a second economy: it requires the
  *     drill to be scheduled today (the same deterministic timetable that
  *     governs the yard — trainingSchedule.ts), and it records ONE session
- *     through recordPhysicalTraining, the same as a yard session. It does NOT
- *     touch trainingSessionsLeft: that counter is shown, not enforced
- *     (TrainingTab's LUDI PHASE A comment), so there is nothing to consume.
+ *     through recordPhysicalTraining, the same as a yard session. Since
+ *     PHASE2-TRAINING it also spends one of the day's sessions
+ *     (trainingSessionsLeft), like a yard session — the counter is a hard
+ *     cap, and at zero the course is refused with 'sessions-exhausted'.
  * (4) Refusals return before any gold moves and before any save: a refused
  *     Intensive leaves gold, stats, physique and the clock exactly as they
  *     were. The module owns no clock step and no save — App wraps a success
@@ -33,7 +34,7 @@ export const INTENSIVE_LEVEL_MIN = 3;
 export const INTENSIVE_PRICE_MULTIPLIER = 3;
 export const INTENSIVE_STAT_GAIN = 2;
 
-export type IntensiveRefusal = 'below-level' | 'not-scheduled' | 'insufficient-gold';
+export type IntensiveRefusal = 'below-level' | 'not-scheduled' | 'sessions-exhausted' | 'insufficient-gold';
 
 /** The character's level, floored at 1 — the same rung trainingCost uses. */
 function resolveLevel(profile: PlayerProfile | null | undefined): number {
@@ -59,7 +60,7 @@ export function isIntensiveQualified(profile: PlayerProfile | null | undefined):
  * The refusal for this profile and drill, or null when the course can run.
  * Checked in the order Rufus would say them: the level gate first (he names
  * the course only to those who qualify), then the day's timetable, then the
- * purse.
+ * day's sessions, then the purse.
  */
 export function intensiveRefusal(
   profile: PlayerProfile | null | undefined,
@@ -67,6 +68,9 @@ export function intensiveRefusal(
 ): IntensiveRefusal | null {
   if (!isIntensiveQualified(profile)) return 'below-level';
   if (!isTrainingActionScheduled(profile, stat)) return 'not-scheduled';
+  // PHASE2-TRAINING — the day's sessions are a hard cap: the course spends
+  // one, like a yard session, and at zero Rufus refuses before the purse.
+  if ((profile?.trainingSessionsLeft ?? 0) <= 0) return 'sessions-exhausted';
   if (!canDebitGold(profile?.gold ?? 0, intensiveCourseCost(profile))) {
     return 'insufficient-gold';
   }
@@ -79,8 +83,9 @@ export type IntensiveResult =
 
 /**
  * Run one Intensive Course: debit 3x the session price, add +2 to the stat,
- * record the session. Pure — no clock step, no save, no profile mutation.
- * A refusal returns the reason and the caller's profile untouched.
+ * spend one of the day's sessions, record the session. Pure — no clock step,
+ * no save, no profile mutation. A refusal returns the reason and the caller's
+ * profile untouched.
  */
 export function applyIntensiveTraining(
   profile: PlayerProfile,
@@ -93,6 +98,7 @@ export function applyIntensiveTraining(
     {
       ...profile,
       gold: profile.gold - cost,
+      trainingSessionsLeft: profile.trainingSessionsLeft - 1,
       baseStats: {
         ...profile.baseStats,
         [stat]: profile.baseStats[stat] + INTENSIVE_STAT_GAIN,
@@ -109,6 +115,8 @@ export function intensiveRefusalLine(reason: IntensiveRefusal, cost: number): st
       return "Rufus shakes his head. 'Three levels of blood first. The hard course is not for beginners.'";
     case 'not-scheduled':
       return "'That drill rests today,' Rufus says. 'The timetable is the timetable.'";
+    case 'sessions-exhausted':
+      return "'No sessions left today,' Rufus says. 'The sand keeps count. Come back at dawn.'";
     case 'insufficient-gold':
       return `'The course costs ${cost} gold,' Rufus says, without looking up. 'Come back with it.'`;
   }

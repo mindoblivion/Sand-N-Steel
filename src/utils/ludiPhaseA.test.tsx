@@ -852,7 +852,7 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(code('components/hub/BountyBoardPanel.tsx')).not.toContain("getKeeperForBuilding('bounty_hall')");
   });
 
-  test('the training yard shows session count as a READ and enforces the daily drill timetable', () => {
+  test('the training yard enforces the daily session count and the drill timetable', () => {
     const yard = (profile: PlayerProfile) =>
       renderToStaticMarkup(<TrainingTab profile={profile} onTrainStat={() => {}} />);
 
@@ -860,18 +860,22 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(fresh).toContain('data-training-sessions="2"');
     expect(fresh).toContain('Sessions left today: 2');
 
-    // Session count remains informational, while the one scheduled resting drill is disabled.
+    // PHASE2-TRAINING — rebased, not weakened: the session count is a hard
+    // cap now, not a read. At zero sessions every drill is disabled and
+    // labelled, including the three that are not resting; the resting drill
+    // keeps its own label.
     const spent = yard(onDay(1, { gold: 100000, trainingSessionsLeft: 0 }));
     expect(spent).toContain('data-training-sessions="0"');
     expect(spent).toContain('Resting today');
-    expect(spent.match(/disabled=""/g)?.length).toBe(1);
+    expect(spent).toContain('No sessions left today');
+    expect(spent.match(/disabled=""/g)?.length).toBe(4);
 
-    // Insufficient gold disables every drill; session count is not the gate.
+    // Insufficient gold disables every drill, as before.
     const broke = yard(onDay(1, { gold: 0, trainingSessionsLeft: 2 }));
     expect(broke.match(/disabled=""/g)?.length).toBe(4);
     const source = code('components/hub/TrainingTab.tsx');
-    expect(source).toContain('disabled={!canAfford || resting}');
-    expect(source).not.toContain('trainingSessionsLeft >');
+    expect(source).toContain('disabled={!canAfford || resting || noSessionsLeft}');
+    expect(source).toContain('const noSessionsLeft = profile.trainingSessionsLeft <= 0;');
   });
 
   test('the Library prints the Laurel and Favour totals on its own rack', () => {

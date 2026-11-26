@@ -2131,6 +2131,10 @@ export function App() {
 
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile || !isTrainingActionScheduled(profile, stat)) return;
+    // PHASE2-TRAINING — the day's sessions are a hard cap (2, or 3 on Dies
+    // Quietus): a session the day does not have returns before the clock
+    // step, the same refusal pattern as the gold check below.
+    if (profile.trainingSessionsLeft <= 0) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
     if (!canDebitGold(profile.gold, cost)) return;
@@ -2138,6 +2142,7 @@ export function App() {
     const trained: PlayerProfile = recordPhysicalTraining({
       ...profile,
       gold: profile.gold - cost,
+      trainingSessionsLeft: profile.trainingSessionsLeft - 1,
       baseStats: {
         ...profile.baseStats,
         [stat]: profile.baseStats[stat] + 1,
