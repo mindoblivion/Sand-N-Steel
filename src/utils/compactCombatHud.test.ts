@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 const hud = readFileSync('src/components/ui/CombatHUD.tsx', 'utf8');
+const panel = readFileSync('src/components/ui/TurnActionPanel.tsx', 'utf8');
 const css = readFileSync('src/index.css', 'utf8');
 
 describe('compact combat HUD on short landscape phones', () => {
@@ -27,5 +28,16 @@ describe('compact combat HUD on short landscape phones', () => {
     expect(hud).toContain('aria-label="Game Settings"');
     expect(hud).toContain('aria-label="Controls and instructions"');
     expect(hud).toContain('aria-label={isMuted ? \'Unmute sound\' : \'Mute sound\'}');
+  });
+
+  test('PHASE1-TOUCH — the main action cards carry the 48px floor by construction', () => {
+    // The cards sit at ~46–50 px compacted by arithmetic alone; the floor
+    // makes the house convention hold even if a card's content grows. Count
+    // inside the action grid only — the secondary strip and the beast buttons
+    // pin their own floors elsewhere.
+    const gridStart = panel.indexOf('COMMAND ACTION BUTTONS GRID');
+    const gridEnd = panel.indexOf('MOVEMENT & UTILITY SECONDARY STRIP', gridStart);
+    const grid = panel.slice(gridStart, gridEnd);
+    expect(grid.match(/min-h-\[48px\]/g)?.length).toBe(6);
   });
 });

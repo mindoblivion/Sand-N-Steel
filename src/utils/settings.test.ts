@@ -459,8 +459,9 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
     expect(haptics).toContain("typeof navigator.vibrate !== 'function'");
     expect(haptics).toContain('HAPTIC_HIT_LANDED_MS = 15');
     expect(haptics).toContain('[30, 40, 30]');
-    // No other module calls navigator.vibrate.
-    for (const path of ['src/App.tsx', 'src/components/duel/DuelScene.tsx', 'src/components/3d/RaceScene.tsx']) {
+    // No other module calls navigator.vibrate — the panel reaches the device
+    // only through the haptics wrapper, so it is on the list too.
+    for (const path of ['src/App.tsx', 'src/components/duel/DuelScene.tsx', 'src/components/3d/RaceScene.tsx', 'src/components/ui/TurnActionPanel.tsx']) {
       expect(source(path), path).not.toContain('navigator.vibrate');
     }
   });
