@@ -97,3 +97,52 @@ describe("The Gladiator's Fate — deterministic level-up drafts", () => {
     expect(chooseFateCard(choice?.state, 'fortunes_favour')).toBeNull();
   });
 });
+
+describe("PHASE2-FATE — the victory write's queue contract", () => {
+  test('a level whose draft cannot form is skipped and its floor still advances', () => {
+    // Level 2 unlocks five cards; owning three of them at their stack cap
+    // leaves two eligible, so no draft can form — and the level is still
+    // consumed, never re-offered on the next level-up.
+    const owned = [
+      ...Array<string>(3).fill('fleet_footed'),
+      ...Array<string>(4).fill('brutal_force'),
+      ...Array<string>(3).fill('iron_lungs'),
+    ];
+    expect(createFateDraft(2, 'Cassian', owned)).toBeNull();
+    const queued = queueFateLevelUps(
+      { ownedCardIds: owned, pendingDrafts: [], lastDraftedLevel: 0 },
+      1,
+      2,
+      'Cassian',
+    );
+    expect(queued.pendingDrafts).toEqual([]);
+    expect(queued.lastDraftedLevel).toBe(2);
+    // The consumed level is gone for good: a later queue never looks back.
+    const later = queueFateLevelUps(queued, 2, 3, 'Cassian');
+    expect(later.pendingDrafts.map((draft) => draft.level)).toEqual([3]);
+  });
+
+  test('the saved floor wins over a stale level-before', () => {
+    const state = { ownedCardIds: [], pendingDrafts: [], lastDraftedLevel: 5 };
+    const queued = queueFateLevelUps(state, 3, 7, 'Cassian');
+    expect(queued.pendingDrafts.map((draft) => draft.level)).toEqual([6, 7]);
+    expect(queued.lastDraftedLevel).toBe(7);
+  });
+
+  test('choosing a card with no immediate reward pays nothing but records ownership', () => {
+    const state = {
+      ownedCardIds: [],
+      pendingDrafts: [
+        {
+          level: 2,
+          cardIds: ['brutal_force', 'fleet_footed', 'iron_lungs'] as [string, string, string],
+        },
+      ],
+      lastDraftedLevel: 2,
+    };
+    const choice = chooseFateCard(state, 'brutal_force');
+    expect(choice?.immediateGold).toBe(0);
+    expect(choice?.state.ownedCardIds).toEqual(['brutal_force']);
+    expect(choice?.state.pendingDrafts).toEqual([]);
+  });
+});
