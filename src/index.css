@@ -183,6 +183,16 @@
     font-size: 10px;
     line-height: 1.15;
   }
+  /* PHASE2-FATE — the level-up draft follows the same short-landscape rules as
+     the duel HUD: the tagline is a blurb, not information — the name, the
+     description and the effect line stay — and the card padding tightens so
+     three cards still fit a ~360px-tall viewport. */
+  .fate-draft-modal .fate-draft-tagline {
+    display: none;
+  }
+  .fate-draft-modal .fate-draft-card {
+    padding: 0.35rem 0.5rem;
+  }
 }
 
 .scrollbar-none::-webkit-scrollbar {
