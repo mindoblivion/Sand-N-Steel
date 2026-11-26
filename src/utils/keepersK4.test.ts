@@ -153,8 +153,17 @@ describe('K4 §A the seven authored lines, on the six rows that have a plate', (
     }
   });
 
-  test('the cure and rest lines name their counter’s real price — and no line discounts', () => {
-    expect(ANTIOCHIS().stateLines!.injured!).toContain(`${TREAT_PRICE}`);
+  // PHASE2-COPYFIX — rebased, not weakened: Antiochis's injured line used to
+  // name the 75-gold price, but that price belongs to `treatInjury`, the
+  // legacy helper that is deliberately unwired — the live Medical House cure
+  // is a day's rest at 25×level, and the panel button prints that price. The
+  // test's intent (the line names its counter's real price/mechanism) is kept
+  // by asserting the line names the rest, and strengthened: it now explicitly
+  // forbids the false price. Barates, the no-discount loop, and Sura below
+  // are untouched.
+  test('the cure and rest lines name their counter’s real price or cure — and no line discounts', () => {
+    expect(ANTIOCHIS().stateLines!.injured!).toMatch(/rest the day/i);
+    expect(ANTIOCHIS().stateLines!.injured!).not.toContain(`${TREAT_PRICE}`);
     expect(BARATES().stateLines!.injured!).toContain('Twenty-five');
     expect(BARATES().stateLines!.uninjured!).toContain('Twenty-five');
     for (const keeper of KEEPERS) {
@@ -164,6 +173,23 @@ describe('K4 §A the seven authored lines, on the six rows that have a plate', (
     }
     // Sura is never hostile — a customer without gold is simply early.
     expect(SURA().stateLines!.broke!).toContain('early');
+  });
+
+  // PHASE2-COPYFIX — guard: Antiochis's lines must never again promise the
+  // unwired 75-gold cure or a three-fight wound. The live cure is a day's
+  // rest at 25×level; the shipped injury is two fights.
+  test('Antiochis never promises the unwired 75-gold cure or a three-fight wound', () => {
+    const antiochis = ANTIOCHIS();
+    const lines = [
+      antiochis.firstVisitLine,
+      ...antiochis.repeatLines,
+      ...Object.values(antiochis.stateLines ?? {}),
+    ];
+    for (const line of lines) {
+      expect(line).not.toMatch(/75 gold/i);
+      expect(line).not.toMatch(/three fights/i);
+    }
+    expect(antiochis.firstVisitLine).toContain('two fights');
   });
 
   test('Antiochis has NO uninjured line, because her panel cannot open healthy', () => {
