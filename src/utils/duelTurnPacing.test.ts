@@ -403,7 +403,11 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
     // argument, the acting fighter's live weapon type, which sets the attack
     // hold inside the resolver. The shape pinned here — one call, this
     // argument order, this recovery split — is unchanged.
-    expect(duel.match(/\},\s*turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer\s*\?\s*playerWeightProfile\.recoveryMultiplier\s*:\s*1,\s*attackerWeapon\.type,\s*\)/g)?.length).toBe(1);
+    // PHASE2-FATECON-2 — rebased, not weakened: the fourth argument gained
+    // the Fate recovery factor (Quick Recovery multiplies the weight
+    // recovery), and the regex still asserts exactly one call with the
+    // full shape.
+    expect(duel.match(/\},\s*turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer\s*\?\s*playerWeightProfile\.recoveryMultiplier\s*\*\s*fateBonuses\.attackRecoveryMultiplier\s*:\s*1,\s*attackerWeapon\.type,\s*\)/g)?.length).toBe(1);
     // The old fixed hold is no longer a timer argument anywhere, and no 1100 ms
     // literal survives in the scene at all — `cast_net` now carries 880.
     expect(duel).not.toMatch(/\}, 1100\);/);

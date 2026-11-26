@@ -230,7 +230,7 @@ describe('PHASE2-FATECON-1 §E — the hype: four player-caused sites scale, the
   });
 });
 
-describe('PHASE2-FATECON-1 §F — the modal: the eight kinds are live, the rest stay inert', () => {
+describe('PHASE2-FATECON-1 §F — the modal: the fourteen kinds are live, only Deep Wounds stays inert', () => {
   test('the draft modal marks gold_flat and the eight kinds live', () => {
     // The literal stays so the PHASE2-FATE pin keeps reading true.
     expect(DRAFT_MODAL_SOURCE).toContain("card.effect.kind === 'gold_flat'");
@@ -240,12 +240,11 @@ describe('PHASE2-FATECON-1 §F — the modal: the eight kinds are live, the rest
     );
   });
 
-  test('the combat kinds and Deep Wounds are still inert', () => {
-    // The live set is exactly the eight kinds — pinned in fateBonuses.test.ts,
-    // where the combat kinds and unlock_technique are asserted absent. The
-    // modal reads nothing else for liveness.
-    expect(DRAFT_MODAL_SOURCE).not.toContain('damage_pct');
+  test('only Deep Wounds stays inert — the combat kinds went live in Part 2', () => {
+    // PHASE2-FATECON-2: the live set grew to fourteen kinds (pinned
+    // exactly in fateBonuses.test.ts). The modal reads nothing else for
+    // liveness, so the only kind it can still call inert is the one
+    // absent from the set.
     expect(DRAFT_MODAL_SOURCE).not.toContain('unlock_technique');
-    expect(DRAFT_MODAL_SOURCE).not.toContain('once_per_bout_survival');
   });
 });

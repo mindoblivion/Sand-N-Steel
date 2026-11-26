@@ -259,7 +259,11 @@ describe('§6 — body weight changes player combat style, never weapon eligibil
     const duel = code('src/components/duel/DuelScene.tsx');
     expect(duel).toContain('isActorPlayer ? playerWeightProfile.impactMultiplier : 1');
     expect(duel).toContain('isActorPlayer ? playerWeightProfile.staminaCostMultiplier : 1');
-    expect(duel).toContain('isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1');
+    // PHASE2-FATECON-2 — rebased, not weakened: the Fate Quick Recovery
+    // factor now rides on the player's weight recovery (the opponent side
+    // stays the neutral 1); the player-uses-weight / opponent-neutral split
+    // this pin asserts is unchanged.
+    expect(duel).toContain('isActorPlayer ? playerWeightProfile.recoveryMultiplier * fateBonuses.attackRecoveryMultiplier : 1');
     expect(duel).toContain('playerWeightProfile.staminaCostMultiplier');
   });
 

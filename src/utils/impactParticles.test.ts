@@ -659,7 +659,11 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
     // Player recovery now uses the saved weight profile; opponent recovery stays neutral.
     // Keep the single scheduling seam pinned while requiring the player-only multiplier.
     expect((duel.match(/\},\s*turnResolutionMs\(/g) ?? []).length).toBe(1);
-    expect(duel).toContain('isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1');
+    // PHASE2-FATECON-2 — rebased, not weakened: the Fate Quick Recovery
+    // factor now rides on the player's weight recovery (the opponent side
+    // stays the neutral 1); the player-uses-weight / opponent-neutral split
+    // this pin asserts is unchanged.
+    expect(duel).toContain('isActorPlayer ? playerWeightProfile.recoveryMultiplier * fateBonuses.attackRecoveryMultiplier : 1');
   });
 
   test('the damage formula module knows nothing about particles', () => {
