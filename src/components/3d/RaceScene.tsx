@@ -106,9 +106,21 @@ import {
   resolveDriverPaceCap,
   rivalDriverRoutePosition,
 } from '../../utils/rivalDriver';
-import type { RivalDriverState, RivalRigSnapshot } from '../../utils/rivalDriver';
+import type { RivalDriverState, RivalRigSnapshot, RivalWarning } from '../../utils/rivalDriver';
 import { applyRigSeparation } from '../../utils/raceRigCollision';
 import { getTeamWidth } from '../../utils/chariotTeamFormation';
+import {
+  createIncidentStewardState,
+  formatRaceIncidentLogEntry,
+  incidentZoneForRig,
+  stepIncidentSteward,
+} from '../../utils/raceIncidents';
+import type {
+  IncidentRigEffects,
+  IncidentRigPose,
+  IncidentStewardState,
+  RaceIncidentLogEntry,
+} from '../../utils/raceIncidents';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -193,6 +205,21 @@ import { getTeamWidth } from '../../utils/chariotTeamFormation';
  * through GO bogs the launch.  It is resolved entirely from the throttle and the
  * elapsed time, it adds no transition to Slice 1's table, and it reaches the
  * physics only as the multiplier `advanceChariot` accepts.
+ *
+ * ── LADDER-1C: racing incidents ────────────────────────────────────────────
+ * `utils/raceIncidents.ts` owns the steward (pure: poses in, effects + log
+ * entries out). `RaceIncidentSteward` below runs it once per frame over the
+ * same pair set the resolver runs — mounted after `RaceRigResolver`, so its
+ * `useFrame` runs last and it reads the post-separation poses. Each rival's
+ * warning feeds its `driveRival` call (the 1B2 hook, replacing the hardcoded
+ * `'none'`), and the incident drag / steer modifiers reach every rig's
+ * `advanceChariot` call — player and rivals through the same path, so the
+ * physics cannot favour one side. The steward only runs while `racing` with
+ * the clock started; the effects are applied only while `racing` too (rivals
+ * keep driving after the player finishes, and a stale effect must not stick).
+ * The player's warning shows as one HUD banner (scrape / tangle / wall); the
+ * session log is snapshotted at the finish for the results panel. No DNF, no
+ * save writes — the settlement is untouched and §J stays 29.
  *
  * ── Save boundary ─────────────────────────────────────────────────────────
  * This scene imports no storage service and never writes a profile directly.
@@ -457,7 +484,9 @@ const RaceChariot: React.FC<{
   leaderCrossingMs: number;
   /** Fired once when the leader's crossing instant arrives. */
   onLeaderCrossing: () => void;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing }) => {
+  /** LADDER-1C: the steward's per-rig effects, written by `RaceIncidentSteward` each frame. */
+  effectsRef: React.MutableRefObject<Map<string, IncidentRigEffects>>;
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing, effectsRef }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -554,7 +583,19 @@ const RaceChariot: React.FC<{
           lapTracker.current = createRaceLapTracker();
           lapTrackerStartedRef.current = true;
         }
-        advanceChariot(motion, input, delta, launchAccelScale(launch, phase.raceElapsedMs));
+        // LADDER-1C: the incident drag / steer modifiers, from the previous
+        // frame's steward run (the steward mounts after this chariot, so its
+        // effects land one frame later — 16.7 ms, the same lag the resolver
+        // has). A fresh object: the merged `input` stays raw for the camera
+        // rig's lean. No effect applies before the clock starts or after the
+        // finish — the steward does not run then, so its map would be stale.
+        const effects = raceState === 'racing' ? effectsRef.current.get('player') : undefined;
+        const dragScale = effects?.dragScale ?? 1;
+        const steeredInput: ChariotInput = {
+          throttle: input.throttle,
+          steer: Math.max(-1, Math.min(1, input.steer * (effects?.steerScale ?? 1) + (effects?.steerBias ?? 0))),
+        };
+        advanceChariot(motion, steeredInput, delta, launchAccelScale(launch, phase.raceElapsedMs), dragScale);
         const previousStage = getRaceLapStage(lapTracker.current);
         const lap = advanceRaceLap(lapTracker.current, { x: motion.x, z: motion.z });
         lapTracker.current = lap.tracker;
@@ -701,6 +742,82 @@ const RaceRigResolver: React.FC<{
 };
 
 /**
+ * LADDER-1C — the incident steward's frame. Mounted after `RaceRigResolver`
+ * (subscription order is mount order, so this `useFrame` runs last): the
+ * player and the rivals have moved for the frame and the resolver has
+ * separated them, so the steward reads the same post-separation poses the
+ * player sees, over the same pair set. It builds the steward's poses from
+ * the registry (zone / meta from the circuit data, names from the rung's
+ * field), steps the pure steward, writes the effects for the next frame's
+ * `advanceChariot` calls and appends the new log entries to the shared
+ * session log. The player's warning reaches the parent only when it
+ * changes, so the HUD banner re-renders once per warning, not per frame.
+ * Skips when frozen, before the clock starts, or past the finish — the
+ * effects are applied only while `racing`, so nothing stale can stick.
+ */
+const RaceIncidentSteward: React.FC<{
+  registry: React.MutableRefObject<RaceRigRegistry>;
+  stewardRef: React.MutableRefObject<IncidentStewardState | null>;
+  effectsRef: React.MutableRefObject<Map<string, IncidentRigEffects>>;
+  logRef: React.MutableRefObject<RaceIncidentLogEntry[]>;
+  rungId: RaceRungId;
+  field: readonly RaceCompetitor[];
+  raceState: RaceState;
+  startedAt: number | null;
+  frozen: boolean;
+  onPlayerWarning: (warning: { warning: RivalWarning; kind: IncidentRigEffects['warningKind'] }) => void;
+}> = ({ registry, stewardRef, effectsRef, logRef, rungId, field, raceState, startedAt, frozen, onPlayerWarning }) => {
+  const lastWarningRef = useRef<{ warning: RivalWarning; kind: IncidentRigEffects['warningKind'] } | null>(null);
+  useFrame(() => {
+    // A new race resets the change guard, so a warning identical to the
+    // previous race's last one still reaches the parent.
+    if (raceState === 'countdown') {
+      lastWarningRef.current = null;
+      return;
+    }
+    const steward = stewardRef.current;
+    if (frozen || steward === null || raceState !== 'racing' || startedAt === null) return;
+    const entries = [...registry.current.values()];
+    if (entries.length === 0) return;
+    const names = new Map<string, string>([['player', 'You'], ...field.map((rival) => [rival.id, rival.name] as const)]);
+    const rigs: IncidentRigPose[] = entries.map((entry) => {
+      const zone = incidentZoneForRig(entry.side, entry.s, entry.motion.z);
+      return {
+        id: entry.id,
+        name: names.get(entry.id) ?? entry.id,
+        isPlayer: entry.id === 'player',
+        x: entry.motion.x,
+        z: entry.motion.z,
+        heading: entry.motion.heading,
+        speed: entry.motion.speed,
+        width: entry.width,
+        s: entry.s,
+        lap: entry.lap,
+        u: entry.u,
+        zone: zone.zone,
+        meta: zone.meta,
+      };
+    });
+    const out = stepIncidentSteward(steward, {
+      rigs,
+      rung: rungId,
+      elapsedMs: performance.now() - startedAt,
+      lap: 1,
+      vulnerabilityFactor: 1.0,
+    });
+    effectsRef.current = out.effects;
+    if (out.newLogEntries.length > 0) logRef.current.push(...out.newLogEntries);
+    const playerEffects = out.effects.get('player');
+    const next = { warning: playerEffects?.warning ?? 'none', kind: playerEffects?.warningKind ?? null };
+    if (lastWarningRef.current?.warning !== next.warning || lastWarningRef.current?.kind !== next.kind) {
+      lastWarningRef.current = next;
+      onPlayerWarning(next);
+    }
+  });
+  return null;
+};
+
+/**
  * One roster rival in the field (LADDER-1B2): the scene mounts N of these
  * (2 District, 4 League), one per competitor in the rung's pool. Each rival
  * is DRIVEN, not clocked — the 1B clock (`getRaceRivalPose`) retired with
@@ -733,7 +850,9 @@ const RaceRivalChariot: React.FC<{
   registry: React.MutableRefObject<RaceRigRegistry>;
   /** The shared driven-progress record (one entry per rival), read by the parent at the player's finish. */
   rivalProgress: React.MutableRefObject<Record<string, RivalRaceProgress>>;
-}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt, fieldIndex, registry, rivalProgress }) => {
+  /** LADDER-1C: the steward's per-rig effects, written by `RaceIncidentSteward` each frame. */
+  effectsRef: React.MutableRefObject<Map<string, IncidentRigEffects>>;
+}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt, fieldIndex, registry, rivalProgress, effectsRef }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
   const roll = useRef(0);
@@ -890,17 +1009,27 @@ const RaceRivalChariot: React.FC<{
           });
         }
       }
+      // LADDER-1C: the steward's effects for this rival, from the previous
+      // frame's run — and only while `racing`. Rivals keep driving after the
+      // player finishes, when the steward no longer runs, so a stale effect
+      // must never stick: past the finish the warning is 'none' and the
+      // drag / steer modifiers are the defaults.
+      const effects = raceState === 'racing' ? effectsRef.current.get(competitor.id) : undefined;
       const input = driveRival(driver, {
         x: motion.x,
         z: motion.z,
         heading: motion.heading,
         speed: motion.speed,
         racing: true,
-        warning: 'none',
+        warning: effects?.warning ?? 'none',
         others,
         dt: 1 / 60,
       });
-      advanceChariot(motion, input, delta);
+      const steeredInput: ChariotInput = {
+        throttle: input.throttle,
+        steer: Math.max(-1, Math.min(1, input.steer * (effects?.steerScale ?? 1) + (effects?.steerBias ?? 0))),
+      };
+      advanceChariot(motion, steeredInput, delta, 1, effects?.dragScale ?? 1);
       const pos = rivalDriverRoutePosition(driver);
       const entry = registry.current.get(competitor.id);
       if (entry) {
@@ -1173,6 +1302,34 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   // register theirs at mount.
   const rigRegistryRef = useRef<RaceRigRegistry>(new Map());
   const rivalProgressRef = useRef<Record<string, RivalRaceProgress>>({});
+
+  // LADDER-1C — the incident steward's shared state. Refs, not state: the
+  // steward writes them in the frame loop, the player and the rivals read
+  // the effects there, and the parent snapshots the session log at the
+  // finish. The steward state itself is created fresh per race (see the
+  // reset below); `raceIncidentLog` is the snapshotted copy the results
+  // panel reads, and `playerWarning` drives the one HUD banner.
+  const incidentStewardRef = useRef<IncidentStewardState | null>(null);
+  const incidentEffectsRef = useRef<Map<string, IncidentRigEffects>>(new Map());
+  const incidentLogRef = useRef<RaceIncidentLogEntry[]>([]);
+  const [raceIncidentLog, setRaceIncidentLog] = useState<RaceIncidentLogEntry[]>([]);
+  const [playerWarning, setPlayerWarning] = useState<{ warning: RivalWarning; kind: IncidentRigEffects['warningKind'] }>({ warning: 'none', kind: null });
+  const handlePlayerWarning = useCallback((next: { warning: RivalWarning; kind: IncidentRigEffects['warningKind'] }) => {
+    setPlayerWarning(next);
+  }, []);
+
+  // LADDER-1C — a new race starts with a fresh steward, an empty session
+  // log, no effects and no warning. The steward is created here (the rung
+  // is already resolved above), not in the frame loop, so a remount or a
+  // repeat race can never carry an old pair's state into the new field.
+  useEffect(() => {
+    if (raceState !== 'countdown') return;
+    incidentStewardRef.current = createIncidentStewardState(rungId);
+    incidentEffectsRef.current = new Map();
+    incidentLogRef.current = [];
+    setRaceIncidentLog([]);
+    setPlayerWarning({ warning: 'none', kind: null });
+  }, [raceState, rungId]);
 
   useEffect(() => {
     rigRegistryRef.current.set('player', {
@@ -1498,6 +1655,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   rollStartedAt={rollStartedAt}
                   leaderCrossingMs={formation.leaderCrossingMs}
                   onLeaderCrossing={handleLeaderCrossing}
+                  effectsRef={incidentEffectsRef}
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
@@ -1522,6 +1680,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     setRaceFieldOrder(fieldOrder);
                     const outcome = fieldOrder?.outcome ?? 'photo-finish';
                     setRaceSettlement(onRecordRaceCompletion ? onRecordRaceCompletion(teamSize, elapsedMs, outcome) : null);
+                    // LADDER-1C: snapshot the session's incident log for the
+                    // results panel — the steward stops at the finish, so the
+                    // ref no longer grows after this.
+                    setRaceIncidentLog([...incidentLogRef.current]);
                     setRaceState((state) => finishRace(state));
                   }}
                 />
@@ -1547,6 +1709,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                       fieldIndex={index}
                       registry={rigRegistryRef}
                       rivalProgress={rivalProgressRef}
+                      effectsRef={incidentEffectsRef}
                     />
                   );
                 })}
@@ -1555,6 +1718,22 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   the rivals so its frame runs after the field has moved.
                 */}
                 <RaceRigResolver registry={rigRegistryRef} frozen={frozen} />
+                {/*
+                  LADDER-1C: the incident steward, mounted after the resolver
+                  so its frame runs last — it reads the post-separation poses.
+                */}
+                <RaceIncidentSteward
+                  registry={rigRegistryRef}
+                  stewardRef={incidentStewardRef}
+                  effectsRef={incidentEffectsRef}
+                  logRef={incidentLogRef}
+                  rungId={rungId}
+                  field={field}
+                  raceState={raceState}
+                  startedAt={raceStartedAt}
+                  frozen={frozen}
+                  onPlayerWarning={handlePlayerWarning}
+                />
               </Suspense>
             </ThreeComponentErrorBoundary>
 
@@ -1667,6 +1846,28 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
         </div>
       )}
 
+      {/* LADDER-1C — the incident warning, for the player only. The banner
+          sits below the launch banner (top-24, clear of its top-16): the two
+          CAN overlap in time — the steward's 3 s start immunity ends before
+          the launch banner clears (player crossing + 1.7 s, 1.5–3.0 s after
+          the leader's crossing) — but never in space, so they cannot cover
+          each other. The warning kind is what shows: a scrape, a straining
+          trace, or the wall. */}
+      {raceState === 'racing' && playerWarning.kind !== null && (
+        <div className="absolute top-24 sm:top-28 left-0 right-0 z-20 flex justify-center pointer-events-none">
+          <span
+            data-race-warning={playerWarning.kind}
+            className="font-serif font-black uppercase tracking-widest text-sm sm:text-lg px-4 py-1 rounded-xl border backdrop-blur-md text-amber-200 border-amber-400/70 bg-amber-950/60"
+          >
+            {playerWarning.kind === 'scrape'
+              ? 'Wheel scrape — steer clear!'
+              : playerWarning.kind === 'tangle'
+                ? 'Traces straining — give room!'
+                : 'Too close to the wall!'}
+          </span>
+        </div>
+      )}
+
       {/* COUNTDOWN — one step per second, driven by the machine's own state. */}
       {raceState === 'countdown' && (
         <div
@@ -1685,7 +1886,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
 
       {raceState === 'finished' && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-neutral-950/75 p-6" data-race-overlay="finished">
-          <div className="w-full max-w-md rounded-3xl border-2 border-amber-500/70 bg-neutral-950/95 p-7 text-center shadow-2xl">
+          <div className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-3xl border-2 border-amber-500/70 bg-neutral-950/95 p-7 text-center shadow-2xl">
             <p className="font-serif text-xs font-black uppercase tracking-[0.25em] text-amber-400">East Circus · Race Complete</p>
             <h2 className="mt-3 font-serif text-4xl font-black text-amber-100">Race Results</h2>
             <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Your time</p>
@@ -1722,6 +1923,21 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                 </ol>
               </div>
             )}
+            {/* LADDER-1C — the session's incident log, in plain language.
+                Session-only: the log is snapshotted at the finish and never
+                persisted, so the settlement below is untouched. */}
+            <div className="mt-4 rounded-2xl border border-amber-700/40 bg-neutral-900/70 px-4 py-3 text-left" data-race-incidents={raceIncidentLog.length}>
+              <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Incidents</p>
+              {raceIncidentLog.length === 0 ? (
+                <p className="mt-1 text-sm text-neutral-400">No incidents — a clean race.</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-sm text-neutral-300">
+                  {raceIncidentLog.map((entry, index) => (
+                    <li key={`${entry.tick}-${entry.type}-${index}`}>{formatRaceIncidentLogEntry(entry)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
             {raceSettlement ? (
               <div className="mt-4 rounded-2xl border border-amber-700/40 bg-neutral-900/70 p-4 text-left" data-race-settlement="saved">
                 <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Circus purse</p>
