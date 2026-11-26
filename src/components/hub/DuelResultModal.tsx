@@ -655,6 +655,14 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                       <span>+{stats.crowdPeakGoldBonus}</span>
                     </div>
                   )}
+                  {/* PHASE2-FATECON-1 — the Fate share of the gold, its own
+                      line item. It is already inside the Gold Earned total. */}
+                  {typeof stats.fateGoldBonus === 'number' && stats.fateGoldBonus > 0 && (
+                    <div className="flex justify-between" data-duel-fate-gold={stats.fateGoldBonus}>
+                      <span>Fate Bonus</span>
+                      <span>+{stats.fateGoldBonus}</span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex justify-between font-bold">
@@ -669,6 +677,16 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                   data-duel-crowd-peak-fame={stats.crowdPeakFameBonus}
                 >
                   Crowd&apos;s favor: +{stats.crowdPeakFameBonus} fame
+                </div>
+              )}
+              {/* PHASE2-FATECON-1 — the Fate share of the fame, its own line.
+                  It is already inside Fame Gained above. */}
+              {typeof stats.fateFameBonus === 'number' && stats.fateFameBonus > 0 && (
+                <div
+                  className="text-[11px] text-purple-300/90 pl-3 ml-1 border-l border-purple-900/60"
+                  data-duel-fate-fame={stats.fateFameBonus}
+                >
+                  Fate bonus: +{stats.fateFameBonus} fame
                 </div>
               )}
               {stats.crowdTurned && (

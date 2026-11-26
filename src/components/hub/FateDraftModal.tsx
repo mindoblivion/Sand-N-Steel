@@ -1,5 +1,6 @@
 import React from 'react';
 import { getFateCard, type FateCardRarity } from '../../data/fateCards';
+import { FATECON1_LIVE_EFFECT_KINDS } from '../../utils/fateBonuses';
 import type { FateDraft } from '../../utils/gladiatorFate';
 import { sounds } from '../../audio/soundEffects';
 
@@ -34,10 +35,11 @@ const RARITY_STYLES: Record<FateCardRarity, string> = {
  * the modal reports the choice, App transacts it.
  *
  * The effect-status lines say plainly whether a card's effect is live:
- * "Takes effect immediately." for `gold_flat` (the only wired effect in
- * this slice) and "Not yet in effect." for everything else — the card is
- * still yours to keep, and the line never promises what the game does not
- * deliver yet. The consumers that wake those effects are the next slice.
+ * "Takes effect immediately." for `gold_flat` and the eight kinds
+ * PHASE2-FATECON-1 wired (the `FATECON1_LIVE_EFFECT_KINDS` set), and
+ * "Not yet in effect." for everything else — the card is still yours to
+ * keep, and the line never promises what the game does not deliver yet.
+ * The combat kinds and Deep Wounds are still waiting on the next slice.
  */
 export const FateDraftModal: React.FC<FateDraftModalProps> = ({ draft, onChoose }) => {
   const cards = draft.cardIds
@@ -83,7 +85,10 @@ export const FateDraftModal: React.FC<FateDraftModalProps> = ({ draft, onChoose 
               <span className="text-[11px] sm:text-xs text-neutral-200 leading-snug">
                 {card.description}
               </span>
-              {card.effect.kind === 'gold_flat' ? (
+              {/* PHASE2-FATECON-1 — the live set is `gold_flat` plus the eight
+                  kinds this slice wired; the literal stays so the PHASE2-FATE
+                  pin keeps reading true. */}
+              {card.effect.kind === 'gold_flat' || FATECON1_LIVE_EFFECT_KINDS.has(card.effect.kind) ? (
                 <span className="text-[11px] sm:text-xs font-semibold text-amber-300 leading-snug">
                   Takes effect immediately.
                 </span>
