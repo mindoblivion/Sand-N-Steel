@@ -145,6 +145,9 @@ import {
 } from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
 import { resolveXpProgression, type DuelProgressionSummary } from './utils/levelProgression';
+// PHASE2-FATE — the level-up draft: the queue is pure, this file owns the
+// write, exactly as it does for the mercy answer and the cures.
+import { queueFateLevelUps, chooseFateCard, resolveFateState } from './utils/gladiatorFate';
 import { deriveRank, RANK_INDEX } from './utils/rank';
 // STORY-4b — THE DESERTER'S PRICE. One pure module owns the ladder's rules; this
 // file is where its two writes land, inside the duel-result write every bout
@@ -242,6 +245,7 @@ interface CityExitPose {
 const CharacterCreation = React.lazy(() => import('./components/hub/CharacterCreation').then((module) => ({ default: module.CharacterCreation })));
 const NewCharacterOverwriteModal = React.lazy(() => import('./components/hub/NewCharacterOverwriteModal').then((module) => ({ default: module.NewCharacterOverwriteModal })));
 const DuelResultModal = React.lazy(() => import('./components/hub/DuelResultModal').then((module) => ({ default: module.DuelResultModal })));
+const FateDraftModal = React.lazy(() => import('./components/hub/FateDraftModal').then((module) => ({ default: module.FateDraftModal })));
 const DeviceChoosingPanel = React.lazy(() => import('./components/hub/DeviceChoosingPanel').then((module) => ({ default: module.DeviceChoosingPanel })));
 const GoogleDriveSyncModal = React.lazy(() => import('./components/hub/GoogleDriveSyncModal').then((module) => ({ default: module.GoogleDriveSyncModal })));
 const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').then((module) => ({ default: module.SettingsModal })));
@@ -433,6 +437,12 @@ export function App() {
    */
   const [heraldCries, setHeraldCries] = useState<string[]>([]);
   const [deviceChoiceOpen, setDeviceChoiceOpen] = useState(false);
+  // PHASE2-FATE — the level-up draft's open flag. View state only: the draft
+  // itself lives on the saved profile (`records.fate.pendingDrafts`), and the
+  // flag is set when a duel-result modal is dismissed with a draft queued.
+  // It stays set until the last queued draft is chosen; the modal unmounts
+  // on its own as soon as no draft is pending.
+  const [fateDraftOpen, setFateDraftOpen] = useState(false);
   const [showDriveSync, setShowDriveSync] = useState(false);
   /**
    * C-8.70B §SET-1 — one settings panel, opened from every screen.  `category` is
@@ -1402,6 +1412,18 @@ export function App() {
       levelsGained = xpProgression.levelsGained;
       statPointsGained = xpProgression.statPointsGained;
 
+      // PHASE2-FATE — one draft per newly crossed level, queued in this same
+      // write. The resolver's own floor (`lastDraftedLevel`) means an old save
+      // never receives retroactive drafts; a level whose draft cannot form
+      // (fewer than three eligible cards) simply has no draft. Wins only —
+      // XP is awarded only on victory, so a loss never reaches this branch.
+      const fateState = queueFateLevelUps(
+        profile.records?.fate,
+        profile.level,
+        nextLevel,
+        profile.name || 'Spartacus',
+      );
+
       // C-8.70C — a GRUDGE BOUT is a GENERATED rematch row, not a roster id: its
       // victory settles the grudge and records no new felled id. A standard
       // victory keeps the shipped rule exactly.
@@ -1477,6 +1499,12 @@ export function App() {
         // field).
         ...(testWon
           ? { story: { ...(profile.story ?? {}), doctoreTestPassed: true } }
+          : {}),
+        // PHASE2-FATE — the queued drafts ride this same write, and only when
+        // the win gained a level: a level-less win leaves `records` exactly as
+        // it was, and the state lives lazily under `records.fate` (§J stays 29).
+        ...(levelsGained > 0
+          ? { records: { ...(grudgeProfile.records ?? {}), fate: fateState } }
           : {}),
         // STORY-5b — R4: an exhibition is not a fight in the city's book, so it
         // advances neither counter and earns no triumph evaluation. KEPT: the
@@ -1771,6 +1799,7 @@ export function App() {
 
   const handleDuelResultDismiss = () => {
     setDuelResult(null);
+    openFateDraftIfPending();
     setTimeout(() => {
         // The Test's rule judged one duel; it does not outlive it.
         setDoctoreRestriction(null);
@@ -1790,7 +1819,55 @@ export function App() {
   ) => {
     setDuelResult(null);
     setDoctoreRestriction(null);
+    openFateDraftIfPending();
     handleOpenHubTab(tab);
+  };
+
+  /**
+   * PHASE2-FATE — THE LEVEL-UP DRAFT, opened at the result's dismiss.
+   *
+   * A queued draft opens on the return to the hub, whichever way the result
+   * modal is dismissed: the plain Continue AND the secondary "Spend Stat
+   * Points / Next Bout" CTA both dismiss it, and the draft is blocking, so
+   * wiring only one exit would let a level-up be silently skipped. The check
+   * reads the saved profile, so a draft still owed from an earlier win (or a
+   * reload) opens at the next dismiss too — the draft is owed until chosen.
+   *
+   * These two handlers live AFTER the result's dismiss handlers on purpose:
+   * the one-write suites slice the result transaction as the span from
+   * `handleMatchComplete` to `handleDuelResultDismiss`, and the chariot
+   * suite slices `handleBuyChariotPart` to `handleMatchComplete` and forbids
+   * the word "gold" there — so the choice handler, which pays gold and
+   * saves, can live in neither span.
+   */
+  const openFateDraftIfPending = () => {
+    if (profile && resolveFateState(profile.records?.fate).pendingDrafts.length > 0) {
+      setFateDraftOpen(true);
+    }
+  };
+
+  /**
+   * PHASE2-FATE — THE CHOICE, written exactly once.
+   *
+   * The resolver accepts only a card in the first pending draft: an invalid
+   * or replayed tap returns null and this handler does nothing — no save, no
+   * gold, no state change. A real choice records the card, pays the
+   * immediate gold (50 for Fortune's Favour, 0 for every other card in this
+   * slice), and saves once. A second queued draft (a victory that crossed
+   * two levels) appears on its own, because the modal derives the shown
+   * draft from the first pending draft on the saved profile.
+   */
+  const handleFateCardChoice = (cardId: string) => {
+    if (!profile) return;
+    const choice = chooseFateCard(profile.records?.fate, cardId);
+    if (!choice) return;
+    const next: PlayerProfile = {
+      ...profile,
+      gold: profile.gold + choice.immediateGold,
+      records: { ...(profile.records ?? {}), fate: choice.state },
+    };
+    setProfile(next);
+    saveProfile(next);
   };
 
   /**
@@ -2374,6 +2451,13 @@ export function App() {
     setTimeout(() => setCurrentScreen('title'), 0);
   };
 
+  // PHASE2-FATE — the shown draft, derived from the saved profile: the first
+  // pending draft while the flag is set, nothing otherwise. After the last
+  // queued choice the list is empty, so the modal unmounts on its own.
+  const pendingFateDraft = fateDraftOpen
+    ? resolveFateState(profile?.records?.fate).pendingDrafts[0] ?? null
+    : null;
+
   return (
     <div className="w-full h-full min-h-[100dvh] bg-neutral-950 text-amber-100 overflow-hidden select-none">
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
@@ -2730,6 +2814,19 @@ export function App() {
             progression={duelResult.progression ?? null}
             onContinueToHub={handleDuelResultContinueToHub}
             onContinue={handleDuelResultDismiss}
+            />
+          </React.Suspense>
+        )}
+
+        {/* PHASE2-FATE — the level-up draft, above every screen like the result
+            modal: a duel ends into the city, so a draft raised by the result
+            has to outlive it. Blocking — it closes only by choosing, and the
+            next queued draft takes its place. */}
+        {pendingFateDraft && (
+          <React.Suspense fallback={null}>
+            <FateDraftModal
+              draft={pendingFateDraft}
+              onChoose={handleFateCardChoice}
             />
           </React.Suspense>
         )}
