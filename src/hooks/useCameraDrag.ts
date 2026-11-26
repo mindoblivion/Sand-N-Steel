@@ -18,6 +18,28 @@ interface CameraDragOptions {
   disabled?: boolean;
 }
 
+/**
+ * PHASE1-TOUCH — the shared "this pointer started on something interactive"
+ * check: a drag or a pinch that starts on a button, an input, a dialog, or
+ * any `pointer-events-auto` panel is the UI's, never the camera's. The drag
+ * hook and the pinch hook both read it, so the two gestures agree about
+ * where the camera owns the screen.
+ */
+export function isInteractiveCameraUI(target: HTMLElement | null): boolean {
+  if (!target) return false;
+  return Boolean(
+    target.closest('button') ||
+      target.closest('input') ||
+      target.closest('select') ||
+      target.closest('textarea') ||
+      target.closest('a') ||
+      target.closest('[data-ui="true"]') ||
+      target.closest('.pointer-events-auto') ||
+      target.closest('[role="dialog"]') ||
+      target.closest('[aria-modal="true"]'),
+  );
+}
+
 export function shouldDecayCameraYawOnMove(isMoving: boolean, isDragging: boolean, autoDecayOnMove: boolean): boolean {
   return autoDecayOnMove && isMoving && !isDragging;
 }
@@ -66,20 +88,7 @@ export function useCameraDrag(
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const isInteractiveUI = (target: HTMLElement | null): boolean => {
-      if (!target) return false;
-      return Boolean(
-        target.closest('button') ||
-          target.closest('input') ||
-          target.closest('select') ||
-          target.closest('textarea') ||
-          target.closest('a') ||
-          target.closest('[data-ui="true"]') ||
-          target.closest('.pointer-events-auto') ||
-          target.closest('[role="dialog"]') ||
-          target.closest('[aria-modal="true"]')
-      );
-    };
+    const isInteractiveUI = isInteractiveCameraUI;
 
     const clearActiveDrag = () => {
       activePointerIdRef.current = null;
