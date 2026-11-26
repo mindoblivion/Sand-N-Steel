@@ -1046,7 +1046,7 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardFame: 350,
     rewardXp: 1200,
     bossMechanic: 'second_rising',
-    characterModel: 'roman_warrior',
+    characterModel: 'scaevola_twice_slain',
   },
 
   // ══════════════════════════════════════════════════════════════════════════
