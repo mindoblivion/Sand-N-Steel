@@ -95,6 +95,18 @@
  * gets a short acceleration boost; hold through GO and it is bogged for the same
  * length of time.  `launchAccelScale` is a multiplier the scene hands to
  * `advanceChariot`, so the physics itself stays unmodified.
+ *
+ * ── 6. LADDER-1C: the incident drag/scrub multiplier ───────────────────────
+ * `stepChariot` / `advanceChariot` take a fifth / fourth argument, `dragScale`
+ * (default 1 = bit-identical motion). It is the race steward's incident
+ * penalty, applied identically to the player and every rival through the same
+ * call: the extra deceleration `(dragScale − 1) × drag` toward 0 — never
+ * reversing the rig — in the throttle branches, and the coasting drag
+ * multiplied by `dragScale`. Movement constants do NOT change; the multiplier
+ * is a caller-supplied scrub on top of them, and an invalid value fails closed
+ * to 1. A hub catch (dragScale 4) under full throttle still decelerates to 0
+ * and holds there: the scrub (9 u/s²) beats the throttle's acceleration
+ * (6.5 u/s²), and the scrub toward 0 can never cross it.
  */
 
 import {
@@ -276,24 +288,38 @@ export function mergeChariotInputs(
  * steering turns the heading, the heading and the speed move the position, and
  * the boundary is resolved last, so nothing can leave the arena between steps.
  * `accelScale` is the Clean Start modifier (§5) and is 1 for an ordinary launch.
+ * `dragScale` is the LADDER-1C incident scrub (§6): the extra deceleration
+ * `(dragScale − 1) × drag` toward 0 in the throttle branches, and the coasting
+ * drag multiplied by `dragScale`; 1 is bit-identical motion.
  */
 export function stepChariot(
   motion: ChariotMotion,
   input: ChariotInput,
   dt: number,
-  accelScale = 1
+  accelScale = 1,
+  dragScale = 1
 ): ChariotMotion {
   const config = CHARIOT_MOVEMENT;
   const step = Number.isFinite(dt) && dt > 0 ? dt : 0;
   const throttle = Number.isFinite(input.throttle) ? clampNumber(input.throttle, -1, 1) : 0;
   const steer = Number.isFinite(input.steer) ? clampNumber(input.steer, -1, 1) : 0;
   const scale = Number.isFinite(accelScale) && accelScale > 0 ? accelScale : 1;
+  // An invalid scrub fails closed to no scrub (1): the steward only ever
+  // passes ≥ 1, and a NaN or negative must never accelerate the rig.
+  const drag = Number.isFinite(dragScale) && dragScale >= 1 ? dragScale : 1;
+  // Move a speed toward 0 by `amount`, settling on exactly 0 rather than
+  // creeping across it forever. Never reverses the rig.
+  const scrubTowardZero = (value: number, amount: number): number =>
+    value > amount ? value - amount : value < -amount ? value + amount : 0;
+  // The incident scrub for one step: (dragScale − 1) × the coasting drag.
+  const scrub = (drag - 1) * config.drag * step;
 
   let speed = motion.speed;
 
   if (throttle > 0) {
     speed += throttle * config.acceleration * scale * step;
     if (speed > config.maxSpeed) speed = config.maxSpeed;
+    speed = scrubTowardZero(speed, scrub);
   } else if (throttle < 0) {
     if (speed > 0) {
       // Braking: the throttle works against the forward speed.
@@ -302,11 +328,11 @@ export function stepChariot(
       speed += throttle * config.reverseAcceleration * scale * step;
       if (speed < -config.maxReverseSpeed) speed = -config.maxReverseSpeed;
     }
+    speed = scrubTowardZero(speed, scrub);
   } else {
-    // Coasting: drag toward a standstill, and settle on exactly 0 rather than
-    // creeping across it forever.
-    const decel = config.drag * step;
-    speed = speed > decel ? speed - decel : speed < -decel ? speed + decel : 0;
+    // Coasting: drag toward a standstill, multiplied by the incident
+    // scrub — and settle on exactly 0 rather than creeping across it.
+    speed = scrubTowardZero(speed, config.drag * drag * step);
   }
 
   // steer +1 (the driver's right) turns the nose toward +X, which is −θ.
@@ -335,7 +361,8 @@ export function advanceChariot(
   motion: ChariotMotion,
   input: ChariotInput,
   frameDt: number,
-  accelScale = 1
+  accelScale = 1,
+  dragScale = 1
 ): ChariotMotion {
   const config = CHARIOT_MOVEMENT;
   const clamped = Number.isFinite(frameDt) ? clampNumber(frameDt, 0, config.maxFrameDt) : 0;
@@ -344,7 +371,7 @@ export function advanceChariot(
 
   let steps = 0;
   while (motion.accumulator >= config.fixedDt && steps < config.maxStepsPerFrame) {
-    stepChariot(motion, input, config.fixedDt, accelScale);
+    stepChariot(motion, input, config.fixedDt, accelScale, dragScale);
     motion.accumulator -= config.fixedDt;
     steps += 1;
   }

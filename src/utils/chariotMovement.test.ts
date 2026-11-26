@@ -24,6 +24,11 @@
  *      and keyboard cannot produce different motion;
  *   §K gait and pace: the HUD's vocabulary, never bare digits;
  *   §L the no-allocation contract the frame loop depends on.
+ *   §M wheel roll: the wheels turn with the travel, at the wheel's own rate.
+ *   §N LADDER-1C: the incident drag/scrub multiplier — dragScale 1 is
+ *      bit-identical, 4 under full throttle still decelerates to 0 and
+ *      holds, 2 coasting stops faster, the scrub never reverses the rig,
+ *      and an invalid dragScale fails closed to 1.
  *
  * Every expectation is computed from the shipped module or re-derived in the
  * test; nothing is copied from the module's own comments.
@@ -817,5 +822,104 @@ describe('M. Wheel roll', () => {
     expect(advanceWheelRoll(Number.NaN, Number.NaN, 0.1)).toBe(0);
     expect(advanceWheelRoll(0.5, 2, Number.NaN)).toBe(0.5);
     expect(Number.isFinite(advanceWheelRoll(0.5, 2, 0.1, Number.NaN))).toBe(true);
+  });
+});
+
+describe('N. LADDER-1C: the incident drag/scrub multiplier', () => {
+  /** Step `count` fixed steps and return the motion. */
+  const stepped = (
+    speed: number,
+    throttle: number,
+    count: number,
+    dragScale: number,
+  ): ChariotMotion => {
+    const motion = createChariotMotion(START_X, START_Z, START_HEADING);
+    motion.speed = speed;
+    for (let i = 0; i < count; i += 1) {
+      stepChariot(motion, input(throttle), STEP, 1, dragScale);
+    }
+    return motion;
+  };
+
+  test('dragScale 1 is bit-identical to the default, in step and in advance', () => {
+    const a = createChariotMotion(START_X, START_Z, START_HEADING);
+    const b = createChariotMotion(START_X, START_Z, START_HEADING);
+    a.speed = 9;
+    b.speed = 9;
+    for (let i = 0; i < 120; i += 1) {
+      stepChariot(a, input(1, 0.3), STEP);
+      stepChariot(b, input(1, 0.3), STEP, 1, 1);
+    }
+    expect(b).toEqual(a);
+    const c = createChariotMotion(START_X, START_Z, START_HEADING);
+    const d = createChariotMotion(START_X, START_Z, START_HEADING);
+    c.speed = 9;
+    d.speed = 9;
+    advanceChariot(c, input(0), 1);
+    advanceChariot(d, input(0), 1, 1, 1);
+    expect(d).toEqual(c);
+  });
+
+  test('dragScale 4 under full throttle decelerates to 0 and holds there', () => {
+    // Net per step: +6.5/60 throttle, −9/60 scrub = −2.5 u/s — 13 u/s
+    // takes ~5.2 s to scrub away, then the scrub holds exactly 0.
+    const motion = createChariotMotion(START_X, START_Z, START_HEADING);
+    motion.speed = cfg.maxSpeed;
+    let minSpeed = motion.speed;
+    for (let i = 0; i < 400; i += 1) {
+      stepChariot(motion, input(1), STEP, 1, 4);
+      minSpeed = Math.min(minSpeed, motion.speed);
+      expect(motion.speed).toBeGreaterThanOrEqual(0);
+    }
+    expect(motion.speed).toBe(0);
+    expect(minSpeed).toBeGreaterThanOrEqual(0);
+    // Below the cap (so no acceleration is eaten by it): net −2.5 u/s.
+    const mid = stepped(10, 1, 60, 4);
+    expect(mid.speed).toBeCloseTo(7.5, 6);
+  });
+
+  test('dragScale 2 coasting stops twice as fast as dragScale 1', () => {
+    const slow = stepped(6, 0, 60, 2);
+    const plain = stepped(6, 0, 60, 1);
+    expect(slow.speed).toBeCloseTo(0, 9);
+    expect(plain.speed).toBeCloseTo(3, 9);
+    expect(slow.speed).toBeLessThan(plain.speed);
+    // The same multiplier reaches the steps through advanceChariot
+    // (ten 0.1 s frames — a single frame's delta is clamped at maxFrameDt).
+    const viaAdvance = createChariotMotion(START_X, START_Z, START_HEADING);
+    viaAdvance.speed = 6;
+    for (let i = 0; i < 10; i += 1) {
+      advanceChariot(viaAdvance, input(0), 0.1, 1, 2);
+    }
+    expect(viaAdvance.speed).toBeCloseTo(0, 9);
+  });
+
+  test('the scrub never reverses the rig', () => {
+    // Full throttle from rest with a hub catch: the scrub eats the
+    // acceleration, so the rig never moves.
+    expect(stepped(0, 1, 60, 4).speed).toBe(0);
+    // Reverse throttle from rest with a hub catch: same — no creep back.
+    expect(stepped(0, -1, 60, 4).speed).toBe(0);
+    // Braking from the cap with a hub catch: reaches 0, never past it.
+    const braking = createChariotMotion(START_X, START_Z, START_HEADING);
+    braking.speed = cfg.maxSpeed;
+    let minSpeed = braking.speed;
+    for (let i = 0; i < 120; i += 1) {
+      stepChariot(braking, input(-1), STEP, 1, 4);
+      minSpeed = Math.min(minSpeed, braking.speed);
+    }
+    expect(braking.speed).toBe(0);
+    expect(minSpeed).toBeGreaterThanOrEqual(0);
+  });
+
+  test('an invalid dragScale fails closed to 1', () => {
+    const plain = stepped(6, 1, 10, 1);
+    for (const bad of [Number.NaN, 0, -2, Number.POSITIVE_INFINITY]) {
+      const motion = stepped(6, 1, 10, bad);
+      expect(motion.speed).toBe(plain.speed);
+      expect(motion.x).toBe(plain.x);
+      expect(motion.z).toBe(plain.z);
+      expect(motion.heading).toBe(plain.heading);
+    }
   });
 });
