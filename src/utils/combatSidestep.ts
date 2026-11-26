@@ -32,16 +32,18 @@ export const SIDESTEP_BOUND_M = 3.6;
 export const SIDESTEP_CLEAR_M = 1.2;
 
 /**
- * The fighter's new X after one sidestep: 1.8 m in the direction of the
+ * The fighter's new X after one sidestep: `distance` m in the direction of the
  * current lateral offset (default +X from centre), reversing at the bounds —
  * a bounce, so repeated taps walk the fighter across the ring and back.
- * The result never exceeds ±3.6 m.
+ * The result never exceeds ±3.6 m. The distance is a parameter (default the
+ * shipped 1.8 m) so a caller with a Fate-scaled step — Evasive Instinct,
+ * PHASE2-FATECON-1 — can pass its own distance without touching the rule.
  */
-export function sidestepPositionX(x: number): number {
+export function sidestepPositionX(x: number, distance = SIDESTEP_DISTANCE_M): number {
   const direction = x === 0 ? 1 : Math.sign(x);
-  const stepped = x + direction * SIDESTEP_DISTANCE_M;
+  const stepped = x + direction * distance;
   if (stepped > SIDESTEP_BOUND_M || stepped < -SIDESTEP_BOUND_M) {
-    return x - direction * SIDESTEP_DISTANCE_M;
+    return x - direction * distance;
   }
   return stepped;
 }

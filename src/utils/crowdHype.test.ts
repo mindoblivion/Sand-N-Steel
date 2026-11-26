@@ -558,7 +558,7 @@ describe('CF-3 §D — DuelScene wiring', () => {
     expect(DUEL_SCENE).toContain('bannerAllegiance={');
   });
 
-  test('the hype numbers are byte-identical to before CF-3', () => {
+  test('the hype base numbers are unchanged since CF-3', () => {
     // The opening value, the ref mirror and the peak seed. C-8.70C rebased the
     // three source pins onto the MODE's reader (Sand/Steel still 25); the numbers
     // themselves are asserted through that reader so they cannot drift.
@@ -568,11 +568,17 @@ describe('CF-3 §D — DuelScene wiring', () => {
     expect(modeCrowdStartHype('sand')).toBe(25);
     expect(modeCrowdStartHype('steel')).toBe(25);
     expect(modeCrowdStartHype('invictus')).toBe(40);
-    // Every award site, verbatim.
-    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));');
+    // Every award site: the CF-3 base amounts below are unchanged — the Fate
+    // Showman factor rides on top of them (PHASE2-FATECON-1 rebased these four
+    // pins, not weakened them: each award still computes from its CF-3 base,
+    // and the beast's flight stays flat). The count stays five.
+    expect(DUEL_SCENE).toContain('const fateHitHype = Math.round((isCrit ? 18 + critHype : 8) * fateBonuses.crowdHypeMultiplier);');
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + fateHitHype));');
     expect(DUEL_SCENE).toContain('const tauntHype = 20 + applyPalmaEvent(playerMods.block, \'taunt\').hypeAdd;');
-    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + tauntHype));');
-    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + TWIN_FANGS_LANDED_HYPE));');
+    expect(DUEL_SCENE).toContain('const fateTauntHype = isActorPlayer ? Math.round(tauntHype * fateBonuses.crowdHypeMultiplier) : tauntHype;');
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + fateTauntHype));');
+    expect(DUEL_SCENE).toContain('const fateTwinHype = Math.round(TWIN_FANGS_LANDED_HYPE * fateBonuses.crowdHypeMultiplier);');
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + fateTwinHype));');
     // D-2 — the beast's flight is the fourth award site, and its magnitude is the
     // beast row's own authored value (the taunt's +20), not a constant added here.
     expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + beastCfg.flightHype));');
@@ -580,7 +586,8 @@ describe('CF-3 §D — DuelScene wiring', () => {
     expect(DUEL_SCENE).toContain('updateHypePeak(statsRef.current.crowdHypePeak, next)');
     // D-3 — a panoply break is the fifth award site, and its magnitude is the row's
     // own `breakHype`, not a constant added here.
-    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + panoplyCfg.breakHype));');
+    expect(DUEL_SCENE).toContain('const fateBreakHype = Math.round(panoplyCfg.breakHype * fateBonuses.crowdHypeMultiplier);');
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + fateBreakHype));');
     // CF-3 added no hype value of its own: it left three award sites. D-2's
     // beast-flight award is the fourth and D-3's panoply break the fifth, both
     // named above so the count cannot drift silently.

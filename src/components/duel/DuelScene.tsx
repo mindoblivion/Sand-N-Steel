@@ -67,6 +67,7 @@ import {
 } from '../../utils/crowdDynamics';
 import { getWeaponByType, weaponSupportsOffhandShield } from '../../data/itemsDB';
 import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
+import { resolveFateBonuses } from '../../utils/fateBonuses';
 import {
   getWeaponRange,
   getStaminaCost,
@@ -106,6 +107,7 @@ import { secondRisingHealth, shouldSecondRise } from '../../utils/secondRising';
 // read here where the fighter moves, where a telegraphed heavy is announced
 // and lands, and where a blow the player takes shakes the camera.
 import {
+  SIDESTEP_DISTANCE_M,
   sidestepDodgesHeavy,
   sidestepPositionX,
 } from '../../utils/combatSidestep';
@@ -784,6 +786,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const playerWeightProfile = useMemo(
     () => getWeightCombatProfile(playerProfile.appearance.bodyWeightLb),
     [playerProfile.appearance.bodyWeightLb],
+  );
+  // PHASE2-FATECON-1 — the player's Fate bonus bundle, resolved once per
+  // saved Fate state. The dodge charge, the sidestep, the hype gains and the
+  // result flow all read this one memo, so the branches can never disagree.
+  const fateBonuses = useMemo(
+    () => resolveFateBonuses(playerProfile.records?.fate),
+    [playerProfile.records?.fate],
   );
   // C-TRAIT — the mode's trait grant (C3b) travels on the row's `palmae`, so the
   // modifiers are built from the MODE-RESOLVED row: Sand resolves to the row
@@ -1843,7 +1852,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // |ΔZ|, so a sidestep never changes reach or any distance band.
       else if (actionType === 'sidestep') {
         sounds.playDodge();
-        const nextX = sidestepPositionX(attacker.position[0]);
+        // PHASE2-FATECON-1 — Evasive Instinct stretches the player's step
+        // (1.8 → 1.944 m at 1 stack); the opponent keeps the flat 1.8 m.
+        const nextX = sidestepPositionX(
+          attacker.position[0],
+          isActorPlayer
+            ? SIDESTEP_DISTANCE_M * fateBonuses.dodgeDistanceMultiplier
+            : SIDESTEP_DISTANCE_M,
+        );
         if (isActorPlayer) {
           setPlayer((prev) => ({
             ...prev,
@@ -1892,7 +1908,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             action: 'dodge',
             isInvulnerable: true,
-            stamina: Math.max(0, prev.stamina - 12),
+            // PHASE2-FATECON-1 — Arena Runner discounts the player's dodge
+            // (12 → 11 SP at 1 stack, 10 at 2); the opponent pays the flat 12.
+            stamina: Math.max(0, prev.stamina - fateBonuses.dodgeCost),
           }));
           statsRef.current.dodgesPerformed += 1;
         } else {
@@ -1922,9 +1940,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
         // CH-3a event stage — First Palm of the Crowd adds its hype to a taunt.
         const tauntHype = 20 + applyPalmaEvent(playerMods.block, 'taunt').hypeAdd;
-        updateCrowdHype((prev) => Math.min(100, prev + tauntHype));
-        addLog(`${attacker.name} flexes & taunts! The arena roars (+${tauntHype}% Hype)!`, isActorPlayer ? 'player' : 'opponent');
-        spawnDamageText(`TAUNT! +${tauntHype}% HYPE`, 'hype', attacker.position);
+        // PHASE2-FATECON-1 — Showman multiplies a PLAYER-caused hype gain
+        // (×1.08 per stack); an opponent's taunt is unmultiplied, and the log
+        // and banner print the amount actually awarded.
+        const fateTauntHype = isActorPlayer ? Math.round(tauntHype * fateBonuses.crowdHypeMultiplier) : tauntHype;
+        updateCrowdHype((prev) => Math.min(100, prev + fateTauntHype));
+        addLog(`${attacker.name} flexes & taunts! The arena roars (+${fateTauntHype}% Hype)!`, isActorPlayer ? 'player' : 'opponent');
+        spawnDamageText(`TAUNT! +${fateTauntHype}% HYPE`, 'hype', attacker.position);
       } else if (actionType === 'rest') {
         // CH-3a event stage — Second Wind: rest restores 40 + `restStaminaAdd`.
         const restGain = 40 + applyPalmaEvent(attackerMods.block, 'rest').staminaAdd;
@@ -2646,7 +2668,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               const cracked = crackPanoply(panoplyRef.current, panoplyCfg);
               commitPanoply(cracked.state);
               if (cracked.broken) {
-                updateCrowdHype((prev) => Math.min(100, prev + panoplyCfg.breakHype));
+                // PHASE2-FATECON-1 — Showman multiplies the break's hype gain.
+                const fateBreakHype = Math.round(panoplyCfg.breakHype * fateBonuses.crowdHypeMultiplier);
+                updateCrowdHype((prev) => Math.min(100, prev + fateBreakHype));
                 addLog(cracked.words, 'player');
                 if (cracked.humiliatedNow) addLog(PANOPLY_HUMILIATED_WORDS, 'crit');
               }
@@ -2683,7 +2707,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // CH-3a event stage — First Palm of the Crowd adds its hype to a
               // crit (taunts and crits only, per its own descriptor).
               const critHype = applyPalmaEvent(playerMods.block, 'crit').hypeAdd;
-              updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));
+              // PHASE2-FATECON-1 — Showman multiplies the hit's hype gain.
+              const fateHitHype = Math.round((isCrit ? 18 + critHype : 8) * fateBonuses.crowdHypeMultiplier);
+              updateCrowdHype((prev) => Math.min(100, prev + fateHitHype));
             } else {
               statsRef.current.damageTaken += rawDamage;
               // Slice C-D — the class of the blow that landed, for the defeat
@@ -2852,7 +2878,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     ...prev,
                     comboCount: applyComboEvent(prev.comboCount, twinFangsComboEvent(true)),
                   }));
-                  updateCrowdHype((prev) => Math.min(100, prev + TWIN_FANGS_LANDED_HYPE));
+                  // PHASE2-FATECON-1 — Showman multiplies the twin-fangs hype gain.
+                  const fateTwinHype = Math.round(TWIN_FANGS_LANDED_HYPE * fateBonuses.crowdHypeMultiplier);
+                  updateCrowdHype((prev) => Math.min(100, prev + fateTwinHype));
                 } else {
                   setPlayer((prev) => {
                     const nextHp = Math.max(0, prev.health - bonusDamage);
@@ -3058,6 +3086,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       commitFalseTelegraph,
       panoplyCfg,
       playerWeightProfile,
+      fateBonuses,
       commitPanoply,
       brothersCfg,
       commitBrothers,
@@ -3699,6 +3728,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       statsRef.current.crowdPeakFameBonus = crowdReward.peakFameBonus;
       statsRef.current.crowdPeakGoldBonus = crowdReward.peakGoldBonus;
       statsRef.current.crowdTurned = crowdReward.crowdTurned;
+      // PHASE2-FATECON-1 — Blood Money and Crowd Favourite multiply the final
+      // gold/fame, LAST in the composition order (mode → crowd peak → crowd
+      // turned → Fate), and the Fate share is recorded as its own line items
+      // on the in-memory statistics, following the crowd-peak pattern. The
+      // totals App credits already include them.
+      const preFateGold = statsRef.current.goldEarned;
+      statsRef.current.goldEarned = Math.round(preFateGold * fateBonuses.goldRewardMultiplier);
+      statsRef.current.fateGoldBonus = statsRef.current.goldEarned - preFateGold;
+      const preFateFame = statsRef.current.fameEarned;
+      statsRef.current.fameEarned = Math.round(preFateFame * fateBonuses.fameRewardMultiplier);
+      statsRef.current.fateFameBonus = statsRef.current.fameEarned - preFateFame;
       // C-8.70C — the player's offensive mix over this bout, READ at result time
       // from D-5's own live counter (no second counter): only the dominant-class
       // summary rides the in-memory statistics object, and App persists it on the
@@ -3812,6 +3852,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     longMemoryBase,
     modeReward,
     boutMode,
+    fateBonuses,
   ]);
 
   // ── C-8.70C Slice C-D — THE PHASE CHANGE AND ITS ONE-SHOT SIGNAL ─────────
@@ -4242,6 +4283,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // The panel estimates use the same saved player weight profile as resolution.
         playerWeightImpactMultiplier={playerWeightProfile.impactMultiplier}
         playerWeightStaminaMultiplier={playerWeightProfile.staminaCostMultiplier}
+        // PHASE2-FATECON-1 — the panel's dodge gate reads the same Fate-scaled
+        // cost the resolution charges, so the gate and the charge agree.
+        fateDodgeCost={fateBonuses.dodgeCost}
         opponentIsBoss={opponent.isBoss === true}
         // COMBAT-5 — the Sidestep button is enabled only while a REAL heavy
         // telegraph is live: a heavy or the Cotta Crossing. The banner text

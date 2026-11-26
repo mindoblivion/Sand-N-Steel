@@ -8,6 +8,7 @@ import {
   getEffectiveArmorStats,
 } from '../utils/tempering';
 import { buildPlayerModifiers } from '../utils/combatModifiers';
+import { resolveFateBonuses } from '../utils/fateBonuses';
 import { normalizeInjury } from '../utils/injurySettlement';
 
 /**
@@ -88,9 +89,15 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
   }
 
   const healthMax = 80 + str * 4 + def * 3 + (traitBlock.healthMaxAdd ?? 0);
-  const staminaMax = 70 + sta * 5 + (traitBlock.staminaMaxAdd ?? 0);
+  // PHASE2-FATECON-1 — Fate stamina terms: Iron Lungs adds +6 maximum stamina
+  // per stack, Second Wind multiplies the whole regen stat ×1.08 per stack.
+  // With no Fate cards both terms are neutral (+0, ×1), so the output is
+  // bit-identical to before.
+  const fate = resolveFateBonuses(profile.records?.fate);
+  const staminaMax = 70 + sta * 5 + (traitBlock.staminaMaxAdd ?? 0) + fate.staminaMaxBonus;
   const staminaRegen =
-    12 + agi * 0.8 + sta * 0.4 + regenBonus + (traitBlock.staminaRegenAdd ?? 0);
+    (12 + agi * 0.8 + sta * 0.4 + regenBonus + (traitBlock.staminaRegenAdd ?? 0)) *
+    fate.staminaRegenMultiplier;
 
   return {
     strength: str,

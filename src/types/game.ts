@@ -729,6 +729,16 @@ export interface DuelStatistics {
   crowdPeakGoldBonus?: number;
   crowdTurned?: boolean;
   /**
+   * PHASE2-FATECON-1 — the Fate share of a victory's gold and fame, read off
+   * the duel's own multipliers (Blood Money, Crowd Favourite) in the result
+   * flow. `fameEarned` and `goldEarned` ALREADY include them; these two exist
+   * so the result screen can itemise them, following the crowd-peak pattern.
+   * IN-MEMORY only, exactly like `crowdPeakGoldBonus`: nothing saves
+   * `DuelStatistics`, so no save format and no profile field changes.
+   */
+  fateGoldBonus?: number;
+  fateFameBonus?: number;
+  /**
    * C-8.70C — the bout mode this result was fought under, recorded IN MEMORY
    * only (nothing saves `DuelStatistics`). The result screen uses it to print the
    * mode's own purse/renown lines; no profile field and no save format changes,

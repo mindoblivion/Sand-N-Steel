@@ -433,10 +433,12 @@ describe('C-8.70C §G — the wiring', () => {
     expect(DUEL_SCENE).toContain('updateHypePeak(statsRef.current.crowdHypePeak, next)');
   });
 
-  test('the CF-3 hype numbers are untouched by this slice', () => {
+  test('the CF-3 hype base numbers are untouched by this slice', () => {
     // C-8.70C rebased the three seeds (not the numbers): the opening hype is the
     // MODE's, whose Sand/Steel value is CF-3's own 25 and whose Invictus value is
-    // the published 40. The awards below are still verbatim.
+    // the published 40. PHASE2-FATECON-1 rebased the landed-hit award (not
+    // weakened it): the CF-3 base (18 on a crit, 8 otherwise) still computes
+    // the amount, with the Fate Showman factor riding on top.
     expect(DUEL_SCENE).toContain('const [crowdHype, setCrowdHype] = useState(openingHype);');
     expect(DUEL_SCENE).toContain('const crowdHypeRef = useRef(openingHype);');
     expect(DUEL_SCENE).toContain('crowdHypePeak: openingHype,');
@@ -444,7 +446,8 @@ describe('C-8.70C §G — the wiring', () => {
     expect(modeCrowdStartHype('sand')).toBe(25);
     expect(modeCrowdStartHype('steel')).toBe(25);
     expect(modeCrowdStartHype('invictus')).toBe(40);
-    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));');
+    expect(DUEL_SCENE).toContain('const fateHitHype = Math.round((isCrit ? 18 + critHype : 8) * fateBonuses.crowdHypeMultiplier);');
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + fateHitHype));');
     expect(DUEL_SCENE).toContain("const tauntHype = 20 + applyPalmaEvent(playerMods.block, 'taunt').hypeAdd;");
     const awards = DUEL_SCENE.match(/updateCrowdHype\(\(prev\)/g) ?? [];
     expect(awards).toHaveLength(5);
