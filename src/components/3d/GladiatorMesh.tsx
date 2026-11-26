@@ -10,6 +10,7 @@ import { responseHasGlbMagic } from '../../utils/glbHeader';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
 import { getBodyDamageProfile } from '../../utils/injuryAppearance';
+import { getWeaponFeel } from '../../utils/duelWeaponFeel';
 // D-3 — the feet-tell type only: the cue itself is a static stance on this
 // component's own root group, so the 3D layer needs no rule from the mechanic.
 import type { FeetTell } from '../../utils/falseTelegraph';
@@ -593,6 +594,26 @@ export function resolveActionClip(action: FighterAction, clipNames: readonly str
   return fallback;
 }
 
+/**
+ * PHASE1-WEAPONFEEL — the weapon-aware clip pick. Attacks play the weapon's
+ * own clip from the per-weapon map when the body carries it, and fall back
+ * to the shipped candidates otherwise; every other action goes straight to
+ * the shipped picker. Additive: `resolveActionClip` keeps its signature for
+ * the dev harness.
+ */
+export function resolveWeaponActionClip(
+  action: FighterAction,
+  clipNames: readonly string[],
+  weaponType?: string,
+): string {
+  if (action === 'attack_light' || action === 'attack_heavy') {
+    const feel = getWeaponFeel(weaponType);
+    const clip = action === 'attack_light' ? feel.lightClip : feel.heavyClip;
+    if (clipNames.includes(clip)) return clip;
+  }
+  return resolveActionClip(action, clipNames);
+}
+
 // Phase 2B.58: Pre-allocated hit-flash colors. Module-level so every
 // GladiatorMesh instance shares the same constant Color values instead
 // of allocating a new THREE.Color every frame per mesh. These are never
@@ -807,10 +828,18 @@ const RomanWarriorGLB: React.FC<{
   // is how the hit-stop holds the animation clock (see the frame loop below).
   const { actions, names, mixer } = useAnimations(gltf.animations, groupRef);
   const activeAction = overrideAction || fighter.action;
+  // PHASE1-WEAPONFEEL — the fighter's live weapon type, so an Ignis phase
+  // switch that swaps loadout.weapon mid-duel changes the next attack clip
+  // too. Attacks resolve through the weapon's own clip; everything else
+  // keeps the shipped picker.
+  const fighterWeaponType = fighter.loadout?.weapon?.type;
 
   // Selection is driven by the clip-name list (see resolveActionClip), which is
   // ready on the first render; the effect below resolves the real action.
-  const targetClip = useMemo(() => resolveActionClip(activeAction, names), [activeAction, names]);
+  const targetClip = useMemo(
+    () => resolveWeaponActionClip(activeAction, names, fighterWeaponType),
+    [activeAction, names, fighterWeaponType],
+  );
 
   useEffect(() => {
     if (!actions || !targetClip) return;
