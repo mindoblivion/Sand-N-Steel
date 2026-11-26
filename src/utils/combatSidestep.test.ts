@@ -180,3 +180,33 @@ describe('§X — the sidestep is wired into the duel and the panel', () => {
     expect(duel).toContain('sidestep: 800,');
   });
 });
+
+// ── §F — FATE (PHASE2-FATECON-1) ─────────────────────────────────────────────
+
+describe('§F — Evasive Instinct scales the step; the default stays 1.8 m', () => {
+  test('the one-argument call is unchanged: 1.8 m, bounce at ±3.6 m', () => {
+    expect(sidestepPositionX(0)).toBe(1.8);
+    expect(sidestepPositionX(1.8)).toBe(3.6);
+    expect(sidestepPositionX(3.6)).toBe(1.8);
+  });
+
+  test('a Fate-scaled distance steps that far (1.8 × 1.08 = 1.944 m at 1 stack)', () => {
+    expect(sidestepPositionX(0, 1.8 * 1.08)).toBeCloseTo(1.944, 10);
+    // The scaled step still clears the 1.2 m threshold, and the bounce rule
+    // still applies: 1.8 + 1.944 = 3.744 > 3.6, so it bounces back.
+    expect(sidestepDodgesHeavy(sidestepPositionX(0, 1.944), 0)).toBe(true);
+    expect(sidestepPositionX(1.8, 1.944)).toBeCloseTo(-0.144, 10);
+  });
+
+  test('the duel passes the Fate-scaled distance for the player only', () => {
+    const duel = code('src/components/duel/DuelScene.tsx');
+    expect(duel).toContain('SIDESTEP_DISTANCE_M * fateBonuses.dodgeDistanceMultiplier');
+    // The opponent's branch of the same call keeps the flat 1.8 m.
+    const branch = duel.slice(
+      duel.indexOf("else if (actionType === 'sidestep')"),
+      duel.indexOf("else if (actionType === 'shield_block')"),
+    );
+    expect(branch).toContain('isActorPlayer');
+    expect(branch).toContain(': SIDESTEP_DISTANCE_M,');
+  });
+});

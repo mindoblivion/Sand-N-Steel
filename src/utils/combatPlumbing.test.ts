@@ -496,6 +496,45 @@ describe('CH-3a §T — the stat stage', () => {
     expect(hurt.agility).toBe(healthy.agility - 4);
     expect(hurt.healthMax).toBeLessThan(healthy.healthMax);
   });
+
+  // PHASE2-FATECON-1 — Fate stamina terms (Iron Lungs, Second Wind) ride on
+  // records.fate.ownedCardIds. The Fate card ids share names with palmae
+  // ('iron_lungs', 'second_wind') — different namespaces, different systems;
+  // these tests drive Fate only, and equip nothing.
+  const fated = (cardIds: string[]): PlayerProfile => ({
+    ...createNewProfile('Fated'),
+    records: {
+      fate: { ownedCardIds: cardIds, pendingDrafts: [], lastDraftedLevel: cardIds.length },
+    },
+  });
+
+  test('Fate Iron Lungs adds exactly +6 staminaMax per stack and touches nothing else', () => {
+    const plain = calculateTotalStats(createNewProfile('Plain'));
+    const one = calculateTotalStats(fated(['iron_lungs']));
+    const three = calculateTotalStats(fated(['iron_lungs', 'iron_lungs', 'iron_lungs']));
+    expect(one.staminaMax).toBe(plain.staminaMax + 6);
+    expect(three.staminaMax).toBe(plain.staminaMax + 18);
+    expect(one.staminaRegen).toBe(plain.staminaRegen);
+    expect(one.strength).toBe(plain.strength);
+    expect(one.healthMax).toBe(plain.healthMax);
+  });
+
+  test('Fate Second Wind multiplies the whole staminaRegen stat ×1.08 per stack', () => {
+    const plain = calculateTotalStats(createNewProfile('Plain'));
+    const one = calculateTotalStats(fated(['second_wind']));
+    const two = calculateTotalStats(fated(['second_wind', 'second_wind']));
+    expect(one.staminaRegen).toBeCloseTo(plain.staminaRegen * 1.08, 10);
+    expect(two.staminaRegen).toBeCloseTo(plain.staminaRegen * 1.08 * 1.08, 10);
+    expect(one.staminaMax).toBe(plain.staminaMax);
+  });
+
+  test('no Fate cards is bit-identical to the pre-Fate formula', () => {
+    const plain = calculateTotalStats(createNewProfile('Plain'));
+    const empty = calculateTotalStats(fated([]));
+    const absent = calculateTotalStats({ ...createNewProfile('Plain'), records: undefined });
+    expect(empty).toEqual(plain);
+    expect(absent).toEqual(plain);
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
