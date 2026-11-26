@@ -11,6 +11,14 @@ import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticl
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { nextCounterWindupStep } from '../../utils/counterWindup';
+// PHASE1-SMOOTH — the duel fighters walk instead of popping: the pure step
+// helper and render state this scene's per-frame driver uses. The state
+// position stays authoritative; this only moves what the mesh shows.
+import {
+  fighterStepForDelta,
+  stepFighterRender,
+  type FighterRenderState,
+} from '../../utils/duelMovement';
 import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
 import { cancelDuelResult, scheduleDuelResult } from '../../utils/duelResultTimer';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
@@ -592,6 +600,63 @@ const DuelCameraRig: React.FC<{
   return null;
 };
 
+// PHASE1-SMOOTH — the duel fighters walk instead of popping. A tiny in-Canvas
+// driver, colocated with the camera rig: each frame it steps each fighter's
+// rendered position (the ref array the mount's `positionRef` points at)
+// toward the fighter's STATE position at a constant walking speed, and
+// reports movement changes only — the BrothersPair pattern, so a `setState`
+// fires only when a fighter starts or stops moving, never every frame.
+// `useFrame` ordering is not a dependency: whether this runs before or after
+// the meshes' own `useFrame` copies, the result converges within one frame.
+// Hit-stop does not stop translation: the hit-stop holds the animation
+// mixer's time scale, not this position loop, so a knockback glide continuing
+// through a 60–200 ms hit-stop reads as impact, not a bug.
+const DuelFighterSmoothing: React.FC<{
+  player: FighterState;
+  opp: FighterState;
+  playerPosRef: React.MutableRefObject<[number, number, number]>;
+  oppPosRef: React.MutableRefObject<[number, number, number]>;
+  onMovingChange: (moving: { player: boolean; opp: boolean }) => void;
+}> = ({ player, opp, playerPosRef, oppPosRef, onMovingChange }) => {
+  // The render state wraps each position ref's array, so the step helper
+  // mutates exactly what the mesh copies each frame. Created once per mount
+  // (the array identity never changes, so the mesh never sees a new array);
+  // a Canvas remount re-creates the state with `lastId: null`, so the first
+  // frame snaps to the current state position instead of gliding from a
+  // stale spot.
+  const playerRenderRef = useRef<FighterRenderState>({
+    rendered: playerPosRef.current,
+    lastId: null,
+  });
+  const oppRenderRef = useRef<FighterRenderState>({
+    rendered: oppPosRef.current,
+    lastId: null,
+  });
+  const movingRef = useRef({ player: false, opp: false });
+
+  useFrame((_, delta) => {
+    const step = fighterStepForDelta(delta);
+    const playerMoving = stepFighterRender(
+      playerRenderRef.current,
+      player.position,
+      player.id,
+      step,
+    );
+    const oppMoving = stepFighterRender(
+      oppRenderRef.current,
+      opp.position,
+      opp.id,
+      step,
+    );
+    if (playerMoving !== movingRef.current.player || oppMoving !== movingRef.current.opp) {
+      movingRef.current = { player: playerMoving, opp: oppMoving };
+      onMovingChange(movingRef.current);
+    }
+  });
+
+  return null;
+};
+
 // 3D Floating Combat Damage & Status Overlay
 const FloatingDamage3D: React.FC<{ damages: DamageNumber[] }> = ({ damages }) => {
   return (
@@ -775,6 +840,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // formula or reward reads it.
     isLeftyMode: opponent.leftHanded === true,
   });
+
+  // PHASE1-SMOOTH — the duel fighters walk instead of popping. Each mount
+  // reads its position from a ref the driver steps toward the state position
+  // every frame; the state position stays authoritative and is never touched
+  // here. The refs start at the spawn positions (the same literals as the
+  // state initializers above), so the first frame is already at rest — no
+  // slide-in from the arena centre.
+  const playerPosRef = useRef<[number, number, number]>([0, 0, 3.5]);
+  const oppPosRef = useRef<[number, number, number]>([0, 0, -3.5]);
+  // PHASE1-SMOOTH — whether each fighter's mesh is still travelling toward
+  // its state position. Set by the driver only when a value changes, never
+  // every frame (the BrothersPair pattern); the mounts read it for the
+  // idle-on-arrival clip switch.
+  const [fighterMoving, setFighterMoving] = useState({ player: false, opp: false });
 
   // Swords & Sandals Turn-Based State Machine
   const [isPlayerTurn, setIsPlayerTurn] = useState<boolean>(true);
@@ -3971,7 +4050,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
               <Suspense fallback={null}>
-                <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />
+                <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} positionRef={playerPosRef} overrideAction={player.action === 'walk' ? (fighterMoving.player ? 'walk' : 'idle') : undefined} />
                 {/* CF-6 — boss telegraph: while the announced heavy is pending the
                     boss mesh's own emissive path pulses #ff2222 at 2 Hz. Bosses
                     only, and it clears the moment `telegraphText` does — the
@@ -4010,6 +4089,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     fighter={opp}
                     impactRef={impactRef}
                     feetTell={falseTelegraph.tell ?? undefined}
+                    positionRef={oppPosRef}
+                    overrideAction={
+                      opp.action === 'walk'
+                        ? fighterMoving.opp
+                          ? 'walk'
+                          : 'idle'
+                        : undefined
+                    }
                     telegraphGlow={
                       Boolean(opp.telegraphText) && presentsTelegraphGlow(opponent)
                     }
@@ -4035,6 +4122,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 <ImpactParticles ref={impactParticlesRef} />
               </Suspense>
             </ThreeComponentErrorBoundary>
+
+            <DuelFighterSmoothing
+              player={player}
+              opp={opp}
+              playerPosRef={playerPosRef}
+              oppPosRef={oppPosRef}
+              onMovingChange={setFighterMoving}
+            />
 
             <DuelCameraRig
               playerPos={player.position}
