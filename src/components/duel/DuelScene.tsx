@@ -19,6 +19,12 @@ import {
   stepFighterRender,
   type FighterRenderState,
 } from '../../utils/duelMovement';
+// PHASE1-CAMGUARD — the duel camera guard: the shipped CAM-COLLIDE resolver
+// the city cameras already use, the duel arena's occluder set, and the
+// separation-aware distance floor. The rig is the only caller of all three.
+import { resolveCameraCollision } from '../../utils/cameraCollision';
+import { DUEL_ARENA_COLLIDERS } from '../../utils/duelArenaColliders';
+import { duelCameraFloorDistance } from '../../utils/duelCameraGuard';
 import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
 import { cancelDuelResult, scheduleDuelResult } from '../../utils/duelResultTimer';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
@@ -547,10 +553,27 @@ const DuelCameraRig: React.FC<{
     const currentHeight = Math.max(1.5, Math.min(14, baseHeight + dragPitch));
     const currentDist = Math.max(3.5, Math.min(16, baseDist + dragPitch * 0.4));
 
-    const camX = midX + Math.sin(dragYaw) * currentDist;
-    const camZ = midZ + Math.cos(dragYaw) * currentDist;
+    // PHASE1-CAMGUARD — floor, then resolve, then the existing lerp. The
+    // floor only ever raises the distance, and only out of spear range; the
+    // resolver can only pull the target in. The lerp below eases toward the
+    // safe position, so a pull-in reads as a smooth slide, never a snap.
+    // The ray origin is the look target, so the guard guarantees the line of
+    // sight is clear and a pull-in preserves framing.
+    const flooredDist = duelCameraFloorDistance(
+      currentDist,
+      Math.abs(playerPos[2] - opponentPos[2]),
+    );
+
+    const camX = midX + Math.sin(dragYaw) * flooredDist;
+    const camZ = midZ + Math.cos(dragYaw) * flooredDist;
 
     targetCamPos.set(camX, currentHeight, camZ);
+    const safeCamPos = resolveCameraCollision(
+      { x: midX, y: 1.2, z: midZ },
+      { x: targetCamPos.x, y: targetCamPos.y, z: targetCamPos.z },
+      DUEL_ARENA_COLLIDERS,
+    );
+    targetCamPos.set(safeCamPos.x, safeCamPos.y, safeCamPos.z);
 
     camera.position.lerp(targetCamPos, Math.min(1, delta * 6));
 
