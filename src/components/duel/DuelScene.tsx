@@ -281,6 +281,7 @@ import { BeastFigure, LION_MODEL_URL, beastFacingYaw } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
+import { useDuelPinchZoom } from '../../hooks/useDuelPinchZoom';
 import { SceneBrightness } from '../3d/SceneBrightness';
 import { useSettings } from '../../hooks/useSettings';
 import { useAdaptiveDpr, CITY_TIERS, POST_TRANSITION_MS, type QualityPreset } from '../../hooks/useAdaptiveDpr';
@@ -529,7 +530,7 @@ const DuelCameraRig: React.FC<{
   shakeMultiplierRef: React.MutableRefObject<number>;
   disabled?: boolean;
 }> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef, disabled = false }) => {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   // Reuse the camera target scratch vector; this rig runs every rendered frame.
   const targetCamPos = useMemo(() => new THREE.Vector3(), []);
   // C-8.70B §SET-1 — the Camera Sensitivity row scales this orbit, through the
@@ -539,6 +540,24 @@ const DuelCameraRig: React.FC<{
     yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
     pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
     disabled,
+  });
+
+  // PHASE1-TOUCH — the pinch offset: the distance the pinch has added to the
+  // mode's base distance, so a pinch that ends leaves the camera where the
+  // fingers left it instead of snapping back. The frame loop writes the live
+  // base distance into baseDistanceRef every frame, so the hook's anchor is
+  // always the camera's actual distance, and the offset it sets always
+  // resolves to the distance the pinch asked for — whatever the drag pitch
+  // is doing at the time. The mode's base (8.5, cinematic) is the fallback
+  // before the first frame runs.
+  const pinchOffsetRef = useRef(0);
+  const baseDistanceRef = useRef(8.5);
+  useDuelPinchZoom(gl.domElement, {
+    disabled,
+    getCurrentDistance: () => baseDistanceRef.current + pinchOffsetRef.current,
+    onZoomChange: (desired) => {
+      pinchOffsetRef.current = desired - baseDistanceRef.current;
+    },
   });
 
   useFrame((state, delta) => {
@@ -560,7 +579,12 @@ const DuelCameraRig: React.FC<{
     }
 
     const currentHeight = Math.max(1.5, Math.min(14, baseHeight + dragPitch));
-    const currentDist = Math.max(3.5, Math.min(16, baseDist + dragPitch * 0.4));
+    // PHASE1-TOUCH — the pinch offset rides on the mode's base distance, so
+    // the pinch composes with the drag pitch (and the mode cycle) instead of
+    // replacing either. The clamp below is the shipped 3.5–16 range, and the
+    // CAMGUARD floor after it still only ever raises the distance.
+    baseDistanceRef.current = baseDist + dragPitch * 0.4;
+    const currentDist = Math.max(3.5, Math.min(16, baseDistanceRef.current + pinchOffsetRef.current));
 
     // PHASE1-CAMGUARD — floor, then resolve, then the existing lerp. The
     // floor only ever raises the distance, and only out of spear range; the
@@ -4277,6 +4301,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               }
             : null
         }
+        // PHASE1-TOUCH — Lefty Mode reaches the panel, so the panel can mirror
+        // as one unit (CombatHUD passes it straight through; the mirror lives
+        // in TurnActionPanel, not here).
+        isLeftyMode={isLeftyMode}
         onExecuteAction={(action, target) => executeCombatTurn('player', action, target)}
       />
 
