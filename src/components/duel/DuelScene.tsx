@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } fr
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sparkles, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber, BoutMode } from '../../types/game';
+import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber, BoutMode, WeaponType } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
 import { ArenaHazards3D } from '../3d/ArenaHazards3D';
 import { findNearbyHazard, triggerHazardEffect } from '../../utils/arenaHazards';
@@ -25,7 +25,7 @@ import {
 import { resolveCameraCollision } from '../../utils/cameraCollision';
 import { DUEL_ARENA_COLLIDERS } from '../../utils/duelArenaColliders';
 import { duelCameraFloorDistance } from '../../utils/duelCameraGuard';
-import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
+import { getWeaponHitStopMs, getWeaponResolutionMs, getWeaponWindupMs } from '../../utils/duelWeaponFeel';
 import { cancelDuelResult, scheduleDuelResult } from '../../utils/duelResultTimer';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -456,6 +456,7 @@ export const turnResolutionMs = (
   fightEnded = false,
   mode: BoutMode = DEFAULT_BOUT_MODE,
   playerRecoveryMultiplier = 1,
+  weaponType?: WeaponType,
 ): number => {
   if (fightEnded) return TURN_RESOLUTION_DEATH_MS;
   const shipped = TURN_RESOLUTION_MS[actionType];
@@ -476,7 +477,15 @@ export const turnResolutionMs = (
     const scale = Number.isFinite(playerRecoveryMultiplier)
       ? Math.max(0.85, Math.min(1.15, playerRecoveryMultiplier))
       : 1;
-    return Math.round(shipped * scale);
+    // PHASE1-WEAPONFEEL — the hold is per-weapon now: the map's value
+    // replaces the shipped weight for the two attack actions (other actions
+    // keep their shipped weight above; the death beat and the telegraph hold
+    // are untouched). The recovery scale still applies on top, exactly as
+    // before — a heavy fighter's hold stretches the same way it did. An
+    // absent weapon reads as the sword & shield baseline inside the map.
+    return Math.round(
+      getWeaponResolutionMs(weaponType, actionType === 'quick_attack') * scale,
+    );
   }
   return shipped;
 };
@@ -1562,6 +1571,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         } else {
           setOpp((prev) => ({ ...prev, action }));
         }
+        // PHASE1-WEAPONFEEL — the windup is per-weapon now: read the
+        // attacker's LIVE weapon at the gate, so an Ignis phase switch that
+        // swaps loadout.weapon mid-duel changes the next windup too. A Cotta
+        // turn reads the pair's published weapon here — the acting brother is
+        // only named at resolution, where his own weapon drives the hold and
+        // the hit-stop below.
+        const attackerWeaponType = (isActorPlayer ? player : opp).loadout.weapon.type;
         attackWindupTimerRef.current = setTimeout(() => {
           attackWindupTimerRef.current = null;
           if (isMatchOver.current) {
@@ -1569,7 +1585,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             return;
           }
           executeCombatTurnRef.current?.(actor, actionType, target, true);
-        }, ATTACK_WINDUP_MS);
+        }, getWeaponWindupMs(attackerWeaponType));
         return;
       }
 
@@ -2667,8 +2683,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               : isCrit
               ? HIT_STOP_MS.crit
               : isQuick
-              ? HIT_STOP_MS.quick
-              : HIT_STOP_MS.power;
+              // PHASE1-WEAPONFEEL — the quick/power hold is the ATTACKER's
+              // weapon's own (brothers-aware: the acting brother's weapon,
+              // via attackerWeapon). Blocked, telegraphed-heavy and crit
+              // keep their priority above, exactly as before.
+              ? getWeaponHitStopMs(attackerWeapon.type, true)
+              : getWeaponHitStopMs(attackerWeapon.type, false);
             // COMBAT-5 — the player's own strikes scale with the blow they
             // landed; a blow the player RECEIVES now scales the same way, by
             // what hit them — blocked 0.10, telegraphed heavy 0.85, crit 0.70,
@@ -2989,11 +3009,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (outOfRangeWhiff) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
+      // PHASE1-WEAPONFEEL — the resolution timer's fifth argument is the
+      // acting fighter's live weapon (brothers-aware: the acting brother's
+      // weapon, via attackerWeapon); it sets the attack hold inside the
+      // resolver, while other actions keep their shipped weight.
       }, turnResolutionMs(
         actionType,
         fightEnded,
         boutMode,
         isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1,
+        attackerWeapon.type,
       ));
     },
     [
