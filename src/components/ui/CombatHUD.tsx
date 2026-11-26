@@ -34,6 +34,8 @@ interface CombatHUDProps {
   /** The same player-only weight multipliers used by duel resolution. */
   playerWeightImpactMultiplier?: number;
   playerWeightStaminaMultiplier?: number;
+  /** PHASE2-FATECON-1 — the player's Fate-scaled dodge cost, passed straight through to the panel so its gate reads the same number the duel charges. */
+  fateDodgeCost?: number;
   opponentIsBoss?: boolean;
   /**
    * COMBAT-5 — a REAL heavy telegraph is live right now (a heavy or the
@@ -143,6 +145,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   opponentModifiers,
   playerWeightImpactMultiplier = 1,
   playerWeightStaminaMultiplier = 1,
+  fateDodgeCost = 12,
   opponentIsBoss,
   heavyTelegraphLive = false,
   bossVignettePulse,
@@ -478,6 +481,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         opponentModifiers={opponentModifiers}
         playerWeightImpactMultiplier={playerWeightImpactMultiplier}
         playerWeightStaminaMultiplier={playerWeightStaminaMultiplier}
+        fateDodgeCost={fateDodgeCost}
         opponentIsBoss={opponentIsBoss}
         heavyTelegraphLive={heavyTelegraphLive}
         beast={beast}

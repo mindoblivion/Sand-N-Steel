@@ -117,6 +117,8 @@ interface TurnActionPanelProps {
   /** Matches the player-only weight multipliers used by combat resolution. */
   playerWeightImpactMultiplier?: number;
   playerWeightStaminaMultiplier?: number;
+  /** PHASE2-FATECON-1 — the player's Fate-scaled dodge cost (12 → 11 at 1 Arena Runner stack, 10 at 2); the gate and the labels read this, so they agree with the charge. */
+  fateDodgeCost?: number;
   opponentIsBoss?: boolean;
   /**
    * COMBAT-5 — a REAL heavy telegraph is live right now: the opponent
@@ -154,6 +156,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   opponentModifiers = EMPTY_MODIFIERS,
   playerWeightImpactMultiplier = 1,
   playerWeightStaminaMultiplier = 1,
+  fateDodgeCost = 12,
   opponentIsBoss = false,
   heavyTelegraphLive = false,
   beast = null,
@@ -561,9 +564,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           <button
             dir="ltr"
             onClick={() => onExecuteAction('dodge')}
-            disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < 12}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < fateDodgeCost}
             className={`min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
-              !isPlayerTurn || isExecuting || player.stamina < 12
+              !isPlayerTurn || isExecuting || player.stamina < fateDodgeCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : 'bg-gradient-to-br from-teal-950 via-neutral-900 to-emerald-950 border-teal-500 hover:border-teal-300 text-teal-100 shadow-lg'
             }`}
@@ -574,7 +577,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Dodge</span>
               </span>
               <span className="text-[9px] font-mono bg-teal-950/80 border border-teal-700/60 px-1 py-0.2 rounded text-teal-300">
-                12 SP
+                {fateDodgeCost} SP
               </span>
             </div>
 
@@ -584,7 +587,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-teal-900/40">
               <span className="text-teal-300 font-bold">75% Evade</span>
-              <span className="text-rose-300 font-bold">−12 SP</span>
+              <span className="text-rose-300 font-bold">−{fateDodgeCost} SP</span>
             </div>
           </button>
 
