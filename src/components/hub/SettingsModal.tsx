@@ -503,7 +503,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   label="Lefty Mode"
                   description={
                     settings.lefty
-                      ? 'Weapon in the left hand, shield in the right.'
+                      ? 'Weapon in the left hand, shield in the right. The duel panel mirrors, too.'
                       : 'Weapon in the right hand, shield in the left.'
                   }
                   icon={<Swords className="w-5 h-5" />}
@@ -525,7 +525,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
                 <ToggleRow
                   label="Vibration"
-                  description="A short buzz when your blade lands."
+                  description="A short buzz when your blade lands, and a tick when you tap a tactic."
                   icon={<Smartphone className="w-5 h-5" />}
                   checked={settings.vibration}
                   onChange={(vibration) => set({ vibration })}
@@ -539,6 +539,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="mt-3 flex flex-col gap-1.5 text-xs text-neutral-300 leading-relaxed">
                     <p>• Mobile joystick: standard left/right and forward/back response.</p>
                     <p>• Gladiator pace: a grounded stride with smooth camera yaw damping.</p>
+                    <p>• Duel: tap the tactic panel to act, drag the sand to orbit the camera, and pinch to zoom — the camera button cycles the view.</p>
+                    <p>• Duel lefty: the tactic panel mirrors, so the buttons sit under your left thumb.</p>
                     <p>• Desktop: WASD or arrow keys to move, E or Space to act, and the tactic panel in the arena.</p>
                     <p>• Circus racing: steering under one thumb, throttle and brake under the other.</p>
                     <p>• Circus racing keys: W or ↑ gallop, S or ↓ brake, A/D or ←/→ steer.</p>
