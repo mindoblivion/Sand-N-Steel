@@ -85,6 +85,11 @@ interface CombatHUDProps {
    * hype is at or above the embolden threshold). Absent on every other duel.
    */
   bossRageFed?: boolean;
+  /**
+   * PHASE1-TOUCH — Lefty Mode: passed straight through to the panel, which
+   * mirrors as one unit when it is on. This file owns no mirror of its own.
+   */
+  isLeftyMode?: boolean;
   onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
 }
 
@@ -147,6 +152,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   brothers = null,
   crowdEmbolden = null,
   bossRageFed = false,
+  isLeftyMode = false,
   onExecuteAction,
 }) => {
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
@@ -475,6 +481,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         opponentIsBoss={opponentIsBoss}
         heavyTelegraphLive={heavyTelegraphLive}
         beast={beast}
+        isLeftyMode={isLeftyMode}
         onExecuteAction={onExecuteAction}
       />
     </div>

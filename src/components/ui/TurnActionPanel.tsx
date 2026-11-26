@@ -40,6 +40,7 @@ import {
 import { isStaggered } from '../../utils/combatStagger';
 import { getBracePresentation } from '../../utils/bracePresentation';
 import { applyRiposteDamage, isRiposteReady } from '../../utils/combatCounter';
+import { vibrate, HAPTIC_ACTION_TAP_MS } from '../../utils/haptics';
 
 /**
  * D-2 — which fighter a PLAYER attack is aimed at. Only a beast bout offers the
@@ -128,6 +129,17 @@ interface TurnActionPanelProps {
   heavyTelegraphLive?: boolean;
   /** D-2 — the beast, while one is in the arena. Absent on every other duel. */
   beast?: BeastPanelInfo | null;
+  /**
+   * PHASE1-TOUCH — Lefty Mode: mirror the panel as one unit. The mirror is
+   * layout-only — the outer row reverses (chronicle and dashboard swap sides
+   * on wide layouts), each inner row reverses (turn banner, action grid,
+   * secondary strip), and every button keeps its own label, function and
+   * value, so nothing is mislabelled by the mirror. The RaceTouchControls
+   * precedent, exactly: `flex-row-reverse` on the rows, `direction: rtl` on
+   * the grid (with `dir="ltr"` on each card, so a card's own header and
+   * footer never flip inside it).
+   */
+  isLeftyMode?: boolean;
   onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
 }
 
@@ -145,7 +157,8 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   opponentIsBoss = false,
   heavyTelegraphLive = false,
   beast = null,
-  onExecuteAction,
+  isLeftyMode = false,
+  onExecuteAction: onExecuteActionProp,
 }) => {
   // D-2 — the target choice, and it MUST default to the master: a standard duel
   // (and every turn of a beast bout that is not a crouch) is untouched by this
@@ -162,6 +175,22 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   // flag clears in DuelScene's `recover` branch, which the scene dispatches
   // on its own — the panel never offers recovery as a choice.
   const playerRecovering = isStaggered(player.staggeredTurns);
+  // PHASE1-TOUCH — the panel's one dispatch path: the prop, wrapped, so
+  // every tactic button still calls onExecuteAction(...) and the tick fires
+  // here, behind the Vibration setting (vibrate() is the gate). One call
+  // site, not one per button — and the buttons' own call sites never change
+  // shape, so the wiring pins that read them stay true. The beast target
+  // buttons below are not actions — they only choose a target — so they
+  // never buzz. Disabled buttons never fire onClick, so a tap that cannot
+  // dispatch cannot buzz either.
+  const onExecuteAction = (action: CombatActionType, target?: AttackTarget) => {
+    vibrate(HAPTIC_ACTION_TAP_MS);
+    onExecuteActionProp(action, target);
+  };
+  // PHASE1-TOUCH — the mirror, as one class: the outer row reverses and so
+  // does each inner row (turn banner, secondary strip). The grid reverses by
+  // direction, below. Labels, functions and values never move.
+  const mirror = isLeftyMode ? 'flex-row-reverse' : '';
   // COMBAT-2 — the Riposte window: the next strike hits +50% and cannot be
   // evaded. The panel shows the window (banner + boosted estimates) while it
   // is open; DuelScene spends it on the next attack or lapses it on any
@@ -270,7 +299,12 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const blockAbsorbPct = Math.round(blockReductionFor(weapon.blockReduction, playerModifiers) * 100);
 
   return (
-    <div className="w-full max-w-5xl mx-auto pointer-events-auto flex flex-col md:flex-row gap-2.5 items-stretch z-20 select-none pb-2 sm:pb-4">
+    <div
+      data-duel-panel={isLeftyMode ? 'lefty' : 'righty'}
+      className={`w-full max-w-5xl mx-auto pointer-events-auto flex flex-col ${
+        isLeftyMode ? 'md:flex-row-reverse' : 'md:flex-row'
+      } gap-2.5 items-stretch z-20 select-none pb-2 sm:pb-4`}
+    >
       {/* COMBAT LOG FEED (LEFT / TOP) */}
       <div className="w-full md:w-64 bg-neutral-950/85 border border-amber-600/40 rounded-2xl p-2.5 backdrop-blur-md shadow-2xl flex flex-col justify-between shrink-0">
         <div className="flex items-center justify-between pb-1.5 border-b border-amber-900/40 mb-1.5">
@@ -327,7 +361,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
       {/* TACTICAL COMMAND DASHBOARD (CENTER / RIGHT) */}
       <div className="flex-1 bg-neutral-950/90 border-2 border-amber-600/60 rounded-2xl p-2.5 sm:p-3.5 backdrop-blur-md shadow-2xl flex flex-col justify-between gap-2.5">
         {/* TURN STATE BANNER */}
-        <div className="turn-banner flex flex-wrap items-center justify-between gap-1 bg-neutral-900/90 border border-amber-700/50 px-3 py-1.5 rounded-xl">
+        <div className={`turn-banner flex flex-wrap items-center justify-between gap-1 bg-neutral-900/90 border border-amber-700/50 px-3 py-1.5 rounded-xl ${mirror}`}>
           <div className="flex items-center gap-2">
             <span
               className={`w-2.5 h-2.5 rounded-full ${
@@ -405,12 +439,17 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
         )}
 
         {/* COMMAND ACTION BUTTONS GRID */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+        <div
+          className={`grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 ${
+            isLeftyMode ? '[direction:rtl]' : ''
+          }`}
+        >
           {/* 1. QUICK STRIKE */}
           <button
+            dir="ltr"
             onClick={() => onExecuteAction('quick_attack', attackTarget)}
             disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < quickStaminaCost || strikeOutOfRange}
-            className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+            className={`group relative min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : strikeOutOfRange
@@ -448,9 +487,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
           {/* 2. POWER SLASH / HEAVY ATTACK */}
           <button
+            dir="ltr"
             onClick={() => onExecuteAction('power_attack', attackTarget)}
             disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < powerStaminaCost || strikeOutOfRange}
-            className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+            className={`group relative min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : strikeOutOfRange
@@ -488,9 +528,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
           {/* 3. SHIELD GUARD / BRACE */}
           <button
+            dir="ltr"
             onClick={() => onExecuteAction('shield_block')}
             disabled={!isPlayerTurn || isExecuting || playerRecovering}
-            className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+            className={`min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : 'bg-gradient-to-br from-blue-950 via-neutral-900 to-slate-900 border-cyan-500 hover:border-cyan-300 text-cyan-100 shadow-lg'
@@ -518,9 +559,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
           {/* 4. DODGE / EVASION STANCE */}
           <button
+            dir="ltr"
             onClick={() => onExecuteAction('dodge')}
             disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < 12}
-            className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+            className={`min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < 12
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : 'bg-gradient-to-br from-teal-950 via-neutral-900 to-emerald-950 border-teal-500 hover:border-teal-300 text-teal-100 shadow-lg'
@@ -549,9 +591,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 5. CAST THE NET — retiarius doctrina (CH-3b), once per fight */}
           {isRetiarius && (
             <button
+              dir="ltr"
               onClick={() => onExecuteAction('cast_net', attackTarget)}
               disabled={!isPlayerTurn || isExecuting || playerRecovering || !netReady}
-              className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+              className={`group relative min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
                 !isPlayerTurn || isExecuting || !netReady
                   ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                   : 'bg-gradient-to-br from-stone-900 via-neutral-900 to-amber-950 border-amber-400 hover:border-amber-200 text-amber-100 shadow-lg hover:shadow-amber-500/20'
@@ -586,9 +629,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
           {/* 6. TAUNT CROWD / REST */}
           <button
+            dir="ltr"
             onClick={() => onExecuteAction('taunt')}
             disabled={!isPlayerTurn || isExecuting || playerRecovering}
-            className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+            className={`min-h-[48px] p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : 'bg-gradient-to-br from-purple-950 via-neutral-900 to-amber-950 border-purple-500 hover:border-purple-300 text-purple-100 shadow-lg'
@@ -616,7 +660,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
         </div>
 
         {/* MOVEMENT & UTILITY SECONDARY STRIP */}
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-900/40">
+        <div className={`flex items-center justify-between gap-2 pt-1 border-t border-amber-900/40 ${mirror}`}>
           <div className="flex items-center gap-1.5">
             {/* ADVANCE */}
             <button
