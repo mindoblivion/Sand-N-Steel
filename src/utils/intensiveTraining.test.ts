@@ -19,7 +19,10 @@
  *      to the one stat (the others untouched), and records ONE session
  *      through the physique record, the same as a yard session;
  *   §F the PURITY & LINES — the module never mutates its argument, and the
- *      refusal and success lines are Rufus's, printed from the module.
+ *      refusal and success lines are Rufus's, printed from the module;
+ *   §G the SESSIONS (PHASE2-TRAINING) — the course spends one of the day's
+ *      sessions like a yard session, and at zero it is refused with
+ *      'sessions-exhausted' before the purse is even counted.
  *
  * Run with: `bun test src/utils/intensiveTraining.test.ts`
  */
@@ -165,7 +168,42 @@ describe('§F the purity & lines', () => {
     const cost = intensiveCourseCost(profile());
     expect(intensiveRefusalLine('below-level', cost)).toContain('Three levels of blood first');
     expect(intensiveRefusalLine('not-scheduled', cost)).toContain('That drill rests today');
+    expect(intensiveRefusalLine('sessions-exhausted', cost)).toContain('No sessions left today');
     expect(intensiveRefusalLine('insufficient-gold', cost)).toContain(`${cost} gold`);
     expect(intensiveSuccessLine('strength')).toContain('two points of strength');
+  });
+});
+
+describe('§G the sessions', () => {
+  test('a gladiator with no sessions left is refused, and the profile is untouched', () => {
+    const p = profile({ trainingSessionsLeft: 0 });
+    const before = JSON.stringify(p);
+    expect(intensiveRefusal(p, scheduledStat(p))).toBe('sessions-exhausted');
+    expect(applyIntensiveTraining(p, scheduledStat(p))).toEqual({
+      ok: false,
+      reason: 'sessions-exhausted',
+    });
+    expect(JSON.stringify(p)).toBe(before);
+  });
+
+  test('no sessions beats an empty purse — the cap is the refusal', () => {
+    const p = profile({ gold: 0, trainingSessionsLeft: 0 });
+    expect(intensiveRefusal(p, scheduledStat(p))).toBe('sessions-exhausted');
+  });
+
+  test('one session runs and leaves zero', () => {
+    const p = profile({ trainingSessionsLeft: 1 });
+    const result = applyIntensiveTraining(p, scheduledStat(p));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.trainingSessionsLeft).toBe(0);
+  });
+
+  test('two sessions run and leave one', () => {
+    const p = profile({ trainingSessionsLeft: 2 });
+    const result = applyIntensiveTraining(p, scheduledStat(p));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.trainingSessionsLeft).toBe(1);
   });
 });

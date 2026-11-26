@@ -762,8 +762,10 @@ describe('GC20 §F — what each shape resolves to', () => {
 
   test('the played profile keeps the fields no code advances at their creation values', () => {
     // A finding of this slice, pinned so it cannot drift silently: nothing in the
-    // tree increments `bossKills` or writes `tierProgress`/`newGamePlus`/
-    // `trainingSessionsLeft` after creation, so no played save can differ.
+    // tree increments `bossKills` or writes `tierProgress`/`newGamePlus` after
+    // creation, so no played save can differ. `trainingSessionsLeft` is NOT in
+    // that list any more: PHASE2-TRAINING made training spend it, so a played
+    // save can hold 0, 1 or 2 — this fixture simply never trained.
     const raw = rawOf(fixtureById('mid-career'));
     expect(raw.bossKills).toBe(0);
     expect(raw.newGamePlus).toBe(0);
