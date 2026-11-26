@@ -35,11 +35,12 @@ const RARITY_STYLES: Record<FateCardRarity, string> = {
  * the modal reports the choice, App transacts it.
  *
  * The effect-status lines say plainly whether a card's effect is live:
- * "Takes effect immediately." for `gold_flat` and the eight kinds
- * PHASE2-FATECON-1 wired (the `FATECON1_LIVE_EFFECT_KINDS` set), and
- * "Not yet in effect." for everything else — the card is still yours to
- * keep, and the line never promises what the game does not deliver yet.
- * The combat kinds and Deep Wounds are still waiting on the next slice.
+ * "Takes effect immediately." for `gold_flat` and the fourteen kinds
+ * PHASE2-FATECON-1 and PHASE2-FATECON-2 wired (the
+ * `FATECON1_LIVE_EFFECT_KINDS` set), and "Not yet in effect." for
+ * everything else — the card is still yours to keep, and the line never
+ * promises what the game does not deliver yet. Only Deep Wounds is still
+ * waiting: no technique registry and no bleeding system exist to consume it.
  */
 export const FateDraftModal: React.FC<FateDraftModalProps> = ({ draft, onChoose }) => {
   const cards = draft.cardIds

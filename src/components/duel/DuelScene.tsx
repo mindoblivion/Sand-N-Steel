@@ -69,6 +69,15 @@ import { getWeaponByType, weaponSupportsOffhandShield } from '../../data/itemsDB
 import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import { resolveFateBonuses } from '../../utils/fateBonuses';
 import {
+  fateConditionalDamageMultiplier,
+  fateWeaponMasteryMultiplier,
+} from '../../utils/fateBonuses';
+import {
+  DEATH_DEFIER_BANNER_TEXT,
+  DEATH_DEFIER_SLIVER_HP,
+  shouldDeathDefy,
+} from '../../utils/deathDefier';
+import {
   getWeaponRange,
   getStaminaCost,
   calculateHitChance,
@@ -1148,6 +1157,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           oppBlockedPlayerAttackRef.current = false;
           oppTookCleanHitRef.current = false;
           risenRef.current = false;
+          // PHASE2-FATECON-2 — the Fate flags and the once-per-bout latch
+          // reset with the other duel refs.
+          afterOpponentMissedRef.current = false;
+          afterSuccessfulDodgeRef.current = false;
+          deathDefiedRef.current = false;
           setOpp((prev) => ({ ...prev, telegraphText: undefined }));
         },
         // Player actions resolve synchronously; return the fighter to idle before
@@ -1181,6 +1195,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // other refs at withdrawal cancel, victory and defeat — and read by the
   // risen profile below, never by the HP-derived phase lookup.
   const risenRef = useRef(false);
+  // PHASE2-FATECON-2 — Fate event flags and the once-per-bout latch. The
+  // flags are latched in one dispatch and consumed by the player's next
+  // attack in another, exactly like pendingCounterRef and risenRef: they
+  // live for one duel only — no save field — and reset with the other
+  // refs at withdrawal cancel, victory and defeat.
+  const afterOpponentMissedRef = useRef(false);
+  const afterSuccessfulDodgeRef = useRef(false);
+  const deathDefiedRef = useRef(false);
 
   // ── C-8.70C Slice C-D — the phase slice's own duel-session state ───────────
   //   • `phaseAnnouncedRef` latches the ONE phase change, so the banner and the
@@ -2390,6 +2412,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             };
           }
 
+          // PHASE2-FATECON-2 — Fate event flags: the player's NEXT attack
+          // consumes them, so read-and-clear here, at the head of the
+          // attack's outcome resolution (in range — an out-of-range whiff
+          // resolves nothing, so it spends nothing). The snapshot rides
+          // into the traitMult chain below; a miss, an evade and a
+          // sidestep all consume the flags, exactly as a landed blow does
+          // — the attack happened either way. The opponent's own attacks
+          // never touch them.
+          const fateAfterOpponentMissed = isActorPlayer && afterOpponentMissedRef.current;
+          const fateAfterSuccessfulDodge = isActorPlayer && afterSuccessfulDodgeRef.current;
+          if (isActorPlayer) {
+            afterOpponentMissedRef.current = false;
+            afterSuccessfulDodgeRef.current = false;
+          }
+
           if (isSidestepped) {
             sounds.playDodge();
             addLog(`${defender.name} steps off the line — ${attackerLabel}'s heavy swings through empty sand!`, 'system');
@@ -2398,6 +2435,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             sounds.playDodge();
             addLog(`${defender.name} swiftly EVADED ${attackerLabel}'s strike!`, 'system');
             spawnDamageText('EVADED!', 'dodge', defender.position);
+            // PHASE2-FATECON-2 — Adrenaline Surge: the player's NEXT attack
+            // deals more damage after a successful dodge — the stance evade
+            // only (`isEvaded`: the player chose and paid for the dodge
+            // stance; a passive palma evade is not a dodge performed, and
+            // a sidestep is Evasive Instinct's action, not a dodge). Set
+            // only when the OPPONENT's attack was evaded, i.e. the player
+            // is the defender.
+            if (!isActorPlayer && isEvaded) afterSuccessfulDodgeRef.current = true;
             // Queue a counterattack for Valéria's next AI turn.
             // Only when the player is the attacker against a
             // counter_dodge boss — a player evading Valéria's own
@@ -2492,6 +2537,26 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // Characters P3a mechanism): the palma's own +20 % multiplies the
             // resolved pair for the one master's blow that follows the beast's
             // wound, and the marker is already spent by the time this returns.
+            // PHASE2-FATECON-2 — the player's Fate damage factor: the
+            // unconditional damage kinds, the mastery of the weapon in
+            // hand, and the live conditionals (the flag snapshot above,
+            // the health both fighters are at now). One number, computed
+            // here where the flag state lives; the panel reads the same
+            // number through its prop, so the estimates and the resolution
+            // can never disagree. The opponent's blows and the beast's
+            // pounce never inherit it.
+            const fateDamageMult = isActorPlayer
+              ? fateBonuses.damageMultiplier *
+                fateWeaponMasteryMultiplier(fateBonuses.ownedCardIds, attackerWeapon.type) *
+                fateConditionalDamageMultiplier(fateBonuses.ownedCardIds, {
+                  afterOpponentMisses: fateAfterOpponentMissed,
+                  afterSuccessfulDodge: fateAfterSuccessfulDodge,
+                  attackerHealth: attacker.health,
+                  attackerHealthMax: attacker.stats.healthMax,
+                  defenderHealth: defender.health,
+                  defenderHealthMax: defender.stats.healthMax,
+                })
+              : 1;
             const traitMult = resolveTraitMult(attackerMods, defenderMods, {
               isQuick,
               distance: dist,
@@ -2517,25 +2582,40 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // the remaining one lands carries the pair's +15 %.
               * (brothersCfg && !isActorPlayer ? survivorDamageMult(brothersCfg, brothersRef.current) : 1)
               // Body mass adds impact only to the player's outgoing blows.
-              * (isActorPlayer ? playerWeightProfile.impactMultiplier : 1);
+              * (isActorPlayer ? playerWeightProfile.impactMultiplier : 1)
+              // PHASE2-FATECON-2 — the player's Fate damage factor (damage,
+              // mastery, live conditionals); 1 for the opponent and the beast.
+              * fateDamageMult;
             // COMBAT-2 — a Riposte multiplies the resolved damage by 1.5: the
             // punish is the point, and the multiplier rides the final number
             // (after block mitigation), never the formula's inputs.
-            const rawDamage = applyRiposteDamage(
-              calculateAttackDamage(
-                baseDmg,
-                // D-2 — the pounce's strength is the beast's row value; every other
-                // blow is the weapon-holder's own.
-                isBeastPounce && beastCfg ? beastCfg.strength : attacker.stats.strength,
-                isCrit,
-                defender.stats.defense,
-                isBlocked,
-                blockReduction,
-                rageMult,
-                // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
-                traitMult,
-              ),
-              isRiposte,
+            // PHASE2-FATECON-2 — Shield Savant: the damage the player TAKES
+            // is reduced post-formula (0.98 per stack), Riposte-style,
+            // after the formula returns and after block mitigation — never
+            // inside the traitMult chain, whose denominator would invert
+            // it (brief §2). The reduction rides on `rawDamage` itself, so
+            // the fight-ended read, the logs, the HP write and the
+            // statistics all see the damage that actually landed. Only
+            // blows at the player are reduced; the player's own blows keep
+            // the full number. `calculateAttackDamage` returns an integer,
+            // so the wrap is identity at ×1.
+            const rawDamage = Math.round(
+              applyRiposteDamage(
+                calculateAttackDamage(
+                  baseDmg,
+                  // D-2 — the pounce's strength is the beast's row value; every other
+                  // blow is the weapon-holder's own.
+                  isBeastPounce && beastCfg ? beastCfg.strength : attacker.stats.strength,
+                  isCrit,
+                  defender.stats.defense,
+                  isBlocked,
+                  blockReduction,
+                  rageMult,
+                  // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
+                  traitMult,
+                ),
+                isRiposte,
+              ) * (!isActorPlayer ? fateBonuses.damageTakenMultiplier : 1),
             );
 
             // CF-5 — the same subtraction the damage branch below applies, read
@@ -2838,16 +2918,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             if (twinFangsApplies(attackerMods.armaturaId, isQuick)) {
               const bonusHit = rollBonusStrike(hitPct);
               if (bonusHit) {
-                const bonusDamage = calculateAttackDamage(
-                  twinFangsBaseDamage(attacker.loadout.weapon.damageLight),
-                  attacker.stats.strength,
-                  false,
-                  defender.stats.defense,
-                  isBlocked,
-                  blockReduction,
-                  rageMult,
-                  // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
-                  traitMult,
+                // PHASE2-FATECON-2 — Shield Savant, same post-formula
+                // reduction as the main blow above: the second blade at the
+                // player is reduced, the player's own second blade is not.
+                const bonusDamage = Math.round(
+                  calculateAttackDamage(
+                    twinFangsBaseDamage(attacker.loadout.weapon.damageLight),
+                    attacker.stats.strength,
+                    false,
+                    defender.stats.defense,
+                    isBlocked,
+                    blockReduction,
+                    rageMult,
+                    // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
+                    traitMult,
+                  ) * (!isActorPlayer ? fateBonuses.damageTakenMultiplier : 1),
                 );
 
                 // CF-5 — the second blade can be the killing blow.
@@ -2952,11 +3037,46 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 setBossVignettePulse(Date.now());
               }
             }
+
+            // ── PHASE2-FATECON-2 — DEATH DEFIER ──────────────────────────
+            // Once per bout, a fatal blow the PLAYER takes does not kill
+            // them. Same site and same race as the Second Rising above:
+            // this fires in the same synchronous dispatch as the killing
+            // blow's own HP write, before any defeat write can run — the
+            // defeat effect reads `player.health` after this commit, and
+            // the defiance leaves it at 1 HP, so no defeat is ever written
+            // for the first fatal blow. The second fatal blow finds
+            // `deathDefiedRef` set and kills like any blow. The predicate
+            // READS `fightEnded`, never recomputes it.
+            if (
+              shouldDeathDefy({
+                ownsDeathDefier: fateBonuses.ownedCardIds.includes('death_defier'),
+                isActorPlayer,
+                deathDefied: deathDefiedRef.current,
+                fightEnded,
+              })
+            ) {
+              deathDefiedRef.current = true;
+              setPlayer((prev) => ({
+                ...prev,
+                health: DEATH_DEFIER_SLIVER_HP,
+                action: 'hit',
+                hitFlashTimer: 0.3,
+              }));
+              addLog(`${defender.name} refuses the sand — ${DEATH_DEFIER_BANNER_TEXT}!`, 'crit');
+              spawnDamageText(DEATH_DEFIER_BANNER_TEXT, 'crit', defender.position);
+              sounds.playCrowdSwell();
+            }
           } else {
             // MISSED
             sounds.playSlash();
             addLog(`${attackerLabel}'s attack MISSED!`, 'system');
             spawnDamageText('MISSED!', 'dodge', defender.position);
+            // PHASE2-FATECON-2 — Opening Strike: the player's NEXT attack
+            // deals more damage after the opponent misses. Set only when
+            // the OPPONENT's attack missed, i.e. the player is the
+            // defender (the player's own miss arms nothing).
+            if (!isActorPlayer) afterOpponentMissedRef.current = true;
             // Player missed: reset combo (opponent miss does not affect player combo)
             if (isActorPlayer) {
               // CH-3a event stage — Phoenix Nerves: once per fight, a miss does
@@ -3065,11 +3185,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // acting fighter's live weapon (brothers-aware: the acting brother's
       // weapon, via attackerWeapon); it sets the attack hold inside the
       // resolver, while other actions keep their shipped weight.
+      // PHASE2-FATECON-2 — the fourth argument multiplies the weight
+      // recovery by the Fate factor (Quick Recovery); the clamp [0.85,
+      // 1.15] inside the resolver stays as-is and eats ~0.95 points at
+      // the extreme (lightest fighter, 3 stacks: 0.8405 → 0.85).
       }, turnResolutionMs(
         actionType,
         fightEnded,
         boutMode,
-        isActorPlayer ? playerWeightProfile.recoveryMultiplier : 1,
+        isActorPlayer ? playerWeightProfile.recoveryMultiplier * fateBonuses.attackRecoveryMultiplier : 1,
         attackerWeapon.type,
       ));
     },
@@ -3683,6 +3807,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       oppBlockedPlayerAttackRef.current = false;
       oppTookCleanHitRef.current = false;
       risenRef.current = false;
+      // PHASE2-FATECON-2 — the Fate flags and the once-per-bout latch
+      // reset with the other duel refs.
+      afterOpponentMissedRef.current = false;
+      afterSuccessfulDodgeRef.current = false;
+      deathDefiedRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: the WINNER's remaining health, read
       // HERE from the player's live HP exactly as `lowestHealthFraction` is (a
@@ -3780,6 +3909,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       oppBlockedPlayerAttackRef.current = false;
       oppTookCleanHitRef.current = false;
       risenRef.current = false;
+      // PHASE2-FATECON-2 — the Fate flags and the once-per-bout latch
+      // reset with the other duel refs.
+      afterOpponentMissedRef.current = false;
+      afterSuccessfulDodgeRef.current = false;
+      deathDefiedRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: on a defeat the WINNER is the
       // opponent, so his remaining health is the card's margin — the same
@@ -4054,6 +4188,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       : null;
 
+  // PHASE2-FATECON-2 — the panel's damage estimate reads the same Fate
+  // factor the resolution charges: the unconditional kinds, the mastery
+  // of the weapon in hand, and the live conditionals (the flag refs and
+  // the health both fighters are at now). Computed at render, so the
+  // estimates follow the flags as they are set and consumed.
+  const fateDamageMultiplierForPanel =
+    fateBonuses.damageMultiplier *
+    fateWeaponMasteryMultiplier(fateBonuses.ownedCardIds, player.loadout.weapon.type) *
+    fateConditionalDamageMultiplier(fateBonuses.ownedCardIds, {
+      afterOpponentMisses: afterOpponentMissedRef.current,
+      afterSuccessfulDodge: afterSuccessfulDodgeRef.current,
+      attackerHealth: player.health,
+      attackerHealthMax: player.stats.healthMax,
+      defenderHealth: opp.health,
+      defenderHealthMax: opp.stats.healthMax,
+    });
+
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
@@ -4286,6 +4437,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // PHASE2-FATECON-1 — the panel's dodge gate reads the same Fate-scaled
         // cost the resolution charges, so the gate and the charge agree.
         fateDodgeCost={fateBonuses.dodgeCost}
+        // PHASE2-FATECON-2 — the panel's damage estimates read the same Fate
+        // factor the resolution charges.
+        fateDamageMultiplier={fateDamageMultiplierForPanel}
         opponentIsBoss={opponent.isBoss === true}
         // COMBAT-5 — the Sidestep button is enabled only while a REAL heavy
         // telegraph is live: a heavy or the Cotta Crossing. The banner text

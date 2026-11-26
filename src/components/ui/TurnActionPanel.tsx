@@ -119,6 +119,8 @@ interface TurnActionPanelProps {
   playerWeightStaminaMultiplier?: number;
   /** PHASE2-FATECON-1 — the player's Fate-scaled dodge cost (12 → 11 at 1 Arena Runner stack, 10 at 2); the gate and the labels read this, so they agree with the charge. */
   fateDodgeCost?: number;
+  /** PHASE2-FATECON-2 — the player's combined Fate damage factor (damage × mastery × live conditionals), computed in DuelScene where the flag state lives; the estimates multiply it exactly as resolution does. */
+  fateDamageMultiplier?: number;
   opponentIsBoss?: boolean;
   /**
    * COMBAT-5 — a REAL heavy telegraph is live right now: the opponent
@@ -157,6 +159,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   playerWeightImpactMultiplier = 1,
   playerWeightStaminaMultiplier = 1,
   fateDodgeCost = 12,
+  fateDamageMultiplier = 1,
   opponentIsBoss = false,
   heavyTelegraphLive = false,
   beast = null,
@@ -273,7 +276,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
   const quickDmgMin = applyRiposteDamage(
     calculateAttackDamage(
-      weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true) * playerWeightImpactMultiplier,
+      weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true) * playerWeightImpactMultiplier * fateDamageMultiplier,
     ),
     riposteReady,
   );
@@ -281,13 +284,13 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
   const powerDmgMin = applyRiposteDamage(
     calculateAttackDamage(
-      weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
+      weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier * fateDamageMultiplier,
     ),
     riposteReady,
   );
   const powerDmgMax = applyRiposteDamage(
     calculateAttackDamage(
-      weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
+      weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier * fateDamageMultiplier,
     ),
     riposteReady,
   );
