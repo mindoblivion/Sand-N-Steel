@@ -8,13 +8,20 @@
  * stays silent when either says no.  A scene calls it and never has to ask
  * whether the device supports it.
  *
- * The patterns live here so the two call sites in the duel share one definition.
+ * The patterns live here so the duel's call sites share one definition.
  */
 
 import { getSettings } from '../services/settings';
 
 /** The player's hit landed (the player's own strike connected). */
 export const HAPTIC_HIT_LANDED_MS = 15;
+
+/**
+ * PHASE1-TOUCH — a dispatched tactic: the tap that sends a turn in. One short
+ * tick, so the confirmation reads as a tap, not a hit — the hit keeps its
+ * own 15 ms.
+ */
+export const HAPTIC_ACTION_TAP_MS = 10;
 
 /** The player was defeated — three short buzzes. */
 export const HAPTIC_DEFEAT_PATTERN: readonly number[] = [30, 40, 30];
