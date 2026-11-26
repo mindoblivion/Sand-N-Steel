@@ -175,6 +175,9 @@ const CHARACTER_MODEL_LABELS: Record<CharacterModelType, string> = {
   // COMBAT-4 — Aurelius's champion body. No armatura maps to it (it is an
   // opponent-only model); the label exists so the Record stays complete.
   aurelius_champion: 'Aurelius Champion',
+  // PHASE1-SCAEVOLA — Scaevola's distinct body. No armatura maps to it (it is
+  // an opponent-only model); the label exists so the Record stays complete.
+  scaevola_twice_slain: 'Scaevola the Twice-Slain',
 };
 
 export function armaturaModel(armatura: ArmaturaId): CharacterModelType {

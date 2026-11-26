@@ -133,7 +133,8 @@ describe('§2 — the row: Hermas’s slot, the bracket’s purse, the card’s 
     expect(SCAEVOLA.armatura).toBe('provocator');
     expect(SCAEVOLA.recommendedLevel).toBe(12);
     expect(SCAEVOLA.bossMechanic).toBe('second_rising');
-    expect(SCAEVOLA.characterModel).toBe('roman_warrior');
+    // PHASE1-SCAEVOLA — Scaevola now has his own distinct body on the shared rig.
+    expect(SCAEVOLA.characterModel).toBe('scaevola_twice_slain');
     expect(isLadderBoss(SCAEVOLA)).toBe(false);
   });
 

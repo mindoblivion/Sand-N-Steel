@@ -986,10 +986,10 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
       expect(MODULE_CODE).not.toContain(forbidden);
     }
     // And the public tree contains no racing horse asset from this phase; civilian.glb is an independently uploaded city character.
-    // COMBAT-4 added aurelius_champion.glb (Aurelius's distinct champion model); the pin below is that inventory.
+    // COMBAT-4 added aurelius_champion.glb (Aurelius's distinct champion model); PHASE1-SCAEVOLA added scaevola_twice_slain.glb (Scaevola's distinct body); the pin below is that inventory.
     const models = readdirSync(repo('public/models')).sort();
     expect(models).toEqual([
-      'amazonian.glb', 'arena_roman.glb', 'aurelius_champion.glb', 'civilian.glb', 'dimachaerus.glb', 'lion.glb', 'minotaur.glb', 'netfighter.glb', 'weapons',
+      'amazonian.glb', 'arena_roman.glb', 'aurelius_champion.glb', 'civilian.glb', 'dimachaerus.glb', 'lion.glb', 'minotaur.glb', 'netfighter.glb', 'scaevola_twice_slain.glb', 'weapons',
     ]);
   });
 
