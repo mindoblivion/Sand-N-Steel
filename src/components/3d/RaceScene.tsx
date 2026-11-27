@@ -121,6 +121,14 @@ import type {
   IncidentStewardState,
   RaceIncidentLogEntry,
 } from '../../utils/raceIncidents';
+import {
+  createRaceStamina,
+  paceCapMultiplierFor,
+  staminaBarBand,
+  staminaVulnerabilityFactor,
+  stepRaceStamina,
+} from '../../utils/raceStamina';
+import type { RaceStaminaState } from '../../utils/raceStamina';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -220,6 +228,22 @@ import type {
  * The player's warning shows as one HUD banner (scrape / tangle / wall); the
  * session log is snapshotted at the finish for the results panel. No DNF, no
  * save writes — the settlement is untouched and §J stays 29.
+ *
+ * ── LADDER-1D: horse stamina ─────────────────────────────────────────────
+ * `utils/raceStamina.ts` owns the pool (pure: per-rig state + fixed-timestep
+ * step, the same module and rates for player and rivals). Each rig's pool
+ * lives on its registry entry (`RaceRigEntry.stamina`): the player is stepped
+ * by `RaceChariot` once per frame (one fixed 1/60 step, the frame being the
+ * tick, exactly as the driver steps), and each rival's entry points at its
+ * driver's live state (written back after `driveRival`). The player's
+ * effective pace cap (`maxSpeed × paceCapMultiplierFor(pool)`) is passed as
+ * the 6th `advanceChariot` argument at the PLAYER call site only; the shared
+ * rival path never takes it. The steward reads each rig's pool for its
+ * per-rig vulnerability factor (a pair takes the max), replacing 1C's
+ * literal 1.0. The HUD gains one band-colored team bar (bottom-centre,
+ * above the touch controls) and the results panel gains the lowest-stamina
+ * and time-all-out rows — session-only, no save writes, §J stays 29. Every
+ * pool resets to 100 at each countdown, with the steward.
  *
  * ── Save boundary ─────────────────────────────────────────────────────────
  * This scene imports no storage service and never writes a profile directly.
@@ -486,7 +510,9 @@ const RaceChariot: React.FC<{
   onLeaderCrossing: () => void;
   /** LADDER-1C: the steward's per-rig effects, written by `RaceIncidentSteward` each frame. */
   effectsRef: React.MutableRefObject<Map<string, IncidentRigEffects>>;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing, effectsRef }) => {
+  /** LADDER-1D: the shared rig registry — the player's stamina state lives on its entry, and the effective cap + the per-tick step read it here. */
+  registry: React.MutableRefObject<RaceRigRegistry>;
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing, effectsRef, registry }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -595,7 +621,15 @@ const RaceChariot: React.FC<{
           throttle: input.throttle,
           steer: Math.max(-1, Math.min(1, input.steer * (effects?.steerScale ?? 1) + (effects?.steerBias ?? 0))),
         };
-        advanceChariot(motion, steeredInput, delta, launchAccelScale(launch, phase.raceElapsedMs), dragScale);
+        // LADDER-1D: the player's effective pace cap — the shared stamina
+        // helper, from the pool as of last frame's step (the same one-frame
+        // lag the incident effects have). A missing registry entry fails
+        // closed to the full cap. Applied at the PLAYER call site only;
+        // the shared rival path never takes it (brief §7 Q3).
+        const playerEntry = registry.current.get('player');
+        const playerPool = playerEntry?.stamina.pool;
+        const effectiveMaxSpeed = CHARIOT_MOVEMENT.maxSpeed * (playerPool === undefined ? 1 : paceCapMultiplierFor(playerPool));
+        advanceChariot(motion, steeredInput, delta, launchAccelScale(launch, phase.raceElapsedMs), dragScale, effectiveMaxSpeed);
         const previousStage = getRaceLapStage(lapTracker.current);
         const lap = advanceRaceLap(lapTracker.current, { x: motion.x, z: motion.z });
         lapTracker.current = lap.tracker;
@@ -603,6 +637,32 @@ const RaceChariot: React.FC<{
         // Notify React only when a real checkpoint transition occurs, never per frame.
         if (nextStage !== previousStage) onLapStageChange(nextStage);
         if (lap.finishedNow) setTimeout(() => onFinish(), 0);
+        // LADDER-1D: step the player's stamina from this frame's driven
+        // speed — same module, same rates as the rivals. One fixed 1/60
+        // step per frame, exactly as the driver steps (the frame is the
+        // tick for both, so player and rival pools stay comparable). The
+        // band reads against the RAW cap (13), as the driver's does against
+        // its raw paceTarget — the multiplier is the effect of stamina,
+        // not the band's reference. The zone reads from the registry's
+        // route position (one frame stale — the rivals refresh it after
+        // this chariot runs — which is fine for a band that changes once
+        // per circuit section). The step runs only once the race clock
+        // runs: the roll never drains. `finish` is the finish variant,
+        // not a part id — finishes are cosmetic (factor exactly 1.0 for
+        // any id), so the variant is a valid input.
+        if (playerEntry !== undefined && startedAt !== null) {
+          const zone = incidentZoneForRig(playerEntry.side, playerEntry.s, motion.z).zone;
+          stepRaceStamina(playerEntry.stamina, {
+            speed: motion.speed,
+            paceCap: CHARIOT_MOVEMENT.maxSpeed,
+            dtMs: 1000 / 60,
+            teamSize,
+            wheelsId: wheelVariant === 'reinforced' ? 'wheels_reinforced' : 'wheels_standard',
+            finishId: finish,
+            zone,
+            lap: playerEntry.lap,
+          });
+        }
       }
     }
 
@@ -700,6 +760,16 @@ export interface RaceRigEntry {
   lap: number;
   u: number;
   sampleIndex: number;
+  /**
+   * LADDER-1D: this rig's stamina pool, stepped once per tick — the player
+   * by `RaceChariot` (same module, same rates as the rivals), each rival by
+   * its own driver (`driveRival` steps `driver.stamina`, and the rival
+   * writes that state here after driving, so this entry always points at
+   * the live pool). The steward reads the pool for the per-rig
+   * vulnerability factor; the HUD bar reads the player's. Reset to a fresh
+   * pool at every countdown, with the steward.
+   */
+  stamina: RaceStaminaState;
 }
 
 export type RaceRigRegistry = Map<string, RaceRigEntry>;
@@ -796,6 +866,10 @@ const RaceIncidentSteward: React.FC<{
         u: entry.u,
         zone: zone.zone,
         meta: zone.meta,
+        // LADDER-1D: each rig's own factor, from its live stamina pool —
+        // the literal 1.0 this replaces is gone; a tired rig widens its
+        // pairs' tangle windows, a fresh rig reads exactly 1.0.
+        vulnerabilityFactor: staminaVulnerabilityFactor(entry.stamina.pool),
       };
     });
     const out = stepIncidentSteward(steward, {
@@ -803,7 +877,6 @@ const RaceIncidentSteward: React.FC<{
       rung: rungId,
       elapsedMs: performance.now() - startedAt,
       lap: 1,
-      vulnerabilityFactor: 1.0,
     });
     effectsRef.current = out.effects;
     if (out.newLogEntries.length > 0) logRef.current.push(...out.newLogEntries);
@@ -899,6 +972,10 @@ const RaceRivalChariot: React.FC<{
       lap: 0,
       u: 0,
       sampleIndex: 0,
+      // LADDER-1D: the pre-handoff pool — the driver owns the live state
+      // once created (see the write-back after `driveRival` below), and
+      // the parent resets every entry's pool at each countdown.
+      stamina: createRaceStamina(),
     });
     rivalProgress.current[competitor.id] = { s: 0, lap: 0, finishMs: null };
     return () => {
@@ -1036,6 +1113,11 @@ const RaceRivalChariot: React.FC<{
         entry.s = pos.s;
         entry.lap = pos.lap;
         entry.u = pos.u;
+        // LADDER-1D: the registry entry points at the driver's live
+        // stamina state — the steward reads this pool for the per-rig
+        // vulnerability factor, so the entry and the driver can never
+        // drift apart.
+        entry.stamina = driver.stamina;
       }
       const prog = rivalProgress.current[competitor.id] ?? { s: 0, lap: 0, finishMs: null };
       prog.s = pos.s;
@@ -1151,6 +1233,53 @@ const RaceGaitReadout: React.FC<{ motion: ChariotMotion }> = ({ motion }) => {
           />
         </span>
       </span>
+    </span>
+  );
+};
+
+/**
+ * LADDER-1D — the player's team stamina bar. One band-colored bar for the
+ * player (team-level), bottom-centre above the touch controls (brief §7
+ * Q5). It samples the registry entry's pool on the same 100 ms cadence as
+ * the clock and the gait readout, so the number ticking never re-renders
+ * the canvas subtree. The band is the module's own `staminaBarBand` —
+ * healthy above 40 (no easing), working 25–40 (the cap is easing), blown
+ * at or below 25 (tired) — so the bar can never disagree with the physics.
+ * Rivals get no bar; their state shows only through behaviour (pace drop,
+ * wider lines when tired).
+ */
+const RaceStaminaBar: React.FC<{ registry: React.MutableRefObject<RaceRigRegistry> }> = ({ registry }) => {
+  const [pool, setPool] = useState(100);
+
+  useEffect(() => {
+    const update = () => setPool(registry.current.get('player')?.stamina.pool ?? 100);
+    update();
+    const interval = setInterval(update, 100);
+    return () => clearInterval(interval);
+  }, [registry]);
+
+  const band = staminaBarBand(pool);
+  const label = band === 'healthy' ? 'Healthy' : band === 'working' ? 'Working' : 'Blown';
+  const barClass = band === 'healthy'
+    ? 'bg-gradient-to-r from-lime-500 to-emerald-300'
+    : band === 'working'
+      ? 'bg-gradient-to-r from-amber-500 to-yellow-300'
+      : 'bg-gradient-to-r from-rose-600 to-red-400';
+
+  return (
+    <span
+      className="flex items-center gap-2"
+      data-race-stamina={Math.round(pool)}
+      data-race-stamina-band={band}
+    >
+      <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-400">Stamina</span>
+      <span className="block w-24 sm:w-32 h-2 rounded-full bg-neutral-800 border border-amber-600/40 overflow-hidden">
+        <span
+          className={`block h-full ${barClass}`}
+          style={{ width: `${Math.round(pool)}%` }}
+        />
+      </span>
+      <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-400">{label}</span>
     </span>
   );
 };
@@ -1314,6 +1443,13 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const incidentLogRef = useRef<RaceIncidentLogEntry[]>([]);
   const [raceIncidentLog, setRaceIncidentLog] = useState<RaceIncidentLogEntry[]>([]);
   const [playerWarning, setPlayerWarning] = useState<{ warning: RivalWarning; kind: IncidentRigEffects['warningKind'] }>({ warning: 'none', kind: null });
+  /**
+   * LADDER-1D: the player's stamina at the finish — the two results rows
+   * (lowest pool, time all-out). Snapshotted in `onFinish` from the
+   * registry entry; null until a race finishes, cleared at each countdown.
+   * Session-only, never a save field (§J stays 29).
+   */
+  const [raceStaminaSummary, setRaceStaminaSummary] = useState<{ lowestPool: number; timeAllOutMs: number } | null>(null);
   const handlePlayerWarning = useCallback((next: { warning: RivalWarning; kind: IncidentRigEffects['warningKind'] }) => {
     setPlayerWarning(next);
   }, []);
@@ -1322,6 +1458,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   // log, no effects and no warning. The steward is created here (the rung
   // is already resolved above), not in the frame loop, so a remount or a
   // repeat race can never carry an old pair's state into the new field.
+  // LADDER-1D: every rig's stamina pool is reset here too — the same
+  // moment, the same reason: a repeat race starts every pool at 100, and
+  // the results summary is cleared with the log.
   useEffect(() => {
     if (raceState !== 'countdown') return;
     incidentStewardRef.current = createIncidentStewardState(rungId);
@@ -1329,6 +1468,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     incidentLogRef.current = [];
     setRaceIncidentLog([]);
     setPlayerWarning({ warning: 'none', kind: null });
+    for (const entry of rigRegistryRef.current.values()) entry.stamina = createRaceStamina();
+    setRaceStaminaSummary(null);
   }, [raceState, rungId]);
 
   useEffect(() => {
@@ -1342,6 +1483,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
       lap: 0,
       u: 0,
       sampleIndex: 0,
+      // LADDER-1D: the player's pool — stepped by `RaceChariot`, read by
+      // the steward (per-rig vulnerability) and the HUD bar. Reset to a
+      // fresh pool at each countdown, with every other rig's.
+      stamina: createRaceStamina(),
     });
     return () => {
       rigRegistryRef.current.delete('player');
@@ -1656,6 +1801,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   leaderCrossingMs={formation.leaderCrossingMs}
                   onLeaderCrossing={handleLeaderCrossing}
                   effectsRef={incidentEffectsRef}
+                  registry={rigRegistryRef}
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
@@ -1684,6 +1830,12 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     // results panel — the steward stops at the finish, so the
                     // ref no longer grows after this.
                     setRaceIncidentLog([...incidentLogRef.current]);
+                    // LADDER-1D: snapshot the player's stamina for the two
+                    // results rows — the pool stops stepping at the finish
+                    // (RaceChariot steps only while `racing`), so these are
+                    // the final values. Session-only, never a save.
+                    const playerStamina = rigRegistryRef.current.get('player')?.stamina;
+                    setRaceStaminaSummary(playerStamina ? { lowestPool: playerStamina.lowestPool, timeAllOutMs: playerStamina.timeAllOutMs } : null);
                     setRaceState((state) => finishRace(state));
                   }}
                 />
@@ -1830,6 +1982,19 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
         />
       )}
 
+      {/* LADDER-1D — the player's team stamina bar, bottom-centre above the
+          touch controls (brief §7 Q5). The touch clusters are at most ~88 px
+          tall plus ~24 px of padding, so bottom-32 (128 px) clears them at
+          every viewport; the centre column holds nothing else down here, and
+          the top banners (launch top-16, warning top-24) are far above it. */}
+      {isRaceRunning(raceState) && (
+        <div className="absolute bottom-32 left-0 right-0 z-20 flex justify-center pointer-events-none">
+          <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 px-4 py-2 rounded-2xl backdrop-blur-md shadow-2xl">
+            <RaceStaminaBar registry={rigRegistryRef} />
+          </div>
+        </div>
+      )}
+
       {/* THE LAUNCH — how the Clean Start resolved, once the window has closed. */}
       {raceState === 'racing' && launchQuality !== null && launchQuality !== 'none' && (
         <div className="absolute top-16 sm:top-20 left-0 right-0 z-20 flex justify-center pointer-events-none">
@@ -1938,6 +2103,21 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                 </ul>
               )}
             </div>
+            {/* LADDER-1D — the player's stamina at the finish: the lowest
+                pool reached and the time spent all-out. Data only,
+                session-only — the settlement below is untouched and §J
+                stays 29. */}
+            {raceStaminaSummary && (
+              <div className="mt-4 rounded-2xl border border-amber-700/40 bg-neutral-900/70 px-4 py-3 text-left">
+                <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Horses</p>
+                <p className="mt-1 text-sm text-neutral-300" data-race-lowest-stamina={Math.round(raceStaminaSummary.lowestPool)}>
+                  Lowest stamina — {Math.round(raceStaminaSummary.lowestPool)}%
+                </p>
+                <p className="mt-1 text-sm text-neutral-300" data-race-time-all-out={(raceStaminaSummary.timeAllOutMs / 1000).toFixed(1)}>
+                  Time at full gallop — {(raceStaminaSummary.timeAllOutMs / 1000).toFixed(1)}s
+                </p>
+              </div>
+            )}
             {raceSettlement ? (
               <div className="mt-4 rounded-2xl border border-amber-700/40 bg-neutral-900/70 p-4 text-left" data-race-settlement="saved">
                 <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Circus purse</p>
