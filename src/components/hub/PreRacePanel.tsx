@@ -5,7 +5,9 @@ import { getSelectedRacingConfig } from '../../utils/racingProgression';
 import { leagueStandingLine, resolveLeagueStanding } from '../../utils/racingLeague';
 import { resolveChariotLoadout } from '../../utils/chariotLoadout';
 import { getChariotPart } from '../../data/chariotParts';
-import { resolveRungLockState } from '../../utils/raceGrid';
+import { resolveRungLockState, formatRacePlace, resolveQualifyingSlot } from '../../utils/raceGrid';
+import { resolveRaceTier } from '../../data/raceTiers';
+import { fortunasHandRatesText } from '../../utils/fortunasHand';
 import type { RaceRungId } from '../../utils/raceCompetitors';
 // Day/Night T3 — the race card names the light it will run under. Copy only.
 import { racePhaseLine } from '../../utils/phaseFlavor';
@@ -54,6 +56,14 @@ interface PreRacePanelProps {
  * still the city that owns that pose, and nothing is written to a save.  "Leave"
  * calls back to the city, which simply closes the panel.  Both controls are
  * ordinary buttons, so touch and mouse/keyboard drive them identically.
+ *
+ * LADDER-1E Part 5 — the card also reads, still read-only: the per-rung best
+ * finish for the selected rung (the team's best time stays keyed by team
+ * size, with the rung's best finish beside it — the `bestTimes` key does not
+ * change); Fortuna's Hand rates for the selected rung, from the Hand's own
+ * rate table; the qualifying slot the best finish earns; and the purse
+ * figures from the tier config's economy table (base 80/120/200 + victory
+ * bonus 20/30/50), never the "100/150/250" shorthand.
  */
 export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, onStartRace }) => {
   const team = useMemo(() => getSelectedRacingConfig(profile), [profile]);
@@ -67,6 +77,23 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
   const rungLock = useMemo(() => resolveRungLockState(profile), [profile]);
   const [selectedRung, setSelectedRung] = useState<RaceRungId>('district');
   const leagueLocked = !rungLock.leagueOpen;
+  // LADDER-1E Part 5 — the selected rung's tier config (laps, field size,
+  // purse table), the per-rung best finish for the selected rung, and the
+  // qualifying slot it earns. The best finish is validated here (an integer
+  // 1-based place, else no finish at this rung) — a malformed save value
+  // never prints a nonsense place and never earns a grid slot.
+  const tier = useMemo(() => resolveRaceTier(selectedRung), [selectedRung]);
+  const rungName = selectedRung === 'league' ? 'League' : 'District';
+  const rungBestFinishRaw = selectedRung === 'league'
+    ? profile.racing?.leagueBestFinish
+    : profile.racing?.districtBestFinish;
+  const rungBestFinish = typeof rungBestFinishRaw === 'number'
+    && Number.isSafeInteger(rungBestFinishRaw)
+    && rungBestFinishRaw >= 1
+    ? rungBestFinishRaw
+    : undefined;
+  const fieldSize = tier.fieldSize + 1;
+  const qualifyingSlot = resolveQualifyingSlot(rungBestFinish, fieldSize);
 
   // T3 — the hour, from the clock. Dusk renders golden and night renders dawn in the
   // ring (`utils/racePhaseLight.ts`), so those two read as last and first light.
@@ -146,6 +173,16 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
               {hasValidBestTime ? formatRaceElapsed(storedBestTime) : 'No recorded lap'}
             </span>
           </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-neutral-400 flex items-center gap-1.5">
+              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+              <span>Best {rungName} finish:</span>
+            </span>
+            <span className="text-yellow-300 text-right tabular-nums" data-race-field="rung-best-finish">
+              {rungBestFinish !== undefined ? formatRacePlace(rungBestFinish) : `No ${rungName} finish yet`}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
@@ -188,11 +225,28 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
           </div>
         </div>
 
+        {/* LADDER-1E Part 5 — Fortuna's Hand rates for the selected rung
+            (read from the Hand's own rate table, never typed here) and the
+            qualifying slot the per-rung best finish earns. Both read-only,
+            like everything else in this panel. */}
+        <div className="bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4 flex flex-col gap-2">
+          <p className="text-[11px] font-serif text-neutral-300" data-race-field="fortunas-hand">
+            <span className="text-amber-300">Fortuna&apos;s Hand — {rungName}:</span>{' '}
+            {fortunasHandRatesText(selectedRung)}.
+          </p>
+          <p className="text-[11px] font-serif text-neutral-300" data-race-field="qualifying-slot">
+            {rungBestFinish !== undefined
+              ? `Starting P${qualifyingSlot + 1} — best ${rungName} finish ${formatRacePlace(rungBestFinish)}`
+              : 'Starting last — no finish at this rung yet'}
+          </p>
+        </div>
+
         <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
           <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
           <p>
-            Entry is free. A valid finish earns a completion purse once per in-game day, with a
-            small bonus for beating the rival. Abandoning the race earns nothing and changes no records.
+            Entry is free. A valid finish earns a {tier.economy.basePurse[team.horses]}g completion
+            purse once per in-game day, with +{tier.economy.victoryBonus[team.horses]}g for the win.
+            Abandoning the race earns nothing and changes no records.
           </p>
         </div>
 
