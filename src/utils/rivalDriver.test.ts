@@ -402,6 +402,13 @@ interface SoakRig {
   crossingTime: number | null;
   lapStartTime: number | null;
   lapTimes: number[];
+  /**
+   * LADDER-1D: the driver's stamina pool at each lap completion, in lap
+   * order — the §3 drain targets are about WHEN a rig fades (the final
+   * lap), not just where it ends, so the harness snapshots the pool with
+   * the lap time.
+   */
+  poolAtLapEnd: number[];
   finished: boolean;
 }
 
@@ -420,6 +427,12 @@ interface SoakResult {
   /** Deepest overlap left AFTER the separation pass each tick: the resolver's job is to leave no overlap standing ("no overlap at rest"). */
   maxRestOverlap: number;
   lapTimes: { id: string; profile: number; driven: number[] }[];
+  /**
+   * LADDER-1D: each rig's stamina at the end of the race, from its
+   * driver's pool — the final pool, the lowest pool reached, the time
+   * spent all-out, and the pool at each lap completion (the fade lap).
+   */
+  finalPools: { id: string; pool: number; lowestPool: number; timeAllOutMs: number; poolAtLapEnd: number[] }[];
 }
 
 function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimSeconds: number, laps = 1): SoakResult {
@@ -439,6 +452,7 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
       crossingTime: null,
       lapStartTime: null,
       lapTimes: [],
+      poolAtLapEnd: [],
       finished: false,
     };
   });
@@ -478,6 +492,7 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
             z: LINE_Z,
             heading: 0,
             speed: ROLL_SPEED,
+            laps,
             seed: seedBase + rig.row * 7 + (rig.side === 1 ? 3 : 0),
           });
           rig.crossingTime = simTime;
@@ -540,6 +555,9 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
       const driverPos = rivalDriverRoutePosition(rig.driver!);
       if (driverPos.lap > rig.lapTimes.length) {
         rig.lapTimes.push(simTime - (rig.lapStartTime ?? simTime));
+        // LADDER-1D: snapshot the pool with the lap time — the fade lap
+        // is read from these, not from the final pool alone.
+        rig.poolAtLapEnd.push(rig.driver!.stamina.pool);
         rig.lapStartTime = simTime;
         if (rig.lapTimes.length >= laps) rig.finished = true;
       }
@@ -622,6 +640,15 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
     maxOverlapByPair,
     maxRestOverlap,
     lapTimes: rigs.map((r) => ({ id: r.id, profile: r.competitor.lapDurationMs / 1000, driven: r.lapTimes })),
+    // LADDER-1D: a rig whose driver never started (still rolling at the
+    // time limit) reports a full pool — it never spent anything.
+    finalPools: rigs.map((r) => ({
+      id: r.id,
+      pool: r.driver?.stamina.pool ?? 100,
+      lowestPool: r.driver?.stamina.lowestPool ?? 100,
+      timeAllOutMs: r.driver?.stamina.timeAllOutMs ?? 0,
+      poolAtLapEnd: r.poolAtLapEnd,
+    })),
   };
 }
 
@@ -720,12 +747,37 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
     console.log(`[1B2 soak] 20 races: passes=${[...passCounts.values()].reduce((a, b) => a + b, 0)} maxOverlap=${maxOverlap.toFixed(3)} maxRestOverlap=${maxRestOverlap.toFixed(3)} contactTicks=${totalContact} outline=${totalOutline} driverMeanMs=${meanMs.toFixed(4)} lapTimes=${allLapTimes.length}`);
   }, 120_000);
 
-  test('a simulated 3-lap race completes with lap times ordered by profile', () => {
+  test('a simulated 3-lap race completes with lap times ordered by effective pace (stamina-aware)', () => {
     // One 3-lap League race. Every rival completes all three laps, and
-    // the lap times are ordered by profile (the fastest profile finishes
-    // its laps first). The absolute times carry the hook queue (see the
-    // note in the soak test above) — the ordering, not the band, is what
-    // this test pins.
+    // the lap times are ordered by EFFECTIVE PACE — the pace system as
+    // 1D defines it — not by profile. The absolute times carry the hook
+    // queue (see the note in the soak test above) — the ordering, not the
+    // band, is what this test pins.
+    //
+    // REBASED (Nov 27 2026, Walter's decision 02:51 EST — brief Build
+    // record): this test used to expect totals in profile order (the
+    // fastest profile finishes its laps first). That assertion is
+    // unachievable under the approved stamina style fractions, and only
+    // ever held via a follow-cap accident. The frontrunner's effective
+    // pace (1.00 × 2.63 = 2.63 u/s, and even fully exhausted its pace-cap
+    // floor is 0.88 × 2.63 = 2.31) exceeds the metronome's (0.85 × 2.67
+    // = 2.27) at every point in the race, so a frontrunner out-totals a
+    // metronome by pace alone — at closer 0.80 the slow leader (2.18)
+    // happened to pin the frontrunner below the metronome through the
+    // follow cap, and at closer 0.85 (Walter's Nov 27 02:16 EST decision)
+    // the leader runs 2.31, above the metronome, so the pin flipped:
+    // tiberius 227.0 beats appius 229.7. No fraction or rate change fixes
+    // it without erasing a style or breaking a §3 drain target.
+    //
+    // What the pin still guards: the totals follow the pace system
+    // deterministically (no scrambling) — the expected order is DERIVED
+    // from effective pace below, from the same profile data the driver
+    // uses, not a hard-coded list; if the fractions or the caps change,
+    // the expected order recomputes and the test fails if the driven
+    // totals stop following it. The other assertions in this test
+    // (every rig finishes 3 laps, each driven lap above profile − 1,
+    // zero outline violations) and the soak test's band, pass-count, and
+    // driver-CPU assertions are UNTOUCHED.
     const league = resolveRungField('league');
     const result = runSoakRace(league, 11, 900, 3);
     const finished = result.lapTimes.filter((lt) => lt.driven.length >= 3);
@@ -734,11 +786,71 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
       expect(lt.driven.length).toBe(3);
       for (const driven of lt.driven) expect(driven).toBeGreaterThan(lt.profile - 1);
     }
-    const byProfile = [...finished].sort((a, b) => a.profile - b.profile);
+    // The decisive pace: each rig's final-third style fraction × its raw
+    // pace cap. Lap 1 is formation-bound (the follow cap and the hook
+    // queue pin the field to the leader), so the totals are decided in the
+    // final third, once the field has spread and each rig runs at its own
+    // pace — the closer's final-third kick (1.00), the frontrunner's
+    // constant 1.00, the metronome's constant 0.85. This mirrors
+    // `rivalStyleTargetFraction` (rivalDriver.ts) for the final third.
+    // Shipped field: albata 1.00×2.72, tiberius 1.00×2.63, appius
+    // 0.85×2.67, veneta 0.85×2.58 — so the derived order is [albata,
+    // tiberius, appius, veneta], the frontrunner ahead of the metronome.
+    const decisivePace = (id: string): number => {
+      const competitor = league.find((c) => c.id === id);
+      const profile = resolveRivalDriverProfile(competitor!);
+      const fraction = profile.staminaStyle === 'metronome' ? 0.85 : 1;
+      return resolveDriverPaceCap(profile) * fraction;
+    };
+    const byEffectivePace = [...finished].sort((a, b) => decisivePace(b.id) - decisivePace(a.id));
     const byTotal = [...finished].sort((a, b) => a.driven.reduce((x, y) => x + y, 0) - b.driven.reduce((x, y) => x + y, 0));
-    expect(byTotal.map((lt) => lt.id)).toEqual(byProfile.map((lt) => lt.id));
+    expect(byTotal.map((lt) => lt.id)).toEqual(byEffectivePace.map((lt) => lt.id));
     expect(result.outlineViolations).toBe(0);
   }, 120_000);
+});
+
+describe('rivalDriver — LADDER-1D: stamina drain in the full field (§3)', () => {
+  test('a metronome ends a 3-lap District race above 40 (no easing)', () => {
+    // The §3 target, proven in the full field with traffic — not
+    // single-rig: the District field is three rookie metronomes, and every
+    // one of them must end above 40, so no rig ever eases its cap.
+    const district = resolveRungField('district');
+    const result = runSoakRace(district, 11, 900, 3);
+    console.log(`[1D drain] 3-lap District: ${result.finalPools.map((p) => `${p.id}=${p.pool.toFixed(1)} (laps ${p.poolAtLapEnd.map((q) => q.toFixed(1)).join('/')})`).join(' ')}`);
+    for (const pool of result.finalPools) {
+      expect(pool.pool, `${pool.id} ends above 40`).toBeGreaterThan(40);
+    }
+  }, 120_000);
+
+  test('a frontrunner fades below 40 in the final lap of a 3-lap League race', () => {
+    // The §3 target: tiberius (the sole frontrunner) is still above 40 at
+    // the end of lap 2 and below 40 at the end of lap 3 — the fade lands
+    // in the final lap, not before it.
+    const league = resolveRungField('league');
+    const result = runSoakRace(league, 11, 900, 3);
+    const tiberius = result.finalPools.find((p) => p.id === 'tiberius_russata');
+    expect(tiberius).toBeDefined();
+    expect(tiberius!.poolAtLapEnd.length).toBe(3);
+    expect(tiberius!.poolAtLapEnd[1], 'above 40 after lap 2').toBeGreaterThan(40);
+    expect(tiberius!.poolAtLapEnd[2], 'below 40 after lap 3').toBeLessThan(40);
+    expect(tiberius!.pool, 'ends below 40').toBeLessThan(40);
+    console.log(`[1D drain] 3-lap League frontrunner pools at lap end: ${tiberius!.poolAtLapEnd.map((p) => p.toFixed(1)).join(' / ')}`);
+  }, 120_000);
+
+  test('a closer ends a 5-lap League race with more pool than a frontrunner at equal pace cap', () => {
+    // The §3 target, adapted to the shipped 5-lap League race (the
+    // design's 7-lap version is Championship, Update 1): albata (closer)
+    // ends above tiberius (frontrunner) — the late pace is unspent
+    // stamina, not a boost.
+    const league = resolveRungField('league');
+    const result = runSoakRace(league, 11, 1500, 5);
+    const albata = result.finalPools.find((p) => p.id === 'albata_champion');
+    const tiberius = result.finalPools.find((p) => p.id === 'tiberius_russata');
+    console.log(`[1D drain] 5-lap League: ${result.finalPools.map((p) => `${p.id}=${p.pool.toFixed(1)} (laps ${p.poolAtLapEnd.map((q) => q.toFixed(1)).join('/')})`).join(' ')}`);
+    expect(albata).toBeDefined();
+    expect(tiberius).toBeDefined();
+    expect(albata!.pool, `closer ${albata!.pool.toFixed(1)} ends above frontrunner ${tiberius!.pool.toFixed(1)}`).toBeGreaterThan(tiberius!.pool);
+  }, 180_000);
 });
 
 describe('rivalDriver — the pace-cap gate (§6): a faster profile passes a slower one', () => {

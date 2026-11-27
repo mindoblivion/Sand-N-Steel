@@ -26,6 +26,7 @@ import {
   type RaceIncidentLogEntry,
 } from './raceIncidents';
 import { advanceChariot, createChariotMotion, isChariotInsideArena } from './chariotMovement';
+import { staminaVulnerabilityFactor } from './raceStamina';
 import {
   LEAGUE_POOL,
   RACE_COMPETITORS,
@@ -327,6 +328,54 @@ describe('raceIncidents — trace tangles: meta only, last entrant at fault', ()
       elapsedMs += DT_MS;
     }
     expect(ofType(entries, 'trace-strain')).toHaveLength(1);
+  });
+
+  test('LADDER-1D: a per-rig factor widens the window for that pair only', () => {
+    // |Δu| = 1.25: outside the shipped 1.0 window, inside the tired
+    // rig's 1.5 window — with margin on both sides, so the test pins the
+    // design's own factor (1.5), not a floating-point boundary. The factor
+    // rides on ONE rig's pose (1D: a tired rig's own factor) — no
+    // steward-level factor is passed at all. The pair's window is the max
+    // of the two rigs' factors, so one tired rig widens it; a fresh pair
+    // at the same gap stays outside the shipped window.
+    const wide = (factorA: number | undefined, factorB: number | undefined): { a: IncidentRigPose; b: IncidentRigPose } => ({
+      a: rigPose('player', { name: 'You', x: 48, z: 40, heading: 0, s: 150, u: 0.9, zone: 'meta', meta: 'south', vulnerabilityFactor: factorA }),
+      b: rigPose('rival-b', { name: 'Rufus of the Russata', x: 50, z: 40, heading: 0, s: 151, u: 2.15, zone: 'meta', meta: 'south', vulnerabilityFactor: factorB }),
+    });
+    const fresh = createIncidentStewardState('league');
+    const freshPair = wide(1.0, 1.0);
+    expect(ofType(stepTicks(fresh, [freshPair.a, freshPair.b], 4000, 10).entries, 'trace-strain')).toHaveLength(0);
+    const tired = createIncidentStewardState('league');
+    const tiredPair = wide(1.5, 1.0);
+    const entries: RaceIncidentLogEntry[] = [];
+    let elapsedMs = 4000;
+    for (let i = 0; i < 10; i++) {
+      const out = stepIncidentSteward(tired, { rigs: [tiredPair.a, tiredPair.b], rung: 'league', elapsedMs, lap: 1 });
+      entries.push(...out.newLogEntries);
+      elapsedMs += DT_MS;
+    }
+    // 1.5 × the shipped 1.0 window covers the 1.25 gap — the trace strain fires.
+    expect(ofType(entries, 'trace-strain')).toHaveLength(1);
+  });
+
+  test('LADDER-1D: a rig\'s own factor wins over the steward-level fallback', () => {
+    // Both rigs carry an explicit per-rig 1.0 (fresh) while the steward
+    // level says 2.0 — the per-rig factor governs, so the |Δu| = 1.5 gap
+    // stays outside the pair's window and nothing fires. A rig with NO
+    // per-rig factor still falls back to the steward level (the 1C test
+    // above pins that path).
+    const state = createIncidentStewardState('league');
+    const a = rigPose('player', { name: 'You', x: 48, z: 40, heading: 0, s: 150, u: 0.9, zone: 'meta', meta: 'south', vulnerabilityFactor: 1.0 });
+    const b = rigPose('rival-b', { name: 'Rufus of the Russata', x: 50, z: 40, heading: 0, s: 151, u: 2.4, zone: 'meta', meta: 'south', vulnerabilityFactor: 1.0 });
+    const entries: RaceIncidentLogEntry[] = [];
+    let elapsedMs = 4000;
+    for (let i = 0; i < 10; i++) {
+      const out = stepIncidentSteward(state, { rigs: [a, b], rung: 'league', elapsedMs, lap: 1, vulnerabilityFactor: 2.0 });
+      entries.push(...out.newLogEntries);
+      elapsedMs += DT_MS;
+    }
+    expect(ofType(entries, 'trace-strain')).toHaveLength(0);
+    expect(ofType(entries, 'trace-tangle')).toHaveLength(0);
   });
 });
 
@@ -749,11 +798,20 @@ export function runIncidentSoakRace(
           u: pos.u,
           zone: zone.zone,
           meta: zone.meta,
+          // LADDER-1D: each rig's own factor, from its live stamina pool —
+          // the scene passes them the same way, so the soak proves the
+          // bound with the per-rig path live.
+          vulnerabilityFactor: staminaVulnerabilityFactor(rig.driver.stamina.pool),
         });
       }
       const elapsedMs = (simTime - clockOriginS) * 1000;
       const start = performance.now();
-      const out = stepIncidentSteward(steward, { rigs: poses, rung, elapsedMs, lap: 1, vulnerabilityFactor: 1.0 });
+      // LADDER-1D: the per-rig factors, from each rig's live stamina pool
+      // — the scene passes them the same way (RaceScene.tsx:872), so the
+      // soak proves the bound with the per-rig path live, not with the 1C
+      // steward-level fallback. No steward-level factor is passed: the
+      // steward defaults it to 1.0, and every pose carries its own.
+      const out = stepIncidentSteward(steward, { rigs: poses, rung, elapsedMs, lap: 1 });
       stewardNs += performance.now() - start;
       stewardCalls++;
       effects = out.effects;
@@ -938,6 +996,34 @@ describe('raceIncidents — the soak (20 simulated races, steward wired in)', ()
         `perPair=${[...reversed.perPair.entries()].map(([k, v]) => `${k}:${v}`).join(',') || 'none'} ` +
         `maxRestOverlap=${reversed.maxRestOverlap.toFixed(3)} stewardMeanMs=${reversed.stewardMeanMs.toFixed(4)}`,
     );
+  }, 180_000);
+});
+
+describe('raceIncidents — LADDER-1D: multi-lap soak with tired rigs (per-rig vulnerability live)', () => {
+  test('a 3-lap League race: every rival finishes, warnings precede every incident, the incident rate stays bounded with tired rigs in the field', () => {
+    // The per-rig wiring proof: in a 3-lap League race the frontrunner
+    // drops below 25 stamina in the final lap, so its tangle window
+    // widens 1.5× — the incident rate must stay bounded with the tired
+    // rigs in the field, not blow up. The bound is 1.5× the 1C per-race
+    // bound (8/race, 4/pair/race → 12/race, 6/pair/race), the same factor
+    // as the widest tangle window; measured this run: 2 incidents, max 2
+    // for one pair (tiberius<veneta — the tired frontrunner's pair), so
+    // the widened window is live and the rate stays well inside it.
+    const league = resolveRungField('league');
+    const result = runIncidentSoakRace(league, 'league', 11, 900, 3);
+    for (const lt of result.lapTimes) {
+      expect(lt.driven.length, `${lt.id} completes 3 laps`).toBe(3);
+    }
+    expect(result.outlineViolations, 'no outline breach').toBe(0);
+    assertWarningFirst(result.log, '3-lap League');
+    const maxPerPair = Math.max(0, ...result.perPair.values());
+    console.log(
+      `[1D incidents] 3-lap League: incidents=${result.incidents} warnings=${result.warnings} ` +
+        `maxPerPair=${maxPerPair} perPair=${[...result.perPair.entries()].map(([k, v]) => `${k}:${v}`).join(',') || 'none'} ` +
+        `maxRestOverlap=${result.maxRestOverlap.toFixed(3)} stewardMeanMs=${result.stewardMeanMs.toFixed(4)}`,
+    );
+    expect(result.incidents, 'incidents in a 3-lap League race: bounded').toBeLessThanOrEqual(12);
+    expect(maxPerPair, 'incidents for one pair in a 3-lap race: bounded').toBeLessThanOrEqual(6);
   }, 180_000);
 });
 

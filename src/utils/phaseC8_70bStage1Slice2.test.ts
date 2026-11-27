@@ -91,7 +91,16 @@ describe('A. The scene drives the pure movement module', () => {
     // forbidden by this suite's test A. The intent is preserved exactly:
     // `delta` still passes through unclamped, the launch scale is still the
     // 4th argument, and the scene still holds no accumulator.
-    expect(sceneCode).toContain('advanceChariot(motion, steeredInput, delta, launchAccelScale(launch, phase.raceElapsedMs), dragScale)');
+    // LADDER-1D (Director rebase, Nov 27, not weakened): the brief's §4
+    // mandates the player's effective max speed as a 6th `effectiveMaxSpeed`
+    // argument on this exact call, at the player call site only — the
+    // 5-argument literal cannot survive any correct implementation, because
+    // the stamina pace cap has no other way into the movement module and
+    // scene-side speed mutation is forbidden by this suite's test A. The
+    // intent is preserved exactly: `delta` still passes through unclamped,
+    // the launch scale is still the 4th argument, `dragScale` is still the
+    // 5th, and the scene still holds no accumulator.
+    expect(sceneCode).toContain('advanceChariot(motion, steeredInput, delta, launchAccelScale(launch, phase.raceElapsedMs), dragScale, effectiveMaxSpeed)');
     expect(CHARIOT_MOVEMENT.maxFrameDt).toBe(0.1);
     expect(movementSrc).toContain('maxFrameDt');
     expect(sceneCode).not.toContain('accumulator +=');

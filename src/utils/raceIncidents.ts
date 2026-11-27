@@ -99,9 +99,12 @@
 // stays 29).
 //
 // ── The 1D hook ──────────────────────────────────────────────────────────
-// `vulnerabilityFactor` (default 1.0) widens the tangle lateral window;
-// 1D feeds it from stamina (below 25 stamina the window widens, above
-// 25 it is exactly 1.0). 1C never consumes stamina itself.
+// `vulnerabilityFactor` widens the tangle lateral window — per rig, from
+// stamina (below 25 stamina the window widens ×1.5, above 25 it is exactly
+// 1.0); a pair uses the max of the two rigs' factors. Each pose carries its
+// own factor; the steward-level factor on the input is the fallback for
+// rigs that carry none (1C's tests pass it). 1C never consumes stamina
+// itself.
 
 import { CIRCUS_AXIS_X } from './collisionShapes';
 import { CHARIOT_MOVEMENT, distanceToDriveableBoundary } from './chariotMovement';
@@ -195,6 +198,14 @@ export interface IncidentRigPose {
   zone: RivalRouteZone;
   /** Which meta the rig is in, or null outside one (north: z < 10, south: z ≥ 10). */
   meta: 'north' | 'south' | null;
+  /**
+   * LADDER-1D: this rig's own tangle-window factor, from its stamina pool
+   * (1.0 when fresh, 1.5 when tired — `staminaVulnerabilityFactor`). A pair
+   * uses the max of the two rigs' factors. When absent, the rig falls back
+   * to the steward-level `vulnerabilityFactor` below (1C's tests pass it;
+   * 1D's scene puts a per-rig factor on every pose).
+   */
+  vulnerabilityFactor?: number;
 }
 
 /** What the steward wants the scene to do to one rig this frame. */
@@ -295,7 +306,12 @@ export interface IncidentStewardInput {
   elapsedMs: number;
   /** The lap the log reads (1 in 1C — lap counting is 1E's). */
   lap: number;
-  /** 1D's hook: widens the tangle lateral window; default exactly 1.0. */
+  /**
+   * LADDER-1D's hook (steward-level fallback): widens the tangle lateral
+   * window for rigs that carry no per-rig factor; default exactly 1.0.
+   * 1D's scene passes a per-rig `vulnerabilityFactor` on every pose, so
+   * this is the fallback, not the path — a rig's own factor always wins.
+   */
   vulnerabilityFactor?: number;
 }
 
@@ -486,9 +502,17 @@ export function stepIncidentSteward(
   const config = RACE_INCIDENT_CONFIG;
   const { rigs, elapsedMs, lap } = input;
   const rung = input.rung;
-  const vulnerability = Number.isFinite(input.vulnerabilityFactor) && (input.vulnerabilityFactor ?? 1) > 0
+  // LADDER-1D: the steward-level factor is the fallback for rigs that carry
+  // no per-rig factor (1C's tests pass it). A rig's own factor always wins;
+  // the pair's factor is the max of the two rigs', resolved in the pair
+  // loop below — either tired rig widens the pair's window.
+  const stewardVulnerability = Number.isFinite(input.vulnerabilityFactor) && (input.vulnerabilityFactor ?? 1) > 0
     ? (input.vulnerabilityFactor as number)
     : 1;
+  const vulnerabilityOf = (rig: IncidentRigPose): number =>
+    Number.isFinite(rig.vulnerabilityFactor) && (rig.vulnerabilityFactor ?? 1) > 0
+      ? (rig.vulnerabilityFactor as number)
+      : stewardVulnerability;
   state.tick += 1;
   const tick = state.tick;
   const effects = new Map<string, IncidentRigEffects>();
@@ -706,10 +730,14 @@ export function stepIncidentSteward(
 
         // Tangle first (the meta-specific incident): both rigs on the
         // tight line at a meta, within the lateral window, abreast.
+        // LADDER-1D: the pair's window is the max of the two rigs'
+        // factors — either tired rig widens it; a fresh pair reads
+        // exactly the shipped window.
         const alongRouteGap = Math.abs(
           (a.lap * RACE_ROUTE_LENGTH + a.s) - (b.lap * RACE_ROUTE_LENGTH + b.s),
         );
-        const tangleWindow = config.tangleLateralWindow * vulnerability;
+        const pairVulnerability = Math.max(vulnerabilityOf(a), vulnerabilityOf(b));
+        const tangleWindow = config.tangleLateralWindow * pairVulnerability;
         const tangleHolds =
           isMetaZone(a.zone) &&
           isMetaZone(b.zone) &&
