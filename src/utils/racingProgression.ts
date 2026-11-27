@@ -245,6 +245,11 @@ export function getRacingPurchaseEligibility(
  * part never equips it).  Refuses, leaving the caller's profile untouched, when
  * there is no profile, the configuration is unknown, it is already unlocked, its
  * prerequisite is locked (Quadra before Triga), or gold is short.
+ *
+ * LADDER-1E — the stored `racing` field is spread first, so a purchase
+ * preserves every career subfield (best times, counts, points, prizes) and
+ * only `unlocked` / `selected` change.  Before 1E the literal below dropped
+ * them, and the next team purchase erased the whole racing record.
  */
 export function purchaseRacingConfig(
   profile: PlayerProfile | null | undefined,
@@ -263,6 +268,7 @@ export function purchaseRacingConfig(
       ...profile,
       gold: profile.gold - config.price,
       racing: {
+        ...storedRacing(profile),
         unlocked: paidUnlocks([...state.unlocked, config.horses]),
         selected: state.selected,
       },
@@ -291,6 +297,11 @@ export function getRacingSelectionEligibility(
  * Select an unlocked configuration.  Costs nothing — the player's gold is
  * carried through untouched — and refuses a configuration that is not unlocked.
  * Selecting what is already selected is allowed and changes nothing.
+ *
+ * LADDER-1E — the stored `racing` field is spread first, so a selection
+ * preserves every career subfield (best times, counts, points, prizes) and
+ * only `selected` changes.  Before 1E the literal below dropped them, and
+ * selecting a team erased the whole racing record.
  */
 export function selectRacingConfig(
   profile: PlayerProfile | null | undefined,
@@ -309,6 +320,7 @@ export function selectRacingConfig(
       ...profile,
       gold: profile.gold,
       racing: {
+        ...storedRacing(profile),
         unlocked: paidUnlocks(state.unlocked),
         selected: config.horses,
       },

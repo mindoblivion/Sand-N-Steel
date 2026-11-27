@@ -197,7 +197,7 @@ describe('B. The pre-race pose, in memory only', () => {
     }
     expect(code(sceneSrc)).toContain('finishRace');
     expect(code(sceneSrc)).toContain('advanceRaceLap');
-    expect(code(sceneSrc)).toContain('onRecordRaceCompletion(teamSize, elapsedMs, outcome)');
+    expect(code(sceneSrc)).toContain('onRecordRaceCompletion(teamSize, normalizedElapsedMs, outcome, rungId, finishPlace)');
     expect(sceneSrc).toContain('Circus purse');
     expect(sceneSrc).toContain('App owns the atomic career transaction and its existing save path');
     expect(sceneSrc).toContain('The purse is limited to one payment per in-game day; aborting never settles a');
@@ -470,7 +470,10 @@ describe('E. Slice boundaries', () => {
     // forms the field up before the clock starts.
     expect(scene).toContain('resolveRaceRungId(rung)');
     expect(scene).toContain('resolveRungField(rungId)');
-    expect(scene).toContain('resolveFormationRoll(field.length + 1, field[0]?.startSide ?? 1)');
+    // LADDER-1E Part 5 — the formation builder takes the player's qualifying
+    // slot as a third argument (best finish → row, default last row); the
+    // first two arguments are unchanged, and the roll paths are unchanged.
+    expect(scene).toContain('resolveFormationRoll(field.length + 1, field[0]?.startSide ?? 1, playerSlot)');
     expect(scene).toContain('rollPath={playerRollPath}');
     expect(scene).toContain('onLeaderCrossing={handleLeaderCrossing}');
     // The finish reads places from finish times and settles the single

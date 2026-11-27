@@ -163,6 +163,50 @@ export function resolveGridFit(fieldSize: unknown): GridFit {
 }
 
 /**
+ * LADDER-1E Part 5 — qualifying: the player's grid slot from the per-rung
+ * best finish. 1st earns the front row, 2nd the second row, and so on; no
+ * best finish at the rung (or a malformed one) defaults to the LAST slot,
+ * exactly as today.  The player takes the LEFT slot of the earned row
+ * (side −1) — the flank the player stands on today in both shipped field
+ * sizes (District 3 rigs, League 5 rigs: the last slot is the left slot of
+ * the last row) — so qualifying moves the ROW, never the flank.  A finish
+ * deeper than the field has rows clamps to the last row: in a 3-rig field
+ * a 3rd-place finish and no finish both stand last.  Never throws.
+ */
+export function resolveQualifyingSlot(bestFinish: unknown, fieldSize: unknown): number {
+  const size = typeof fieldSize === 'number' && Number.isSafeInteger(fieldSize) && fieldSize > 0
+    ? fieldSize
+    : 1;
+  const lastSlot = size - 1;
+  if (typeof bestFinish !== 'number' || !Number.isSafeInteger(bestFinish) || bestFinish < 1) {
+    return lastSlot;
+  }
+  const rows = Math.ceil(size / 2);
+  const row = Math.min(bestFinish - 1, rows - 1);
+  // The left slot of the row (slot 2 × row); the last row of an odd field
+  // has only that slot, so the min below is only reachable on an even
+  // field, where it keeps the player inside the field.
+  return Math.min(row * 2, lastSlot);
+}
+
+/**
+ * A finish place as an ordinal for display: 1st, 2nd, 3rd, 4th, 5th — with
+ * the 11/12/13 rule, so 11th, 12th, 13th read right.  A non-finite or
+ * non-positive place reads '—': the card never prints a nonsense place.
+ */
+export function formatRacePlace(place: number): string {
+  if (!Number.isFinite(place) || place < 1) return '—';
+  const n = Math.trunc(place);
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;
+  const last = n % 10;
+  if (last === 1) return `${n}st`;
+  if (last === 2) return `${n}nd`;
+  if (last === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+/**
  * A field placed on the grid, with assignment and fit.
  *
  * Assignment follows the design (Slice 2A): the player's slot is the earned
@@ -174,30 +218,43 @@ export function resolveGridFit(fieldSize: unknown): GridFit {
  * slot IS the front row, so a +1 first rival cannot take slot 1 and falls back
  * to the other front slot; the 1v1 race keeps its shipped start until 1B wires
  * the grid into the scene.
+ *
+ * LADDER-1E Part 5: `playerSlot` is the qualifying slot
+ * (`resolveQualifyingSlot`) — an optional input, validated here (an integer
+ * inside the field, else the default last slot).  The rivals' assignment is
+ * unchanged: they fill the remaining slots front to back, and the first
+ * rival still takes the front-row slot on its flank when it is free (and
+ * falls back when the player earned that slot).
  */
 export function resolveStartGrid(
   fieldSize: unknown,
   firstRivalStartSide: -1 | 1 = 1,
+  playerSlot: unknown = undefined,
 ): StartGrid {
   const slots = resolveGridSlots(fieldSize);
   const size = slots.length;
-  const playerSlot = size - 1;
+  const earnedSlot = typeof playerSlot === 'number'
+    && Number.isSafeInteger(playerSlot)
+    && playerSlot >= 0
+    && playerSlot < size
+    ? playerSlot
+    : size - 1;
   const side: -1 | 1 = firstRivalStartSide === -1 ? -1 : 1;
-  const flankSlot = slots.find((slot) => slot.row === 0 && slot.side === side && slot.slot !== playerSlot);
+  const flankSlot = slots.find((slot) => slot.row === 0 && slot.side === side && slot.slot !== earnedSlot);
   const rivalSlots: number[] = [];
   if (flankSlot) rivalSlots.push(flankSlot.slot);
   for (const slot of slots) {
-    if (slot.slot === playerSlot) continue;
+    if (slot.slot === earnedSlot) continue;
     if (rivalSlots.includes(slot.slot)) continue;
     rivalSlots.push(slot.slot);
   }
   for (const slot of slots) {
-    slot.occupant = slot.slot === playerSlot ? 'player' : 'rival';
+    slot.occupant = slot.slot === earnedSlot ? 'player' : 'rival';
   }
   return {
     fieldSize: size,
     slots,
-    playerSlot,
+    playerSlot: earnedSlot,
     rivalSlots,
     fit: resolveGridFit(size),
   };
@@ -214,18 +271,15 @@ export interface RungLockState {
 /**
  * The rung lock state, pure: no UI, no save read beyond the profile handed in,
  * no new save field. District is always open. League opens on a top-2 finish
- * in a District race — read from the per-rung results write 1E adds
+ * in a District race — read from the per-rung results write 1E lands
  * (`racing.districtBestFinish`, the best finish at the rung; absent on every
- * save today, so the League stays locked until 1E's write exists). 1E owns the
- * results write and may rename the field — if it does, this read and its test
- * move with it. Never throws on a missing or malformed profile.
+ * save that has never finished a District race, so the League stays locked
+ * until the write exists). Never throws on a missing or malformed profile.
  */
 export function resolveRungLockState(
   profile: PlayerProfile | null | undefined,
 ): RungLockState {
-  const districtBestFinish = (
-    profile?.racing as { districtBestFinish?: unknown } | undefined
-  )?.districtBestFinish;
+  const districtBestFinish = profile?.racing?.districtBestFinish;
   const leagueOpen = typeof districtBestFinish === 'number'
     && Number.isSafeInteger(districtBestFinish)
     && districtBestFinish >= 1
@@ -388,18 +442,23 @@ export interface FormationFit {
 
 /**
  * The formation for a field of `fieldSize` rigs (player + rivals): the
- * standing grid's assignment (player last; the first rival takes the
- * front-row slot on its startSide flank when it is free; the rest fill
+ * standing grid's assignment (player last by default, or on the qualifying
+ * slot — `resolveQualifyingSlot` — when one is passed; the first rival takes
+ * the front-row slot on its startSide flank when it is free; the rest fill
  * front to back) mapped onto the flank columns of the long straight. Row 0
  * stands at FORMATION_FRONT_ROW_Z; each later row is one formation row gap
  * further NORTH (the formation extends up the straight, away from the line).
  * Never throws; a malformed size fails closed to a single front-row slot.
+ * The roll paths are per-slot: the path for a slot is the same whoever
+ * stands on it, so qualifying changes WHO rolls which path, never the
+ * paths themselves.
  */
 export function resolveFormationSlots(
   fieldSize: unknown,
   firstRivalStartSide: -1 | 1 = 1,
+  playerSlot?: unknown,
 ): FormationSlot[] {
-  return formationSlotsFromGrid(resolveStartGrid(fieldSize, firstRivalStartSide));
+  return formationSlotsFromGrid(resolveStartGrid(fieldSize, firstRivalStartSide, playerSlot));
 }
 
 /** Map a standing grid's slots onto the formation's flank columns. */
@@ -565,7 +624,7 @@ export function getRollPathPoseAtDistance(
 export interface FormationRoll {
   slots: FormationSlot[];
   paths: RollPath[];
-  /** The player's slot — last, as the standing grid assigns it. */
+  /** The player's slot — last by default, or the qualifying slot when one was passed to the grid. */
   playerSlot: number;
   /** The rivals' slots, in field order. */
   rivalSlots: number[];
@@ -580,12 +639,15 @@ export interface FormationRoll {
  * front-row rig whose path is shortest (the front row, the shortest leg);
  * the player's crossing is the last slot's. The clock starts at the leader's
  * crossing; the player's own race time runs from the player's crossing.
+ * LADDER-1E Part 5: `playerSlot` is the qualifying slot — passed through to
+ * the grid, so the player's roll path is the path at the earned slot.
  */
 export function resolveFormationRoll(
   fieldSize: unknown,
   firstRivalStartSide: -1 | 1 = 1,
+  playerSlot?: unknown,
 ): FormationRoll {
-  const grid = resolveStartGrid(fieldSize, firstRivalStartSide);
+  const grid = resolveStartGrid(fieldSize, firstRivalStartSide, playerSlot);
   const slots = formationSlotsFromGrid(grid);
   const paths = slots.map((slot) => resolveRollPath(slot));
   // The assignment order is the grid's, not slot order: rivalSlots[i] is the

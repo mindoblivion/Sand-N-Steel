@@ -910,6 +910,23 @@ export interface RacingProgression {
    * and the tier's team is owned. Absent on older saves (nothing claimed).
    */
   leaguePrizesClaimed?: number[];
+  /**
+   * LADDER-1E — per-rung results, written at the finish transition only.
+   * Best finish at the District rung (1-based, min-wins); the League rung
+   * opens on a District top-2 (`resolveRungLockState`). Absent until the
+   * rung is raced, and absent on every save from before 1E.
+   */
+  districtBestFinish?: number;
+  /** LADDER-1E — best finish at the League rung (1-based, min-wins). */
+  leagueBestFinish?: number;
+  /** LADDER-1E — District races completed, including losses and photo finishes. */
+  districtCompleted?: number;
+  /** LADDER-1E — League races completed, including losses and photo finishes. */
+  leagueCompleted?: number;
+  /** LADDER-1E — District races won. */
+  districtWins?: number;
+  /** LADDER-1E — League races won. */
+  leagueWins?: number;
 }
 
 export interface ChariotTuning {

@@ -30,8 +30,10 @@ import {
   getChariotWheelPlacement,
 } from '../../utils/chariotGeometry';
 import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
+import { resolveRaceTier } from '../../data/raceTiers';
 import type { ChariotEquippedResolved } from '../../types/game';
 import type { RaceCompletionOutcome, RaceCompletionResult } from '../../utils/raceRecords';
+import { resolveNormalizedRaceTime } from '../../utils/raceRecords';
 import { getLeagueTier } from '../../utils/racingLeague';
 import { RaceHorseTeam } from './RaceHorseTeam';
 import { RaceRenderDiagnostics } from './RaceRenderDiagnostics';
@@ -85,7 +87,7 @@ import {
   startRace,
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
-import { advanceRaceLap, createRaceLapTracker, getRaceLapStage } from '../../utils/raceLap';
+import { advanceRaceLap, createRaceLapTracker, getRaceLapStage, raceLapReadout, RACE_FINISH_LINE_Z } from '../../utils/raceLap';
 import type { RaceLapStage } from '../../utils/raceLap';
 import { RACE_ROUTE_LENGTH, resolveFieldFinishOrder } from '../../utils/raceRival';
 import type { RaceFieldFinishOrder } from '../../utils/raceRival';
@@ -95,6 +97,7 @@ import {
   FORMATION_ROLL_SPEED,
   getRollPathPoseAtDistance,
   resolveFormationRoll,
+  resolveQualifyingSlot,
   resolveRollPhase,
 } from '../../utils/raceGrid';
 import type { RollPath } from '../../utils/raceGrid';
@@ -107,6 +110,7 @@ import {
   rivalDriverRoutePosition,
 } from '../../utils/rivalDriver';
 import type { RivalDriverState, RivalRigSnapshot, RivalWarning } from '../../utils/rivalDriver';
+import { fortunasHandResultsLine } from '../../utils/fortunasHand';
 import { applyRigSeparation } from '../../utils/raceRigCollision';
 import { getTeamWidth } from '../../utils/chariotTeamFormation';
 import {
@@ -251,7 +255,9 @@ import type { RaceStaminaState } from '../../utils/raceStamina';
  * route, the finish transition calls the optional `onRecordRaceCompletion` callback.
  * App owns the atomic career transaction and its existing save path; the scene
  * receives only the settlement result needed to show the outcome. A completed race
- * records a team-specific best time, career result and (when eligible) a gold purse.
+ * records a team-specific best time (normalized by the measured formation gap —
+ * see `resolveNormalizedRaceTime`), career result and (when eligible) a gold purse,
+ * and the per-rung results (best finish and counts) that open the League rung.
  * The purse is limited to one payment per in-game day; aborting never settles a
  * result. The first-race control hints remain a module-memory flag, never a save,
  * and a reload simply shows the labels again.
@@ -294,14 +300,37 @@ export interface RaceSceneProps {
   /** Read-only equipped chariot parts; missing/legacy profiles resolve to stock. */
   chariotLoadout?: ChariotEquippedResolved;
   /**
+   * LADDER-1E Part 5 — the player's best finish at the selected rung
+   * (1-based place, from the per-rung results write), for qualifying.
+   * App resolves it from the profile and the rung it passes below; absent
+   * (never finished at this rung) the player starts last, as today.
+   * Session-only — never written to a save.
+   */
+  bestFinishAtRung?: number;
+  /**
    * LADDER-1B: the selected rung (`district` | `league`), resolved by the
    * caller through `resolveRaceRungId` (an unknown or missing value fails
    * closed to District). District fields 2 rivals, League 4, from the rung's
    * pool. Session-only — never written to a save.
    */
   rung?: RaceRungId;
-  /** App-owned atomic career settlement, called only after a validated lap finish. */
-  onRecordRaceCompletion?: (teamSize: ChariotTeamSize, elapsedMs: number, outcome: RaceCompletionOutcome) => RaceCompletionResult | null;
+  /**
+   * App-owned atomic career settlement, called only after a validated lap finish.
+   * `elapsedMs` is the NORMALIZED race time — the raw elapsed minus the measured
+   * formation gap (the scene normalizes through `resolveNormalizedRaceTime`
+   * before calling); the results panel shows the raw elapsed from
+   * `raceFinishElapsed`. `rungId` is the rung this race was run on, and
+   * `finishPlace` is the player's place in the field (1-based, from the finish
+   * order), or null when the order could not be resolved — the settlement still
+   * records the finish, only the best finish is skipped.
+   */
+  onRecordRaceCompletion?: (
+    teamSize: ChariotTeamSize,
+    elapsedMs: number,
+    outcome: RaceCompletionOutcome,
+    rungId: RaceRungId,
+    finishPlace: number | null,
+  ) => RaceCompletionResult | null;
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -500,6 +529,18 @@ const RaceChariot: React.FC<{
   finish: 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph' | 'ventive';
   onFinish: () => void;
   onLapStageChange: (stage: RaceLapStage) => void;
+  /** LADDER-1E — laps in this race, from the tier config (District 3, League 5). */
+  totalLaps: number;
+  /**
+   * LADDER-1E Part 5 — the rung's stamina drain multiplier, resolved by the
+   * parent from the tier config (District 0.8, League 1.0). The player's
+   * step multiplies its drain by this — the single consumption point for
+   * the tier config on the player side (the rivals read theirs in the
+   * driver). The pool stays 0–100 on both rungs.
+   */
+  staminaDrainMultiplier: number;
+  /** LADDER-1E — fired when the tracker counts a lap (completed laps, 0-based), never per frame. */
+  onLapChange?: (completedLaps: number) => void;
   /** The player's precomputed formation roll path (formation slot → line). */
   rollPath: RollPath;
   /** The `performance.now()` instant GO fired; null until the countdown elapses. */
@@ -512,7 +553,7 @@ const RaceChariot: React.FC<{
   effectsRef: React.MutableRefObject<Map<string, IncidentRigEffects>>;
   /** LADDER-1D: the shared rig registry — the player's stamina state lives on its entry, and the effective cap + the per-tick step read it here. */
   registry: React.MutableRefObject<RaceRigRegistry>;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing, effectsRef, registry }) => {
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, totalLaps, staminaDrainMultiplier, onLapChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing, effectsRef, registry }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -553,10 +594,13 @@ const RaceChariot: React.FC<{
   const wheelRadius = wheelVariant === 'reinforced'
     ? CHARIOT_WHEEL_VARIANTS.reinforced.radius
     : CHARIOT_WHEEL_RADIUS;
-  const lapTracker = useRef(createRaceLapTracker());
+  const lapTracker = useRef(createRaceLapTracker(RACE_FINISH_LINE_Z, totalLaps));
   // LADDER-1B: the tracker is (re)created at the player's crossing, not at
   // mount — the roll must never advance it, so it starts on the line.
   const lapTrackerStartedRef = useRef(false);
+  // LADDER-1E: the last completed-lap count reported to React, so the HUD
+  // lap readout updates only on a lap boundary, never per frame.
+  const lapCountRef = useRef(0);
   // LADDER-1B: the leader's crossing is reported once (the parent owns the
   // exact instant as `startedAt`); the ref guards against a second frame
   // firing before the parent's state lands.
@@ -606,7 +650,7 @@ const RaceChariot: React.FC<{
         motion.speed = FORMATION_ROLL_SPEED;
       } else {
         if (!lapTrackerStartedRef.current) {
-          lapTracker.current = createRaceLapTracker();
+          lapTracker.current = createRaceLapTracker(RACE_FINISH_LINE_Z, totalLaps);
           lapTrackerStartedRef.current = true;
         }
         // LADDER-1C: the incident drag / steer modifiers, from the previous
@@ -636,6 +680,13 @@ const RaceChariot: React.FC<{
         const nextStage = getRaceLapStage(lap.tracker);
         // Notify React only when a real checkpoint transition occurs, never per frame.
         if (nextStage !== previousStage) onLapStageChange(nextStage);
+        // LADDER-1E: notify React only when a lap completes, never per frame.
+        // `finishedNow` fires only on the final lap, so the finish transition
+        // below fires on the Nth crossing, not the first.
+        if (lap.tracker.lap !== lapCountRef.current) {
+          lapCountRef.current = lap.tracker.lap;
+          onLapChange?.(lap.tracker.lap);
+        }
         if (lap.finishedNow) setTimeout(() => onFinish(), 0);
         // LADDER-1D: step the player's stamina from this frame's driven
         // speed — same module, same rates as the rivals. One fixed 1/60
@@ -660,7 +711,15 @@ const RaceChariot: React.FC<{
             wheelsId: wheelVariant === 'reinforced' ? 'wheels_reinforced' : 'wheels_standard',
             finishId: finish,
             zone,
-            lap: playerEntry.lap,
+            // LADDER-1E: the lap input is the validated tracker lap, not the
+            // registry's projected lap — the recovery cap resets on the
+            // checkpoint-validated lap boundary, the same boundary the
+            // finish transition reads.
+            lap: lap.tracker.lap,
+            // LADDER-1E Part 5: the rung drain multiplier — District
+            // drains at 0.8×, League at 1.0×. The drain only; recovery
+            // above never sees it.
+            drainMultiplier: staminaDrainMultiplier,
           });
         }
       }
@@ -782,6 +841,14 @@ export interface RivalRaceProgress {
   lap: number;
   /** The rival's driven finish time (ms since the race clock origin), null until it crosses. */
   finishMs: number | null;
+  /**
+   * LADDER-1E: ticks on which Fortuna's Hand applied a multiplier other
+   * than 1.0 to this rival — written back from its driver each frame, read
+   * by the parent at the finish for the results line. The Hand never fires
+   * on the final lap, so a race always leaves this at the pre-final-lap
+   * count.
+   */
+  handTicks: number;
 }
 
 /**
@@ -919,13 +986,17 @@ const RaceRivalChariot: React.FC<{
   rollStartedAt: number | null;
   /** This rival's index in the rung's field (the driver's seed). */
   fieldIndex: number;
+  /** LADDER-1E — laps in this race, from the tier config (District 3, League 5). */
+  totalLaps: number;
+  /** LADDER-1E — the rung this race is run on, from the tier config; the driver's Fortuna's Hand reads its rates from it. */
+  rungId: RaceRungId;
   /** The shared rig registry (player + rivals); this rival registers its motion in it. */
   registry: React.MutableRefObject<RaceRigRegistry>;
   /** The shared driven-progress record (one entry per rival), read by the parent at the player's finish. */
   rivalProgress: React.MutableRefObject<Record<string, RivalRaceProgress>>;
   /** LADDER-1C: the steward's per-rig effects, written by `RaceIncidentSteward` each frame. */
   effectsRef: React.MutableRefObject<Map<string, IncidentRigEffects>>;
-}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt, fieldIndex, registry, rivalProgress, effectsRef }) => {
+}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt, fieldIndex, totalLaps, rungId, registry, rivalProgress, effectsRef }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
   const roll = useRef(0);
@@ -977,7 +1048,7 @@ const RaceRivalChariot: React.FC<{
       // the parent resets every entry's pool at each countdown.
       stamina: createRaceStamina(),
     });
-    rivalProgress.current[competitor.id] = { s: 0, lap: 0, finishMs: null };
+    rivalProgress.current[competitor.id] = { s: 0, lap: 0, finishMs: null, handTicks: 0 };
     return () => {
       registry.current.delete(competitor.id);
       delete rivalProgress.current[competitor.id];
@@ -1039,6 +1110,13 @@ const RaceRivalChariot: React.FC<{
           heading: motion.heading,
           speed: FORMATION_ROLL_SPEED,
           teamSize: 2,
+          // LADDER-1E: the real race length — the closer's "final third"
+          // becomes the final third of 3 or 5 laps, not of 1. Rivals stay
+          // Biga (teamSize: 2, 1D §7 Q4); only the laps handoff changes.
+          // The rung rides along for Fortuna's Hand (its rates are per
+          // rung); the driver resolves it fail-closed to District.
+          laps: totalLaps,
+          rung: rungId,
           seed: 1000 + fieldIndex,
         });
       }
@@ -1119,9 +1197,13 @@ const RaceRivalChariot: React.FC<{
         // drift apart.
         entry.stamina = driver.stamina;
       }
-      const prog = rivalProgress.current[competitor.id] ?? { s: 0, lap: 0, finishMs: null };
+      const prog = rivalProgress.current[competitor.id] ?? { s: 0, lap: 0, finishMs: null, handTicks: 0 };
       prog.s = pos.s;
       prog.lap = pos.lap;
+      // LADDER-1E: the Hand's applied-tick count, written back from the
+      // driver each frame — the parent reads it at the finish for the
+      // results line.
+      prog.handTicks = driver.handTicks;
       rivalProgress.current[competitor.id] = prog;
       if (pos.lap >= 1 && !crossedRef.current) {
         crossedRef.current = true;
@@ -1294,6 +1376,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   teamSize = 2,
   chariotLoadout,
   rung = 'district',
+  bestFinishAtRung,
   onRecordRaceCompletion,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
@@ -1323,6 +1406,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   // retroactive finish, so the line names the latest milestone, not the sum.
   const prizeTier = raceSettlement?.tierAdvanced != null ? getLeagueTier(raceSettlement.tierAdvanced) : undefined;
   const [lapStage, setLapStage] = useState<RaceLapStage>('north-turn');
+  // LADDER-1E: completed laps (0-based) — the HUD lap readout is
+  // `completedLaps + 1` of `totalLaps`, updated only on a lap boundary.
+  const [completedLaps, setCompletedLaps] = useState(0);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
 
   // The player's quality preset governs the race's pixel density and key shadow.
@@ -1358,10 +1444,25 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
    * slot's flank.
    */
   const rungId = resolveRaceRungId(rung);
+  // LADDER-1E: the race length in laps, from the tier config (District 3,
+  // League 5) — the player tracker, the rival drivers, and the HUD readout
+  // all read this one value.
+  const totalLaps = resolveRaceTier(rungId).laps;
+  // LADDER-1E Part 5: the rung's stamina drain multiplier, from the tier
+  // config (District 0.8, League 1.0) — resolved once here and handed to
+  // RaceChariot for the player's step; the rivals read their own rung in
+  // the driver. The pool stays 0–100 on both rungs.
+  const staminaDrainMultiplier = resolveRaceTier(rungId).staminaDrainMultiplier;
   const field = useMemo(() => resolveRungField(rungId), [rungId]);
+  // LADDER-1E Part 5 — qualifying: the player's grid slot, from the
+  // per-rung best finish (1st → front row, 2nd → second row, default last
+  // row when there is no finish at this rung). The formation builder takes
+  // the slot as an input — it is not a post-hoc reorder, so the roll paths
+  // are the paths at the earned slot, unchanged in shape.
+  const playerSlot = resolveQualifyingSlot(bestFinishAtRung, field.length + 1);
   const formation = useMemo(
-    () => resolveFormationRoll(field.length + 1, field[0]?.startSide ?? 1),
-    [field],
+    () => resolveFormationRoll(field.length + 1, field[0]?.startSide ?? 1, playerSlot),
+    [field, playerSlot],
   );
   const playerRollPath = formation.paths[formation.playerSlot];
   // The player's crossing instant (for the launch banner's clear timer): the
@@ -1450,6 +1551,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
    * Session-only, never a save field (§J stays 29).
    */
   const [raceStaminaSummary, setRaceStaminaSummary] = useState<{ lowestPool: number; timeAllOutMs: number } | null>(null);
+  // LADDER-1E: Fortuna's Hand, snapshotted at the finish for the results
+  // line — the rung this race was run on, whether the Hand applied on any
+  // tick, and the race length (the line names the active laps). Session-only.
+  const [raceFortunasHand, setRaceFortunasHand] = useState<{ rung: RaceRungId; active: boolean; totalLaps: number } | null>(null);
   const handlePlayerWarning = useCallback((next: { warning: RivalWarning; kind: IncidentRigEffects['warningKind'] }) => {
     setPlayerWarning(next);
   }, []);
@@ -1470,6 +1575,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     setPlayerWarning({ warning: 'none', kind: null });
     for (const entry of rigRegistryRef.current.values()) entry.stamina = createRaceStamina();
     setRaceStaminaSummary(null);
+    setRaceFortunasHand(null);
+    // LADDER-1E: a new race starts on lap 1 — the same moment the other
+    // per-race state resets, so a repeat race never inherits a lap count.
+    setCompletedLaps(0);
   }, [raceState, rungId]);
 
   useEffect(() => {
@@ -1796,6 +1905,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   wheelVariant={getChariotPart(chariotLoadout?.wheels ?? 'wheels_standard')?.wheelVariant ?? 'standard'}
                   finish={getChariotPart(chariotLoadout?.finish ?? 'finish_stock')?.finish ?? 'stock'}
                   onLapStageChange={setLapStage}
+                  totalLaps={totalLaps}
+                  staminaDrainMultiplier={staminaDrainMultiplier}
+                  onLapChange={setCompletedLaps}
                   rollPath={playerRollPath}
                   rollStartedAt={rollStartedAt}
                   leaderCrossingMs={formation.leaderCrossingMs}
@@ -1825,7 +1937,15 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     ]);
                     setRaceFieldOrder(fieldOrder);
                     const outcome = fieldOrder?.outcome ?? 'photo-finish';
-                    setRaceSettlement(onRecordRaceCompletion ? onRecordRaceCompletion(teamSize, elapsedMs, outcome) : null);
+                    // LADDER-1E — the settlement takes the NORMALIZED time (the
+                    // raw elapsed minus the measured formation gap: the player's
+                    // own crossing instant minus the leader's, the race clock's
+                    // origin), the rung this race was run on, and the player's
+                    // place in the field. The results panel shows the raw
+                    // elapsed from `raceFinishElapsed` above.
+                    const finishPlace = fieldOrder?.places.find((place) => place.isPlayer)?.place ?? null;
+                    const normalizedElapsedMs = resolveNormalizedRaceTime(elapsedMs, playerCrossingAt, raceStartedAt);
+                    setRaceSettlement(onRecordRaceCompletion ? onRecordRaceCompletion(teamSize, normalizedElapsedMs, outcome, rungId, finishPlace) : null);
                     // LADDER-1C: snapshot the session's incident log for the
                     // results panel — the steward stops at the finish, so the
                     // ref no longer grows after this.
@@ -1836,6 +1956,14 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     // the final values. Session-only, never a save.
                     const playerStamina = rigRegistryRef.current.get('player')?.stamina;
                     setRaceStaminaSummary(playerStamina ? { lowestPool: playerStamina.lowestPool, timeAllOutMs: playerStamina.timeAllOutMs } : null);
+                    // LADDER-1E: snapshot Fortuna's Hand for the results
+                    // line — the rivals' applied-tick counts, read from
+                    // their progress (the parent-facing channel). The Hand
+                    // is active in the race if any rival was adjusted on
+                    // any tick; it is off on the final lap by construction.
+                    // Session-only, never a save.
+                    const handTicks = field.reduce((sum, rival) => sum + (rivalProgressRef.current[rival.id]?.handTicks ?? 0), 0);
+                    setRaceFortunasHand({ rung: rungId, active: handTicks > 0, totalLaps });
                     setRaceState((state) => finishRace(state));
                   }}
                 />
@@ -1859,6 +1987,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                       rollPath={formation.paths[slot]}
                       rollStartedAt={rollStartedAt}
                       fieldIndex={index}
+                      totalLaps={totalLaps}
+                      rungId={rungId}
                       registry={rigRegistryRef}
                       rivalProgress={rivalProgressRef}
                       effectsRef={incidentEffectsRef}
@@ -1932,9 +2062,17 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                 className="text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-amber-300/90 border-l border-amber-700/60 pl-3"
                 data-race-checkpoint={lapStage}
               >
-                {lapStage === 'north-turn' ? 'Reach far bend' :
-                  lapStage === 'south-turn' ? 'Round near bend' :
-                    lapStage === 'finish-line' ? 'Return to finish' : 'Lap complete'}
+                {/*
+                  LADDER-1E — the lap readout ("Lap N of M") replaces the
+                  checkpoint text's lap-related line ('Lap complete'): the
+                  race is not complete after an early lap. The checkpoint
+                  text stays for the within-lap stage, prefixed by the lap
+                  being driven.
+                */}
+                {lapStage === 'finished'
+                  ? raceLapReadout(completedLaps, totalLaps)
+                  : `${raceLapReadout(completedLaps, totalLaps)} · ${lapStage === 'north-turn' ? 'Reach far bend' :
+                    lapStage === 'south-turn' ? 'Round near bend' : 'Return to finish'}`}
               </span>
             )}
           </div>
@@ -2115,6 +2253,18 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                 </p>
                 <p className="mt-1 text-sm text-neutral-300" data-race-time-all-out={(raceStaminaSummary.timeAllOutMs / 1000).toFixed(1)}>
                   Time at full gallop — {(raceStaminaSummary.timeAllOutMs / 1000).toFixed(1)}s
+                </p>
+              </div>
+            )}
+            {/* LADDER-1E — Fortuna's Hand, printed: the rung rates and
+                whether the Hand was active in the race just run (off on the
+                final lap). Data only, session-only — the settlement below
+                is untouched. */}
+            {raceFortunasHand && (
+              <div className="mt-4 rounded-2xl border border-amber-700/40 bg-neutral-900/70 px-4 py-3 text-left">
+                <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Fortuna's Hand</p>
+                <p className="mt-1 text-sm text-neutral-300" data-race-fortunas-hand={raceFortunasHand.active ? 'active' : 'inactive'}>
+                  {fortunasHandResultsLine(raceFortunasHand.rung, raceFortunasHand.active, raceFortunasHand.totalLaps)}
                 </p>
               </div>
             )}

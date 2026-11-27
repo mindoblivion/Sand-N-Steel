@@ -1,4 +1,6 @@
 import type { ChariotTeamSize, PlayerProfile, RacingProgression } from '../types/game';
+import { resolveRaceTier } from '../data/raceTiers';
+import type { RaceRungId } from './raceCompetitors';
 import { creditGold } from './goldTransactions';
 import { resolveClaimedLeagueTierIds, resolveLeaguePrizeAwards } from './racingLeague';
 
@@ -58,6 +60,44 @@ export function recordRaceBestTime(
 
 export type RaceCompletionOutcome = 'victory' | 'defeat' | 'photo-finish';
 
+/**
+ * LADDER-1E §7 Q2 — the best-time normalization: the recorded best is the
+ * NORMALIZED time, the raw elapsed minus the player's measured formation gap.
+ *
+ * The race clock starts at the leader's crossing (`raceStartedAt`), but the
+ * player crosses 1.5–3.0 s later (their own slot's roll path), so the raw
+ * elapsed carries the player's slot gap. The gap is the measured delay
+ * between the two crossing instants — the player's own crossing
+ * (`playerCrossingAt`) minus the leader's (`raceStartedAt`) — never a
+ * constant and never the 3.59 s worst-case bound, which is the bound, not the
+ * value. The gap is slot-dependent, so the measured delay is exact for every
+ * slot. A missing origin, a non-positive gap, or a gap that would erase the
+ * race normalizes to the raw elapsed: the best is never made worse than the
+ * drive by a bad clock reading.
+ */
+export function resolveNormalizedRaceTime(
+  elapsedMs: number,
+  playerCrossingAt: number | null,
+  raceStartedAt: number | null,
+): number {
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return elapsedMs;
+  if (playerCrossingAt === null || raceStartedAt === null) return elapsedMs;
+  const gap = playerCrossingAt - raceStartedAt;
+  if (!Number.isFinite(gap) || gap <= 0) return elapsedMs;
+  const normalized = elapsedMs - gap;
+  return normalized > 0 ? normalized : elapsedMs;
+}
+
+/** A valid best finish: a safe integer within the rung's field, else null. */
+function validBestFinish(value: unknown, maxPlace: number): number | null {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 1 &&
+    value <= maxPlace
+    ? value
+    : null;
+}
+
 export interface RaceCompletionResult {
   ok: true;
   profile: PlayerProfile;
@@ -87,6 +127,20 @@ export interface RaceCompletionResult {
  * Entry is free. Every valid finish earns a modest completion purse, with a
  * small victory bonus. Only the first completed race per in-game day pays,
  * preventing an unlimited same-day gold farm. Abort never calls this function.
+ *
+ * LADDER-1E — the settlement is per-rung: `rung` (resolved fail-closed to
+ * District) selects which per-rung results are written
+ * (`districtBestFinish` / `leagueBestFinish`, `districtCompleted` /
+ * `leagueCompleted`, `districtWins` / `leagueWins`), and `finishPlace` is the
+ * player's place in the field (1-based, from the finish order the scene
+ * resolves). `elapsedMs` is the NORMALIZED race time — the raw elapsed minus
+ * the measured formation gap, normalized by the scene through
+ * `resolveNormalizedRaceTime` before it calls here — so the best time the
+ * settlement records is comparable across grid slots. The purse, points and
+ * fame come from the NAMED economy table in `raceTiers.ts` (the same numbers
+ * the inline table held: base 80/120/200, victory bonus 20/30/50, points
+ * +50 win / +15 otherwise, fame 0 per race); a drift between the two tables
+ * is a defect, not a second source of truth.
  */
 export function settleRaceCompletion(
   profile: PlayerProfile | null | undefined,
@@ -94,6 +148,8 @@ export function settleRaceCompletion(
   elapsedMs: number,
   outcome: RaceCompletionOutcome,
   day: number,
+  rung: unknown,
+  finishPlace: unknown,
 ): RaceCompletionResult | { ok: false; reason: string; profile: PlayerProfile | null | undefined } {
   if (!Number.isInteger(day) || day < 0) return { ok: false, reason: 'invalid-day', profile };
   if (outcome !== 'victory' && outcome !== 'defeat' && outcome !== 'photo-finish') {
@@ -109,15 +165,42 @@ export function settleRaceCompletion(
   const wins = count(current.wins);
   const losses = count(current.losses);
   const photoFinishes = count(current.photoFinishes);
+  // LADDER-1E — the per-rung counters, read the same defensive way. A
+  // malformed previous value is no record at all, exactly like the global
+  // counters above. The rung resolves fail-closed to District, the
+  // always-open rung, never a locked one.
+  const tier = resolveRaceTier(rung);
+  const rungId: RaceRungId = tier.id;
+  const isDistrict = rungId === 'district';
+  const rungCompleted = count(isDistrict ? current.districtCompleted : current.leagueCompleted);
+  const rungWins = count(isDistrict ? current.districtWins : current.leagueWins);
+  // The best finish is min-wins over VALID places only: a safe integer within
+  // the rung's field (District 1–3, League 1–5). An unusable place — missing,
+  // non-integer, out of range — writes no best finish, but the race still
+  // settles: the finish is valid, only the place is unusable.
+  const maxPlace = tier.fieldSize + 1;
+  const validPlace = validBestFinish(finishPlace, maxPlace);
+  const previousBest = validBestFinish(
+    isDistrict ? current.districtBestFinish : current.leagueBestFinish,
+    maxPlace,
+  );
+  const nextBestFinish =
+    validPlace === null
+      ? previousBest
+      : previousBest === null
+        ? validPlace
+        : Math.min(previousBest, validPlace);
+
   const alreadyPaidToday = current.lastPurseDay === day;
-  const basePurse = teamSize === 2 ? 80 : teamSize === 3 ? 120 : 200;
-  const victoryBonus = teamSize === 2 ? 20 : teamSize === 3 ? 30 : 50;
+  const economy = tier.economy;
+  const basePurse = economy.basePurse[teamSize];
+  const victoryBonus = economy.victoryBonus[teamSize];
   const purseAwarded = alreadyPaidToday ? 0 : basePurse + (outcome === 'victory' ? victoryBonus : 0);
-  if ([completed, wins, losses, photoFinishes].some((value) => value >= Number.MAX_SAFE_INTEGER)) {
+  if ([completed, wins, losses, photoFinishes, rungCompleted, rungWins].some((value) => value >= Number.MAX_SAFE_INTEGER)) {
     return { ok: false, reason: 'career-counter-overflow', profile };
   }
   const currentLeaguePoints = current.leaguePoints || 0;
-  const leaguePointsEarned = outcome === 'victory' ? 50 : 15;
+  const leaguePointsEarned = outcome === 'victory' ? economy.leaguePoints.win : economy.leaguePoints.other;
   const nextLeaguePoints = currentLeaguePoints + leaguePointsEarned;
 
   // ECON-2 — the League bonus: every tier whose points threshold is met, whose
@@ -145,6 +228,20 @@ export function settleRaceCompletion(
     leaguePoints: nextLeaguePoints,
     ...(alreadyPaidToday ? {} : { lastPurseDay: day }),
     ...(leagueAwards.length > 0 ? { leaguePrizesClaimed: claimedTierIds } : {}),
+    // LADDER-1E — the per-rung results. The best finish is written only when
+    // a valid place exists (this finish's, or the previous valid one); a
+    // missing best finish stays absent rather than being invented.
+    ...(isDistrict
+      ? {
+          districtCompleted: rungCompleted + 1,
+          districtWins: rungWins + (outcome === 'victory' ? 1 : 0),
+          ...(nextBestFinish === null ? {} : { districtBestFinish: nextBestFinish }),
+        }
+      : {
+          leagueCompleted: rungCompleted + 1,
+          leagueWins: rungWins + (outcome === 'victory' ? 1 : 0),
+          ...(nextBestFinish === null ? {} : { leagueBestFinish: nextBestFinish }),
+        }),
   };
 
   // BET-1 — the tavern bet is cut, so no settlement reads it: a stale

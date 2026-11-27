@@ -819,7 +819,10 @@ describe('P4 §G — the exclusions hold', () => {
     const start = GAME_TYPES.indexOf('export interface RacingProgression {');
     const body = GAME_TYPES.slice(start, GAME_TYPES.indexOf('}', start));
     const fields = [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\??:/gm)].map((match) => match[1]);
-    expect(fields).toEqual(['unlocked', 'selected', 'bestTimes', 'completed', 'wins', 'losses', 'photoFinishes', 'lastPurseDay', 'leaguePoints', 'leaguePrizesClaimed']);
+    expect(fields).toEqual(['unlocked', 'selected', 'bestTimes', 'completed', 'wins', 'losses', 'photoFinishes', 'lastPurseDay', 'leaguePoints', 'leaguePrizesClaimed', 'districtBestFinish', 'leagueBestFinish', 'districtCompleted', 'leagueCompleted', 'districtWins', 'leagueWins']);
+    // LADDER-1E: the six per-rung results join after `leaguePrizesClaimed` —
+    // best finish and counts per rung, written at the finish transition only.
+    // Still optional, and the stable module adds no stable-specific fields to racing.
     // ARENA HAZARDS / CHARIOT TUNING (d503c56): the championship `leaguePoints`
     // joined RacingProgression last, after `lastPurseDay` — still optional, and
     // the stable module adds no stable-specific fields to racing.

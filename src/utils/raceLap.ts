@@ -18,6 +18,18 @@ export interface RaceLapTracker {
   northTurnCompleted: boolean;
   southTurnCompleted: boolean;
   finished: boolean;
+  /**
+   * LADDER-1E — completed laps (0-based). The lap being driven is
+   * `lap + 1`. On the final lap's finish crossing the race is over, so
+   * `lap` stays at `totalLaps - 1` and the readout still reads the final
+   * lap — `lap` is never incremented past the last lap.
+   */
+  lap: number;
+  /**
+   * LADDER-1E — laps in the race. `finishedNow` fires only on the final
+   * lap; a 1-lap race behaves exactly as the single-lap tracker did.
+   */
+  totalLaps: number;
 }
 
 export interface RaceLapPosition {
@@ -49,7 +61,20 @@ export const RACE_SOUTH_TURN_Z = CIRCUS_SOUTH_Z - 3;
 /** Minimum lateral offset from the surveyed axis to count as a lane. */
 export const RACE_TURN_LANE_OFFSET = 7.5;
 
-export function createRaceLapTracker(startZ = RACE_FINISH_LINE_Z): RaceLapTracker {
+/** The HUD lap readout: "Lap N of M", N 1-based, from completed laps (0-based) and the race length. */
+export function raceLapReadout(completedLaps: number, totalLaps: number): string {
+  return `Lap ${completedLaps + 1} of ${totalLaps}`;
+}
+
+export function createRaceLapTracker(
+  startZ = RACE_FINISH_LINE_Z,
+  totalLaps = 1,
+): RaceLapTracker {
+  // LADDER-1E — a bogus race length fails closed to a single lap, the
+  // shipped behaviour: the tracker never promises laps it cannot count.
+  const laps = Number.isFinite(totalLaps) && Math.floor(totalLaps) >= 1
+    ? Math.floor(totalLaps)
+    : 1;
   return {
     lastZ: startZ,
     farthestZ: startZ,
@@ -58,6 +83,8 @@ export function createRaceLapTracker(startZ = RACE_FINISH_LINE_Z): RaceLapTracke
     northTurnCompleted: false,
     southTurnCompleted: false,
     finished: false,
+    lap: 0,
+    totalLaps: laps,
   };
 }
 
@@ -113,6 +140,35 @@ export function advanceRaceLap(
   // The southern checkpoint must be complete before this finish-line sample.
   const finishedNow = crossedFinish && tracker.southTurnCompleted;
 
+  // LADDER-1E — a finish crossing on a non-final lap counts the lap and
+  // resets the per-lap checkpoints, but `finishedNow` fires ONLY on the
+  // final lap: the scene's finish transition reads it, so an earlier
+  // crossing must never settle the race. The south hairpin swaps flanks
+  // after the line — the chariot rounds it onto the opposite flank and
+  // heads north on it — so the next lap's opening side is the opposite of
+  // the finished lap's, and it is flipped here (the geometry forces it)
+  // instead of re-captured on the finish straight, where the chariot is
+  // still on the old flank. `lastZ` / `lastSide` carry over so the hairpin
+  // crossing itself fires no checkpoint: the north turn needs the far bend,
+  // the south turn needs the north turn first.
+  if (finishedNow && tracker.lap + 1 < tracker.totalLaps) {
+    const nextStartSide: RaceTrackSide | null = tracker.startSide === null
+      ? null
+      : tracker.startSide === 1 ? -1 : 1;
+    const next: RaceLapTracker = {
+      lastZ: z,
+      farthestZ: Math.min(tracker.farthestZ, z),
+      lastSide: side ?? tracker.lastSide,
+      startSide: nextStartSide,
+      northTurnCompleted: false,
+      southTurnCompleted: false,
+      finished: false,
+      lap: tracker.lap + 1,
+      totalLaps: tracker.totalLaps,
+    };
+    return { tracker: next, finishedNow: false };
+  }
+
   const next: RaceLapTracker = {
     lastZ: z,
     farthestZ: Math.min(tracker.farthestZ, z),
@@ -121,6 +177,8 @@ export function advanceRaceLap(
     northTurnCompleted,
     southTurnCompleted,
     finished: finishedNow,
+    lap: tracker.lap,
+    totalLaps: tracker.totalLaps,
   };
   return { tracker: next, finishedNow };
 }

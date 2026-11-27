@@ -680,6 +680,14 @@ export function runIncidentSoakRace(
             z: SOAK_LINE_Z,
             heading: 0,
             speed: SOAK_ROLL_SPEED,
+            // LADDER-1E Part 5 — the rung this soak race is run on: the
+            // District races drain at 0.8×, the League races at 1.0×. In a
+            // 1-lap race every pool stays above 40, so no rig eases its
+            // cap and the 1C soak numbers hold exactly as measured in 1D;
+            // the 3-lap League soak drains at 1.0×, as 1D measured it.
+            // (The harness does not pass `laps`: the drivers keep the
+            // totalLaps=1 they were measured with in 1D — out of scope.)
+            rung,
             seed: seedBase + rig.row * 7 + (rig.side === 1 ? 3 : 0),
           });
           rig.crossingTime = simTime;

@@ -160,7 +160,11 @@ describe('Rival Schools — first challenge record', () => {
     const base = withGoliathAndAlms();
     const won = settleRivalSchoolBout(base, RIVAL_SCHOOL_OPPONENT, true, true, validStats());
     const chapterThree = resolveChapterGates(won, 3);
-    expect(chapterThree.some((gate) => gate.state === 'pending')).toBe(true);
+    // LADDER-1E — the District final is an evidence gate now, not a pending
+    // one: Chapter 3 has no pending gate left, and it waits on a District
+    // finish instead.
+    expect(chapterThree.some((gate) => gate.state === 'pending')).toBe(false);
+    expect(chapterThree.find((gate) => gate.id === 'district-final')!.state).toBe('unmet');
     const tierTwoBoss = ALL_OPPONENTS.find((opponent) => opponent.tier === 2 && opponent.isBoss)?.id ?? '';
     const allAvailableChapterThreeEvidence = {
       ...won,
@@ -168,6 +172,10 @@ describe('Rival Schools — first challenge record', () => {
       currentTier: 2,
       defeatedOpponentIds: [...won.defeatedOpponentIds, tierTwoBoss],
       story: { ...(won.story ?? {}), librarySeen: true },
+      // LADDER-1E — a District finish is the Chapter 3 evidence now: with it,
+      // the campaign stands in Chapter 4, the pending Vexus race beside it
+      // not holding it shut.
+      racing: { districtCompleted: 1 },
     };
     expect(resolveStoryState(allAvailableChapterThreeEvidence).chapter).toBe(4);
   });

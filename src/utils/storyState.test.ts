@@ -40,6 +40,16 @@
  * Omen and onto the shrine's alms, so it reads STATE (alms left at least once)
  * instead of pending.
  *
+ * ── LADDER-1E LANDED TWO RACE GATES ───────────────────────────────────────
+ * The `district-final` (Chapter 3) and `league-promotion` (Chapter 4) gates
+ * used to be `'pending'` because their owning system had not landed.  1E lands
+ * the race-results write, so both gates now read real evidence from the racing
+ * record — any District finish for the final, a District top-2 for the
+ * promotion — and a record that has not raced waits with those gates `'unmet'`,
+ * not `'pending'`.  The two rules above are unchanged; the fixtures below carry
+ * that evidence the way the settlement writes it, so every boundary assertion
+ * still measures the boundary it names (§B5, §B7, §G4, §G5, §F).
+ *
  * ── WHAT IS *NOT* ASSERTED HERE ────────────────────────────────────────────
  * Nothing about rendering beyond the card's own static markup, and nothing about
  * a save: this suite never calls a save writer, never touches `localStorage` and
@@ -344,15 +354,18 @@ describe('§B the chapter boundaries', () => {
       'district-final',
       'library-seen',
     ]);
-    expect(gates.map((gate) => gate.state)).toEqual(['met', 'met', 'pending', 'unmet']);
-    expect(storyGateLine(gates[2])).toBe(PENDING_GATE_LINES.race);
+    expect(gates.map((gate) => gate.state)).toEqual(['met', 'met', 'unmet', 'unmet']);
+    // LADDER-1E — the District final is an evidence gate now, not a pending
+    // one: this record has never raced, so the gate is unmet and the card
+    // prints its requirement, not the pending line.
+    expect(storyGateLine(gates[2])).toBe('Reach the District final');
     // The library beat is the one gate still unmet, and it is the only one that
     // moves when it is met.
     const done = withStory(base, { librarySeen: true });
     expect(resolveChapterGates(done, 3).map((gate) => gate.state)).toEqual([
       'met',
       'met',
-      'pending',
+      'unmet',
       'met',
     ]);
     // …and each missing piece still holds its own gate back.
@@ -367,6 +380,24 @@ describe('§B the chapter boundaries', () => {
         3
       )[1].state
     ).toBe('unmet');
+  });
+
+  test("B5b — LADDER-1E lands the District final: any District finish meets it", () => {
+    const base = withDoctoreTest(campaign(midCampaign(2, 200)));
+    const gateFor = (racing: PlayerProfile['racing']) =>
+      resolveChapterGates({ ...base, racing }, 3).find((gate) => gate.id === 'district-final')!;
+    // No racing record: unmet, and no pending kind any more.
+    const unraced = gateFor(undefined);
+    expect(unraced.state).toBe('unmet');
+    expect(unraced.pendingKind).toBeUndefined();
+    expect(storyGateLine(unraced)).toBe('Reach the District final');
+    // Any District finish — even a last-place one — is the evidence.
+    const raced = gateFor({ districtCompleted: 1 });
+    expect(raced.state).toBe('met');
+    expect(storyGateLine(raced)).toBe('The District final is yours to race.');
+    // A malformed count is no evidence at all.
+    const malformed = gateFor({ districtCompleted: 'many' } as unknown as PlayerProfile['racing']);
+    expect(malformed.state).toBe('unmet');
   });
 
   test("B6 — a fully-met record stops at Chapter 2: the Legend state is not claimed without a race", () => {
@@ -408,9 +439,11 @@ describe('§B the chapter boundaries', () => {
     const diceGate = (profile: PlayerProfile) =>
       resolveChapterGates(profile, 4).find((gate) => gate.id === 'dice-ending')!;
     expect(diceGate(beforeDice).state).toBe('unmet');
+    // LADDER-1E — the League promotion is an evidence gate now, not a pending
+    // one: this record has never raced, so it is unmet.
     expect(
       resolveChapterGates(beforeDice, 4).find((gate) => gate.id === 'league-promotion')!.state
-    ).toBe('pending');
+    ).toBe('unmet');
     const rolled = withStory(beforeDice, { diceEnding: 'refused' });
     // …and the flag is that gate's own evidence: once the dice have fallen the
     // gate is met, and an unknown enum name is not evidence at all.
@@ -420,6 +453,31 @@ describe('§B the chapter boundaries', () => {
       diceEnding: 'folded',
     } as unknown as NonNullable<PlayerProfile['story']>);
     expect(diceGate(folded).state).toBe('unmet');
+  });
+
+  test("B7b — LADDER-1E lands the League promotion: a District top-2 meets it", () => {
+    const base = withDoctoreTest(
+      campaign({
+        currentTier: 3,
+        fame: 700,
+        defeatedOpponentIds: [bossId(1), bossId(2)],
+        story: { librarySeen: true },
+      })
+    );
+    const gateFor = (racing: PlayerProfile['racing']) =>
+      resolveChapterGates({ ...base, racing }, 4).find((gate) => gate.id === 'league-promotion')!;
+    expect(gateFor(undefined).state).toBe('unmet');
+    // The same evidence as the rung lock: 1st or 2nd at District.
+    expect(gateFor({ districtBestFinish: 1 }).state).toBe('met');
+    expect(gateFor({ districtBestFinish: 2 }).state).toBe('met');
+    expect(gateFor({ districtBestFinish: 3 }).state).toBe('unmet');
+    // A malformed finish is no evidence at all.
+    expect(
+      gateFor({ districtBestFinish: 'first' } as unknown as PlayerProfile['racing']).state
+    ).toBe('unmet');
+    // …and the gate's line is its confirmation once met, its requirement while unmet.
+    expect(storyGateLine(gateFor({ districtBestFinish: 2 }))).toBe('Your League promotion is taken.');
+    expect(storyGateLine(gateFor(undefined))).toBe('Take your League promotion');
   });
 
   test('B8 — the chapter table is the eight authored chapters, in order', () => {
@@ -670,16 +728,63 @@ describe('§F the campaign card', () => {
   });
 
   test('pending gates print the authored pending lines and never their requirement', () => {
+    // LADDER-1E — the pending race gate the card can still show is the
+    // League's top half (Chapter 5): the District final and the League
+    // promotion are evidence gates now, so this profile stands in Chapter 5
+    // by having earned them — a District finish and a District top-2 — plus
+    // every duel gate before them.
+    const base = withDoctoreTest(campaign(midCampaign(3, 700)));
+    const profile: PlayerProfile = {
+      ...base,
+      defeatedOpponentIds: [...base.defeatedOpponentIds, bossId(3)],
+      racing: { districtCompleted: 1, districtBestFinish: 2 },
+      // BET-1 — Beat 3 is met by the alms now: without it the profile never
+      // leaves Chapter 2 and this test's Chapter 5 never renders.
+      ludi: {
+        day: 5,
+        deedsDone: [],
+        favour: 1,
+        lastAlmsDay: 5,
+        fameBaseline: 0,
+        visitsToday: [],
+      },
+      story: {
+        ...(base.story ?? {}),
+        rivalry: {
+          stage: 'completed',
+          attempts: 1,
+          wins: 1,
+          losses: 0,
+          completed: true,
+          lastOutcome: 'win',
+        },
+        librarySeen: true,
+        diceEnding: 'cut',
+      },
+    };
+    const markup = text(markupFor(profile));
+    expect(markup).toContain('data-chapter="5"');
+    expect(markup).toContain(PENDING_GATE_LINES.race);
+    expect(markup).toContain('data-state="pending"');
+    // BET-1 — there is no omen pending line any more: the Omen is cut and its
+    // gate left `PENDING_GATE_LINES` with it.
+    expect(Object.keys(PENDING_GATE_LINES)).toEqual(['race', 'beat']);
+    // The pending line is printed instead of the owning gate's requirement or confirmation.
+    expect(markup).not.toContain("Finish in the League's top half");
+    expect(markup).not.toContain("You stand in the League's top half.");
+  });
+
+  test('LADDER-1E — a Chapter 3 card with no racing record shows the District final as unmet, never pending', () => {
+    // The same Chapter 3 profile the pending-lines test used to stand on:
+    // every duel gate met, no race run. The District final is an evidence
+    // gate now, so the card prints its requirement — and no race pending line
+    // appears on Chapter 3 at all.
     const base = withDoctoreTest(campaign(midCampaign(2, 200)));
-    const tierOneBoss = bossId(1);
-    const tierTwoBoss = bossId(2);
     const profile: PlayerProfile = {
       ...base,
       currentTier: 2,
       fame: 200,
-      defeatedOpponentIds: [...base.defeatedOpponentIds, tierOneBoss, tierTwoBoss],
-      // BET-1 — Beat 3 is met by the alms now: without it the profile never
-      // leaves Chapter 2 and this test's Chapter 3 never renders.
+      defeatedOpponentIds: [...base.defeatedOpponentIds, bossId(1), bossId(2)],
       ludi: {
         day: 5,
         deedsDone: [],
@@ -703,14 +808,9 @@ describe('§F the campaign card', () => {
     };
     const markup = text(markupFor(profile));
     expect(markup).toContain('data-chapter="3"');
-    expect(markup).toContain(PENDING_GATE_LINES.race);
-    expect(markup).toContain('data-state="pending"');
-    // BET-1 — there is no omen pending line any more: the Omen is cut and its
-    // gate left `PENDING_GATE_LINES` with it.
-    expect(Object.keys(PENDING_GATE_LINES)).toEqual(['race', 'beat']);
-    // The pending line is printed instead of the owning gate's requirement or confirmation.
-    expect(markup).not.toContain('Reach the District final');
-    expect(markup).not.toContain('The District final is yours to race.');
+    expect(markup).toContain('Reach the District final');
+    expect(markup).toContain('data-state="unmet"');
+    expect(markup).not.toContain(PENDING_GATE_LINES.race);
   });
 
   test('a met gate prints its confirmation, not its requirement', () => {
@@ -860,12 +960,14 @@ describe('§G the story beats', () => {
   test('G4 — a profile meeting every available gate closes Chapter 1, and Chapter 2 holds it', () => {
     // Chapter 1: the first win and the Test are met and no beat is pending.
     expect(resolveStoryState(withDoctoreTest(legacy(1))).chapter).toBe(2);
-    // Chapter 4: Tier 3 and the dice are met and the Vexus race is pending, so
-    // that chapter has no unmet gate — and the record is still held at Chapter 2.
+    // Chapter 4: Tier 3 and the dice are met and the Vexus race is pending, and
+    // LADDER-1E landed the League promotion as an evidence gate — this record
+    // has no District top-2, so that gate is unmet — and the record is still
+    // held at Chapter 2.
     const four = withStory(chapterFour(), { diceEnding: 'cut' });
     expect(resolveChapterGates(four, 4).map((gate) => gate.state)).toEqual([
       'met',
-      'pending',
+      'unmet',
       'pending',
       'met',
     ]);
@@ -899,10 +1001,11 @@ describe('§G the story beats', () => {
     expect(resolveStoryState(fresh()).complete).toBe(false);
     // A chapter without its available evidence still stays open, beat or no beat.
     expect(resolveStoryState(chapterOne()).chapter).toBe(1);
-    // Chapter 4's own table still has an unmet gate — the dice — and that gate,
-    // not the pending pair beside it, is what would hold that chapter open.
+    // Chapter 4's own table still has unmet gates — the dice, and (LADDER-1E)
+    // the League promotion, which needs a District top-2 — and those gates,
+    // not the pending beat beside them, are what would hold that chapter open.
     const four = resolveChapterGates(chapterFour(), 4);
-    expect(four.map((gate) => gate.state)).toEqual(['met', 'pending', 'pending', 'unmet']);
+    expect(four.map((gate) => gate.state)).toEqual(['met', 'unmet', 'pending', 'unmet']);
     expect(resolveStoryState(chapterFour()).chapter).toBe(2);
   });
 });

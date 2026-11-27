@@ -218,6 +218,10 @@ interface StoryEvidence {
   almsGiven: boolean;
   /** Rival Schools — only an accepted victory settles this campaign evidence. */
   rivalSchoolsWon: boolean;
+  /** LADDER-1E — District races completed (`racing.districtCompleted`), read defensively. */
+  districtRacesCompleted: number;
+  /** LADDER-1E — best District finish (1-based), or null when no valid finish is recorded. */
+  districtBestFinish: number | null;
   flags: ResolvedStoryFlags;
 }
 
@@ -235,6 +239,16 @@ interface GateDefinition {
 /** A finite number, or `null` — a string, NaN or a missing field is not a total. */
 function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** LADDER-1E — a per-rung count from the racing record: a safe integer ≥ 0, else 0. */
+function safeRacingCount(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+/** LADDER-1E — a per-rung best finish: a safe integer ≥ 1, else null. */
+function safeRacingBestFinish(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 ? value : null;
 }
 
 /**
@@ -376,7 +390,7 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.almsGiven,
     },
   ],
-  // 3 — The Name in the Records: Veteran, Ignis, the District final (pending), the Library.
+  // 3 — The Name in the Records: Veteran, Ignis, the District final (LADDER-1E: any District finish), the Library.
   [
     {
       id: 'rank-veteran',
@@ -385,12 +399,14 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => rankAtLeast(evidence.rank, 'Veteran'),
     },
     tierBossGate(2, 'tier-2-boss'),
-    pendingGate(
-      'district-final',
-      'Reach the District final',
-      'The District final is yours to race.',
-      'race'
-    ),
+    {
+      id: 'district-final',
+      requirement: 'Reach the District final',
+      confirmation: 'The District final is yours to race.',
+      // LADDER-1E — landed: any District finish is the evidence (a District
+      // race completed at least once).
+      met: (evidence) => evidence.districtRacesCompleted >= 1,
+    },
     {
       id: 'library-seen',
       requirement: 'Read your own name in the Records & Lore Library',
@@ -398,7 +414,7 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.flags.librarySeen,
     },
   ],
-  // 4 — The Vulture's Wheel: Tier 3, the League promotion (pending), the dice.
+  // 4 — The Vulture's Wheel: Tier 3, the League promotion (LADDER-1E: a District top-2), the dice.
   [
     {
       id: 'tier-3',
@@ -406,12 +422,17 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       confirmation: 'You fight in Tier 3 of the arena.',
       met: (evidence) => evidence.currentTier >= 3,
     },
-    pendingGate(
-      'league-promotion',
-      'Take your League promotion',
-      'Your League promotion is taken.',
-      'race'
-    ),
+    {
+      id: 'league-promotion',
+      requirement: 'Take your League promotion',
+      confirmation: 'Your League promotion is taken.',
+      // LADDER-1E — landed: a District top-2 finish is the evidence — the
+      // same evidence as the rung lock.
+      met: (evidence) =>
+        evidence.districtBestFinish !== null &&
+        evidence.districtBestFinish >= 1 &&
+        evidence.districtBestFinish <= 2,
+    },
     pendingGate(
       'vexus-race',
       'Run the Vexus incident race',
@@ -489,6 +510,8 @@ function readEvidence(profile: PlayerProfile | null | undefined): StoryEvidence 
       : [],
     almsGiven: hasLeftShrineAlms(profile),
     rivalSchoolsWon: isRivalSchoolChallengeWon(profile),
+    districtRacesCompleted: safeRacingCount(profile?.racing?.districtCompleted),
+    districtBestFinish: safeRacingBestFinish(profile?.racing?.districtBestFinish),
     flags: resolveFlags(profile),
   };
 }

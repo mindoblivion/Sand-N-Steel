@@ -207,6 +207,46 @@ describe('raceStamina — recovery (§3, §6)', () => {
   });
 });
 
+describe('raceStamina — the rung drain multiplier (§7 Q1, LADDER-1E Part 5)', () => {
+  test('District drains at 0.8×: the same band, 20% less pool lost', () => {
+    const press = { speed: 8, paceCap: 10, zone: 'meta' as const };
+    const league = runFor(createRaceStamina(), 10, { ...press });
+    const district = runFor(createRaceStamina(), 10, { ...press, drainMultiplier: 0.8 });
+    expect(100 - league.pool).toBeCloseTo(10 * RACE_STAMINA_CONFIG.drainPerSecond.press, 6);
+    expect(100 - district.pool).toBeCloseTo(10 * RACE_STAMINA_CONFIG.drainPerSecond.press * 0.8, 6);
+    // The multiplier composes with the team-size factor, never replaces it.
+    const districtQuadra = runFor(createRaceStamina(), 10, { ...press, teamSize: 4, drainMultiplier: 0.8 });
+    expect(100 - districtQuadra.pool).toBeCloseTo(
+      10 * RACE_STAMINA_CONFIG.drainPerSecond.press * 0.8 * 0.8,
+      6,
+    );
+  });
+
+  test('absent, non-finite, or non-positive reads 1.0 — an unknown rung drains at the full League rate', () => {
+    const press = { speed: 8, paceCap: 10, zone: 'meta' as const };
+    const expected = 100 - 10 * RACE_STAMINA_CONFIG.drainPerSecond.press;
+    for (const drainMultiplier of [undefined, Number.NaN, Number.POSITIVE_INFINITY, 0, -0.5]) {
+      const state = runFor(createRaceStamina(), 10, { ...press, drainMultiplier });
+      expect(state.pool).toBeCloseTo(expected, 6);
+    }
+    expect(runFor(createRaceStamina(), 10, { ...press, drainMultiplier: 1 }).pool).toBeCloseTo(expected, 6);
+  });
+
+  test('the multiplier scales the drain only — recovery is untouched', () => {
+    // Cruise on a straight regains the same pool at 0.8× as at 1.0×: the
+    // multiplier is a drain-rate multiplier, not a recovery one.
+    const cruiseStraight = { speed: 5, paceCap: 10, zone: 'straight' as const };
+    const district = createRaceStamina();
+    district.pool = 90;
+    runFor(district, 10, { ...cruiseStraight, drainMultiplier: 0.8 });
+    const league = createRaceStamina();
+    league.pool = 90;
+    runFor(league, 10, { ...cruiseStraight });
+    expect(district.pool).toBeCloseTo(league.pool, 9);
+    expect(district.pool).toBeCloseTo(90 + 10 * RACE_STAMINA_CONFIG.recoveryPerSecond, 6);
+  });
+});
+
 describe('raceStamina — pace-cap easing (§3, §6)', () => {
   test('endpoints: 1.0 at 40 and above, 0.88 at 0', () => {
     expect(paceCapMultiplierFor(100)).toBe(1);
