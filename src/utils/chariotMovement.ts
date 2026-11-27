@@ -107,6 +107,18 @@
  * to 1. A hub catch (dragScale 4) under full throttle still decelerates to 0
  * and holds there: the scrub (9 u/s²) beats the throttle's acceleration
  * (6.5 u/s²), and the scrub toward 0 can never cross it.
+ *
+ * ── 7. LADDER-1D: the effective max speed ──────────────────────────────────
+ * `stepChariot` / `advanceChariot` take a sixth / fifth argument, `maxSpeed`
+ * (default `CHARIOT_MOVEMENT.maxSpeed` = 13, bit-identical motion). It is the
+ * stamina system's pace-cap effect, applied at the PLAYER call site only:
+ * the scene passes `13 × paceCapMultiplierFor(pool)`, so a tired team is
+ * capped lower (11.44 at pool 0) while the rivals' shared path never takes
+ * this input — rivals are capped by their driver pace targets instead.
+ * `maxSpeed` itself does NOT change; the caller supplies a lower cap on top
+ * of it, and an invalid value fails closed to 13. A rig already above a
+ * lowered cap is clamped down to it on the next throttle step; the reverse
+ * cap (`maxReverseSpeed`) is untouched.
  */
 
 import {
@@ -291,13 +303,22 @@ export function mergeChariotInputs(
  * `dragScale` is the LADDER-1C incident scrub (§6): the extra deceleration
  * `(dragScale − 1) × drag` toward 0 in the throttle branches, and the coasting
  * drag multiplied by `dragScale`; 1 is bit-identical motion.
+ * `maxSpeed` is the LADDER-1D effective max speed (§7): the forward cap for
+ * this step — the caller passes a lower cap when the team is tired
+ * (`13 × paceCapMultiplierFor(pool)`); the default is `config.maxSpeed`.
  */
 export function stepChariot(
   motion: ChariotMotion,
   input: ChariotInput,
   dt: number,
   accelScale = 1,
-  dragScale = 1
+  dragScale = 1,
+  // LADDER-1D (Part 4 fix): annotated `number`, not the literal `13` —
+  // `CHARIOT_MOVEMENT` is `as const`, so the bare default inferred the
+  // parameter type as the literal 13 and no computed cap (11.44, or
+  // `13 × paceCapMultiplierFor(pool)`) could be passed. The default value
+  // is unchanged; only the type widens to what the extension means.
+  maxSpeed: number = CHARIOT_MOVEMENT.maxSpeed
 ): ChariotMotion {
   const config = CHARIOT_MOVEMENT;
   const step = Number.isFinite(dt) && dt > 0 ? dt : 0;
@@ -307,6 +328,12 @@ export function stepChariot(
   // An invalid scrub fails closed to no scrub (1): the steward only ever
   // passes ≥ 1, and a NaN or negative must never accelerate the rig.
   const drag = Number.isFinite(dragScale) && dragScale >= 1 ? dragScale : 1;
+  // An invalid cap fails closed to the shipped cap: a NaN, zero, or negative
+  // cap must never freeze the rig, and nothing may raise the cap above 13.
+  const effectiveMax =
+    Number.isFinite(maxSpeed) && maxSpeed > 0
+      ? Math.min(maxSpeed, config.maxSpeed)
+      : config.maxSpeed;
   // Move a speed toward 0 by `amount`, settling on exactly 0 rather than
   // creeping across it forever. Never reverses the rig.
   const scrubTowardZero = (value: number, amount: number): number =>
@@ -318,7 +345,7 @@ export function stepChariot(
 
   if (throttle > 0) {
     speed += throttle * config.acceleration * scale * step;
-    if (speed > config.maxSpeed) speed = config.maxSpeed;
+    if (speed > effectiveMax) speed = effectiveMax;
     speed = scrubTowardZero(speed, scrub);
   } else if (throttle < 0) {
     if (speed > 0) {
@@ -362,7 +389,10 @@ export function advanceChariot(
   input: ChariotInput,
   frameDt: number,
   accelScale = 1,
-  dragScale = 1
+  dragScale = 1,
+  // LADDER-1D (Part 4 fix): see `stepChariot` — the bare default inferred
+  // the literal type 13; the parameter is a number (the effective cap).
+  maxSpeed: number = CHARIOT_MOVEMENT.maxSpeed
 ): ChariotMotion {
   const config = CHARIOT_MOVEMENT;
   const clamped = Number.isFinite(frameDt) ? clampNumber(frameDt, 0, config.maxFrameDt) : 0;
@@ -371,7 +401,7 @@ export function advanceChariot(
 
   let steps = 0;
   while (motion.accumulator >= config.fixedDt && steps < config.maxStepsPerFrame) {
-    stepChariot(motion, input, config.fixedDt, accelScale, dragScale);
+    stepChariot(motion, input, config.fixedDt, accelScale, dragScale, maxSpeed);
     motion.accumulator -= config.fixedDt;
     steps += 1;
   }

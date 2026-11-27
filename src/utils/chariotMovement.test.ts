@@ -29,6 +29,10 @@
  *      bit-identical, 4 under full throttle still decelerates to 0 and
  *      holds, 2 coasting stops faster, the scrub never reverses the rig,
  *      and an invalid dragScale fails closed to 1.
+ *   §O LADDER-1D: the effective max speed — the default is bit-identical,
+ *      a lower cap caps the speed (11.44 = 13 × 0.88 at pool 0), a rig above
+ *      a lowered cap is clamped down, the reverse cap is untouched, and an
+ *      invalid maxSpeed fails closed to 13 (never above it).
  *
  * Every expectation is computed from the shipped module or re-derived in the
  * test; nothing is copied from the module's own comments.
@@ -921,5 +925,84 @@ describe('N. LADDER-1C: the incident drag/scrub multiplier', () => {
       expect(motion.z).toBe(plain.z);
       expect(motion.heading).toBe(plain.heading);
     }
+  });
+});
+
+describe('O. LADDER-1D: the effective max speed', () => {
+  /** The stamina floor: 13 × 0.88, the cap at pool 0. */
+  const BLOWN_CAP = 13 * 0.88;
+
+  /** Step `count` fixed steps at full throttle from `speed`, under a cap. */
+  const capped = (speed: number, count: number, maxSpeed: number): ChariotMotion => {
+    const motion = createChariotMotion(START_X, START_Z, START_HEADING);
+    motion.speed = speed;
+    for (let i = 0; i < count; i += 1) {
+      stepChariot(motion, input(1), STEP, 1, 1, maxSpeed);
+    }
+    return motion;
+  };
+
+  test('the default cap is bit-identical to omitting it, in step and in advance', () => {
+    const a = createChariotMotion(START_X, START_Z, START_HEADING);
+    const b = createChariotMotion(START_X, START_Z, START_HEADING);
+    a.speed = 9;
+    b.speed = 9;
+    for (let i = 0; i < 120; i += 1) {
+      stepChariot(a, input(1, 0.3), STEP);
+      stepChariot(b, input(1, 0.3), STEP, 1, 1, cfg.maxSpeed);
+    }
+    expect(b).toEqual(a);
+    const c = createChariotMotion(START_X, START_Z, START_HEADING);
+    const d = createChariotMotion(START_X, START_Z, START_HEADING);
+    c.speed = 9;
+    d.speed = 9;
+    advanceChariot(c, input(0), 1);
+    advanceChariot(d, input(0), 1, 1, 1, cfg.maxSpeed);
+    expect(d).toEqual(c);
+  });
+
+  test('a lower cap caps the speed: a blown team tops out at 11.44, not 13', () => {
+    // 120 steps (2 s) is enough to reach either cap from rest, and short
+    // enough that the rig never reaches a boundary — a longer run would
+    // drive into the north wall and the clamp would zero the speed.
+    expect(capped(0, 120, BLOWN_CAP).speed).toBeCloseTo(BLOWN_CAP, 9);
+    expect(capped(0, 120, cfg.maxSpeed).speed).toBeCloseTo(cfg.maxSpeed, 9);
+    // The same cap reaches the steps through advanceChariot.
+    const viaAdvance = createChariotMotion(START_X, START_Z, START_HEADING);
+    for (let i = 0; i < 20; i += 1) {
+      advanceChariot(viaAdvance, input(1), 0.1, 1, 1, BLOWN_CAP);
+    }
+    expect(viaAdvance.speed).toBeCloseTo(BLOWN_CAP, 9);
+  });
+
+  test('a rig above a lowered cap is clamped down on the next throttle step', () => {
+    const motion = createChariotMotion(START_X, START_Z, START_HEADING);
+    motion.speed = cfg.maxSpeed;
+    stepChariot(motion, input(1), STEP, 1, 1, BLOWN_CAP);
+    expect(motion.speed).toBeCloseTo(BLOWN_CAP, 9);
+  });
+
+  test('the cap never touches the reverse cap', () => {
+    // Start mid-arena: reversing from the start line would back into the
+    // south wall inside 120 steps and the clamp would zero the speed.
+    const motion = createChariotMotion(52.34, 0, 0);
+    for (let i = 0; i < 120; i += 1) {
+      stepChariot(motion, input(-1), STEP, 1, 1, 5);
+    }
+    expect(motion.speed).toBeCloseTo(-cfg.maxReverseSpeed, 9);
+  });
+
+  test('an invalid maxSpeed fails closed to 13, never above it', () => {
+    const plain = capped(6, 10, cfg.maxSpeed);
+    for (const bad of [Number.NaN, 0, -2, Number.POSITIVE_INFINITY]) {
+      const motion = capped(6, 10, bad);
+      expect(motion.speed).toBe(plain.speed);
+      expect(motion.x).toBe(plain.x);
+      expect(motion.z).toBe(plain.z);
+      expect(motion.heading).toBe(plain.heading);
+    }
+    // A cap above 13 cannot raise the cap: 20 behaves exactly like 13.
+    const raised = capped(0, 120, 20);
+    expect(raised.speed).toBeCloseTo(cfg.maxSpeed, 9);
   });
 });

@@ -83,6 +83,26 @@
 // (0.5 outside its lane, 80% pace); a warned innocent holds its line — the
 // two inputs are wired and tested, the steward that would set them is 1C's.
 //
+// ── LADDER-1D: stamina ─────────────────────────────────────────────────────
+// Each driver carries a stamina pool (`raceStamina.ts`), stepped once per
+// tick in `driveRival` from its own speed, pace cap, zone, and lap — the
+// same module and rates as the player. The target speed is the pace cap ×
+// the style fraction × the stamina multiplier × the warning fraction:
+// frontrunner 1.00 (all-out early), metronome 0.85 (press-band), closer
+// 0.85 (press-band) until the final third of the race, then 1.00 (all-out).
+// (Option A — brief Build record: the design's 0.70 / 0.65 fractions
+// gridlocked the League field at the north-turn kink. Option C2: the style
+// fractions apply on straights only — through a turn every rig runs at full
+// pace, restoring the proven 1B2 turn behaviour. Walter's decision, Nov 27
+// 02:16 EST: the closer's early fraction rises 0.80 → 0.85, matching the
+// metronome — the early distinction is gone; the closer's identity is the
+// final-third kick plus its drain profile.) The stamina
+// multiplier eases the cap smoothly (1.0 above 40 stamina, 0.88 at 0).
+// The follow cap still reads the leader's RAW
+// paceTarget, not its effective pace. Rivals are Biga with stock loadout,
+// so those stamina factors read 1.0 here; the race length in laps comes
+// from the `laps` creation option (default 1).
+//
 // ── The RNG ─────────────────────────────────────────────────────────────────
 // One seeded draw per driver, at creation: a ±0.1 line jitter, so two
 // identical-profile rivals do not drive the exact same line. The seed
@@ -109,6 +129,12 @@ import {
   resolveRivalDriverProfile,
   type RivalDriverProfile,
 } from './raceCompetitors';
+import {
+  createRaceStamina,
+  paceCapMultiplierFor,
+  stepRaceStamina,
+  type RaceStaminaState,
+} from './raceStamina';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tuning — the driver's own constants (the movement module's are untouched)
@@ -737,6 +763,11 @@ export interface RivalDriverState {
   paceTarget: number;
   /** This rig's width. */
   width: number;
+  /** LADDER-1D: this rig's stamina pool, stepped once per tick in `driveRival`. */
+  stamina: RaceStaminaState;
+  /** LADDER-1D: the race length in laps (1 = a single-lap race). The closer's
+   * "final third" is the last third of this many laps. */
+  totalLaps: number;
   /** The seeded line jitter (±0.1), drawn once at creation. */
   lineJitter: number;
   /** The driver's own unwrapped route distance. */
@@ -776,6 +807,9 @@ export interface RivalDriverOptions {
   heading: number;
   speed: number;
   teamSize?: ChariotTeamSize;
+  /** LADDER-1D: the race length in laps, for the closer's "final third"
+   * (defaults to 1 — a single-lap race). */
+  laps?: number;
   /** The seed for the line jitter (defaults to 0). */
   seed?: number;
   /** An injected RNG (the tests inject one, so the jitter is deterministic). */
@@ -800,6 +834,8 @@ export function createRivalDriver(options: RivalDriverOptions): RivalDriverState
     analysis,
     paceTarget: resolveDriverPaceCap(profile),
     width,
+    stamina: createRaceStamina(),
+    totalLaps: options.laps ?? 1,
     lineJitter,
     totalS: projection.s,
     lap: 0,
@@ -828,6 +864,58 @@ export function rivalDriverRoutePosition(state: RivalDriverState): {
 
 const clampNumber = (value: number, min: number, max: number): number =>
   value < min ? min : value > max ? max : value;
+
+/**
+ * LADDER-1D — the style's target-band policy, as a fraction of the pace cap.
+ * The band the fraction lands in is the band the rig drains at (the speed
+ * chases the target, so speed/cap ≈ the fraction on open track):
+ *
+ * - frontrunner: 1.00 — all-out early. The design's "press early" read as
+ *   "spend early": press (≤ 0.92) cannot produce the required fade against a
+ *   metronome at the boundary, because both would drain at the press rate.
+ *   At full pace the frontrunner drains at the all-out rate and fades late.
+ * - metronome: 0.85 — press-band, all race. (Option A — brief Build
+ *   record: the design's 0.70 cruise/press boundary compressed the field's
+ *   speed spread to ~0.09 u/s and gridlocked the League field at the
+ *   north-turn kink. 0.85 preserves the profile spread — the field's real
+ *   separation — while the press rate in `raceStamina.ts` is set so a
+ *   metronome still ends a 3-lap District race above 40.)
+ * - closer: 0.85 — press-band, the same early straight pace as the
+ *   metronome — until the final third of the race, then 1.00 — all-out.
+ *   The late pace is not a boost, it is unspent stamina. (Walter's
+ *   decision, Nov 27 02:16 EST — brief Build record: the 0.80 early
+ *   fraction erased the straight-line pace gap the pass gate depends on
+ *   (Aulus 0.80×2.72 = 2.18 vs Rufus 0.85×2.54 = 2.16) and left the
+ *   closer 1.1 s over the lap-time band, so the closer rises to 0.85.
+ *   The closer/metronome early distinction is gone; the closer's
+ *   identity is now the final-third kick plus its drain profile — it
+ *   still drains slower than the frontrunner and ends a 5-lap League
+ *   race with more pool, the §3 target.)
+ *
+ * Option C2 (brief Build record) — the fractions apply on STRAIGHTS only.
+ * Through a turn (`meta` / `meta-exit`) every rig runs at full pace
+ * (fraction 1.0), restoring the proven 1B2 turn behaviour: the compressed
+ * fractions (Option A) still gridlocked the League field at the north-turn
+ * apex — two rigs on opposite sides reach the apex together and the
+ * separation push cancels both rigs' forward motion — so stamina is a
+ * straight-line game (the design's recovery also lives on straights, and
+ * straights are ~85% of the race). The tired-rig vulnerability still
+ * applies in turns, because the 0.88 pace-cap multiplier is on the cap,
+ * not on the style fraction.
+ *
+ * The fractions are tuning knobs against the §3 measurable targets and the
+ * §6 pins: if they cannot hold the lap-time band pin, the slice reports the
+ * numbers and stops — it does not compress the styles silently to fit the
+ * pins.
+ */
+function rivalStyleTargetFraction(state: RivalDriverState, zone: RivalRouteZone): number {
+  if (zone !== 'straight') return 1;
+  const style = state.profile.staminaStyle;
+  if (style === 'frontrunner') return 1;
+  if (style === 'metronome') return 0.85;
+  const raceLength = state.totalLaps * state.analysis.length;
+  return state.totalS >= (2 / 3) * raceLength ? 1 : 0.85;
+}
 
 /**
  * One tick of the driver: a `ChariotInput` for `advanceChariot`. The driver
@@ -910,6 +998,21 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   let desiredOffset = straightOffset + (metaOffset - straightOffset) * w + state.lineJitter;
 
   const zone = routeZoneAt(analysis, s);
+
+  // LADDER-1D: step this rig's stamina — same module, same rates as the
+  // player. Rivals are Biga with stock loadout (no team size or loadout
+  // data exists for rivals), so those factors read 1.0 here. The step runs
+  // only while racing: the early return above owns the roll phase.
+  stepRaceStamina(state.stamina, {
+    speed: tick.speed,
+    paceCap: state.paceTarget,
+    dtMs: dt * 1000,
+    teamSize: 2,
+    wheelsId: 'wheels_standard',
+    finishId: 'finish_stock',
+    zone,
+    lap: state.lap,
+  });
 
   // 4. The overtake, as follower: a pass needs a pace advantage and an open
   //    window. A pass ABORTS when the rig enters a meta: a pass started on
@@ -1030,6 +1133,15 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   //    more than 0.5 above the corner limit — the handoff's 5 u/s roll
   //    speed decays by coasting, never by braking.
   //
+  //    LADDER-1D: the pace cap is the style fraction × the stamina
+  //    multiplier × the warning fraction. A tired rig's target eases down
+  //    smoothly (1.0 above 40 stamina, 0.88 at 0) — the same helper the
+  //    player uses, so the physics never forks. The follow cap below still
+  //    reads the leader's RAW paceTarget (not its effective pace): a tired
+  //    leader lowers the follower's cap through its actual speed, and the
+  //    raw cap stays the upper bound — that interaction is the follow cap
+  //    working as designed, not a bug to fix.
+  //
   //    Following: a rig close behind another (within the follow distance)
   //    with no open window holds the leader's speed instead of its own
   //    pace — it waits for a window rather than driving into the leader's
@@ -1040,7 +1152,12 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   //    cannot shed 1.9 u/s of closing speed before the nose — 2.02 ahead
   //    of the body — reaches the leader).
   const cornerLimit = rivalSpeedLimitAt(analysis, s);
-  let target = Math.min(state.paceTarget * paceFraction, cornerLimit);
+  const styleFraction = rivalStyleTargetFraction(state, zone);
+  const staminaMultiplier = paceCapMultiplierFor(state.stamina.pool);
+  let target = Math.min(
+    state.paceTarget * paceFraction * styleFraction * staminaMultiplier,
+    cornerLimit,
+  );
   let followBrake = false;
   if (ahead !== null && state.overtake.targetId === null && aheadGap <= RIVAL_FOLLOW_DISTANCE) {
     // Capped by BOTH the leader's pace and its actual speed: the pace
