@@ -21,9 +21,11 @@
  *     Tier 1 regulars, and victories inside generated grudge bouts.  Offers
  *     begin at Chapter 3 (`resolveStoryState`), read from the record the bout
  *     was FOUGHT with, so a win can neither create nor retroactively earn an
- *     offer.  R6's stated consequence: Chapter 3 is unreachable until Stage 2
- *     lands its race-results write, so the offer is DORMANT — the code lands
- *     now, tested, and activates when Stage 2 unlocks Chapter 3.
+ *     offer.  R6's stated consequence, CORRECTED LADDER-1E: Chapter 3 is
+ *     reachable on duel evidence today — the Chapter 2 race exception is
+ *     retired, so the offer is LIVE at Chapter 3+, not dormant.  1E does not
+ *     unblock Mercy; it corrects this comment (the race-results write unblocks
+ *     the League rung and the race gates, not Mercy).
  *   • ONCE EACH — the spared map enforces it for a Spared rival; a Finished
  *     rival is enforced by the SAME first-defeat rule, because a finished rival
  *     stays in `defeatedOpponentIds` and no later victory is a first victory.

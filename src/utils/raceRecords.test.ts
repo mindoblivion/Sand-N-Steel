@@ -2,7 +2,8 @@
 import { describe, test, expect } from 'bun:test';
 import { createNewProfile } from '../services/storage';
 import { readFileSync } from 'node:fs';
-import { recordRaceBestTime, settleRaceCompletion, MAX_RECORDED_RACE_TIME_MS } from './raceRecords';
+import { recordRaceBestTime, resolveNormalizedRaceTime, settleRaceCompletion, MAX_RECORDED_RACE_TIME_MS } from './raceRecords';
+import { RACE_TIERS } from '../data/raceTiers';
 
 describe('race best-time transaction', () => {
   test('a first finish writes only the selected team time and preserves legacy progression', () => {
@@ -67,7 +68,7 @@ describe('race best-time transaction', () => {
 
   test('completion purse is free-entry, team-scaled, and includes a modest victory bonus', () => {
     const profile = createNewProfile('Circus Career');
-    const biga = settleRaceCompletion(profile, 2, 15000, 'victory', 4);
+    const biga = settleRaceCompletion(profile, 2, 15000, 'victory', 4, 'district', 1);
     expect(biga.ok).toBe(true);
     if (!biga.ok) return;
     expect(biga.purseAwarded).toBe(100);
@@ -76,16 +77,16 @@ describe('race best-time transaction', () => {
   });
 
   test('only one purse is paid per in-game day, but every valid finish is recorded', () => {
-    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'defeat', 7);
+    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'defeat', 7, 'district', 3);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
-    const second = settleRaceCompletion(first.profile, 2, 14500, 'victory', 7);
+    const second = settleRaceCompletion(first.profile, 2, 14500, 'victory', 7, 'district', 1);
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.purseAwarded).toBe(0);
     expect(second.profile.gold).toBe(first.profile.gold);
     expect(second.profile.racing).toMatchObject({ completed: 2, wins: 1, losses: 1, lastPurseDay: 7 });
-    const nextDay = settleRaceCompletion(second.profile, 2, 14000, 'photo-finish', 8);
+    const nextDay = settleRaceCompletion(second.profile, 2, 14000, 'photo-finish', 8, 'district', 1);
     expect(nextDay.ok).toBe(true);
     if (nextDay.ok) expect(nextDay.purseAwarded).toBe(80);
   });
@@ -101,7 +102,7 @@ describe('race best-time transaction', () => {
       [4, 'defeat', 200],
     ];
     for (const [teamSize, outcome, purse] of cases) {
-      const result = settleRaceCompletion(createNewProfile('Circus Career'), teamSize, 15000, outcome, 4);
+      const result = settleRaceCompletion(createNewProfile('Circus Career'), teamSize, 15000, outcome, 4, 'district', outcome === 'victory' ? 1 : 3);
       expect(result.ok).toBe(true);
       if (!result.ok) continue;
       expect(result.purseAwarded).toBe(purse);
@@ -110,7 +111,7 @@ describe('race best-time transaction', () => {
   });
 
   test('ECON-1 leaves league points and best-time recording unchanged', () => {
-    const win = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4);
+    const win = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4, 'district', 1);
     expect(win.ok).toBe(true);
     if (!win.ok) return;
     // Victory still earns 50 league points, defeat 15 — the rebalance touches
@@ -118,7 +119,7 @@ describe('race best-time transaction', () => {
     expect(win.profile.racing?.leaguePoints).toBe(50);
     expect(win.bestTimeMs).toBe(15000);
     expect(win.profile.racing?.bestTimes).toEqual({ 2: 15000 });
-    const loss = settleRaceCompletion(createNewProfile('Circus Career'), 3, 16000, 'defeat', 4);
+    const loss = settleRaceCompletion(createNewProfile('Circus Career'), 3, 16000, 'defeat', 4, 'district', 3);
     expect(loss.ok).toBe(true);
     if (!loss.ok) return;
     expect(loss.profile.racing?.leaguePoints).toBe(15);
@@ -135,7 +136,7 @@ describe('race best-time transaction', () => {
       ...createNewProfile('Circus Career'),
       activeRaceBet: { factionId: 'green_prasina', wagerAmount: 50, oddsMultiplier: 1.8, potentialPayout: 90 },
     } as ReturnType<typeof createNewProfile>;
-    const win = settleRaceCompletion(stale, 2, 15000, 'victory', 4);
+    const win = settleRaceCompletion(stale, 2, 15000, 'victory', 4, 'district', 1);
     expect(win.ok).toBe(true);
     if (!win.ok) return;
     expect(win.purseAwarded).toBe(100);
@@ -149,7 +150,7 @@ describe('race best-time transaction', () => {
       [2, 0, 'victory', 1], [1, 10000, 'victory', 1], [2, 10000, 'unknown', 1], [2, 10000, 'victory', -1],
     ] as unknown[][];
     for (const args of cases) {
-      const result = settleRaceCompletion(profile, args[0] as 2, args[1] as number, args[2] as 'victory', args[3] as number);
+      const result = settleRaceCompletion(profile, args[0] as 2, args[1] as number, args[2] as 'victory', args[3] as number, 'district', 1);
       expect(result.ok).toBe(false);
       expect(profile.gold).toBe(100);
       expect(profile.racing).toBeUndefined();
@@ -160,7 +161,7 @@ describe('race best-time transaction', () => {
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
     const scene = readFileSync(new URL('../components/3d/RaceScene.tsx', import.meta.url), 'utf8');
     expect(app.includes('onRecordRaceCompletion={handleRecordRaceCompletion}')).toBe(true);
-    expect(scene.includes('onRecordRaceCompletion(teamSize, elapsedMs, outcome)')).toBe(true);
+    expect(scene.includes('onRecordRaceCompletion(teamSize, normalizedElapsedMs, outcome, rungId, finishPlace)')).toBe(true);
     const exit = app.slice(app.indexOf('const handleExitRace'), app.indexOf('const handleOpenHubTab'));
     expect(exit.includes('recordRaceBestTime')).toBe(false);
     expect(exit.includes('saveProfile')).toBe(false);
@@ -169,7 +170,7 @@ describe('race best-time transaction', () => {
 
 describe('ECON-2 league milestone prizes', () => {
   test('tier 1 fires on the second win: 250g + 20 fame, once', () => {
-    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 1);
+    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 1, 'district', 1);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.prizeAwarded).toBe(0);
@@ -180,7 +181,7 @@ describe('ECON-2 league milestone prizes', () => {
     // Nothing claimed yet, so the claim list stays absent — no empty field written.
     expect(first.profile.racing?.leaguePrizesClaimed).toBeUndefined();
 
-    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 2);
+    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 2, 'district', 1);
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.prizeAwarded).toBe(250);
@@ -190,7 +191,7 @@ describe('ECON-2 league milestone prizes', () => {
     expect(second.profile.fame).toBe(20);
     expect(second.profile.racing?.leaguePrizesClaimed).toEqual([1]);
 
-    const third = settleRaceCompletion(second.profile, 2, 15000, 'victory', 3);
+    const third = settleRaceCompletion(second.profile, 2, 15000, 'victory', 3, 'district', 1);
     expect(third.ok).toBe(true);
     if (!third.ok) return;
     expect(third.prizeAwarded).toBe(0);
@@ -202,7 +203,7 @@ describe('ECON-2 league milestone prizes', () => {
   test('the full ladder: tier 2 at 5 wins once Triga is owned, tier 3 at 10 once Quadra is owned', () => {
     let profile = createNewProfile('Circus Career');
     const win = (day: number) => {
-      const result = settleRaceCompletion(profile, 2, 15000, 'victory', day);
+      const result = settleRaceCompletion(profile, 2, 15000, 'victory', day, 'district', 1);
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error('settlement failed');
       profile = result.profile;
@@ -245,11 +246,11 @@ describe('ECON-2 league milestone prizes', () => {
   });
 
   test('the prize fires on an already-paid day: it sits outside the purse cap', () => {
-    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4);
+    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4, 'district', 1);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.purseAwarded).toBe(100);
-    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 4);
+    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 4, 'district', 1);
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.purseAwarded).toBe(0);
@@ -261,7 +262,7 @@ describe('ECON-2 league milestone prizes', () => {
   test('mixed results reach tier 1 on the third finish (50 + 15 + 50)', () => {
     let profile = createNewProfile('Circus Career');
     const finish = (outcome: 'victory' | 'defeat', day: number) => {
-      const result = settleRaceCompletion(profile, 2, 15000, outcome, day);
+      const result = settleRaceCompletion(profile, 2, 15000, outcome, day, 'district', outcome === 'victory' ? 1 : 3);
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error('settlement failed');
       profile = result.profile;
@@ -281,7 +282,7 @@ describe('ECON-2 league milestone prizes', () => {
     let profile = createNewProfile('Circus Career');
     let last = null as unknown as ReturnType<typeof settleRaceCompletion>;
     for (let day = 1; day <= 7; day++) {
-      last = settleRaceCompletion(profile, 2, 15000, 'defeat', day);
+      last = settleRaceCompletion(profile, 2, 15000, 'defeat', day, 'district', 3);
       expect(last.ok).toBe(true);
       if (!last.ok) return;
       profile = last.profile;
@@ -296,7 +297,7 @@ describe('ECON-2 league milestone prizes', () => {
       ...createNewProfile('Circus Career'),
       racing: { leaguePoints: 480, unlocked: [3, 4] },
     } as ReturnType<typeof createNewProfile>;
-    const result = settleRaceCompletion(banked, 2, 15000, 'victory', 1);
+    const result = settleRaceCompletion(banked, 2, 15000, 'victory', 1, 'district', 1);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.prizeAwarded).toBe(2350);
@@ -312,7 +313,7 @@ describe('ECON-2 league milestone prizes', () => {
       ...createNewProfile('Circus Career'),
       racing: { leaguePoints: 500 },
     } as ReturnType<typeof createNewProfile>;
-    const first = settleRaceCompletion(profile, 2, 15000, 'victory', 1);
+    const first = settleRaceCompletion(profile, 2, 15000, 'victory', 1, 'district', 1);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.prizeAwarded).toBe(250);
@@ -320,7 +321,7 @@ describe('ECON-2 league milestone prizes', () => {
     expect(first.profile.racing?.leaguePrizesClaimed).toEqual([1]);
 
     profile = { ...first.profile, racing: { ...first.profile.racing, unlocked: [3, 4] } };
-    const second = settleRaceCompletion(profile, 2, 15000, 'victory', 2);
+    const second = settleRaceCompletion(profile, 2, 15000, 'victory', 2, 'district', 1);
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.prizeAwarded).toBe(2100);
@@ -335,7 +336,7 @@ describe('ECON-2 league milestone prizes', () => {
       // Tiers 1 and 2 already claimed, so only tier 3 is due on this finish.
       racing: { leaguePoints: 450, unlocked: [3, 4], leaguePrizesClaimed: [1, 2] },
     } as ReturnType<typeof createNewProfile>;
-    const result = settleRaceCompletion(profile, 4, 15000, 'victory', 1);
+    const result = settleRaceCompletion(profile, 4, 15000, 'victory', 1, 'district', 1);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.purseAwarded).toBe(250);
@@ -349,7 +350,7 @@ describe('ECON-2 league milestone prizes', () => {
       activeRaceBet: { factionId: 'green_prasina', wagerAmount: 50, oddsMultiplier: 1.8, potentialPayout: 90 },
       racing: { leaguePoints: 90 },
     } as ReturnType<typeof createNewProfile>;
-    const result = settleRaceCompletion(stale, 2, 15000, 'victory', 1);
+    const result = settleRaceCompletion(stale, 2, 15000, 'victory', 1, 'district', 1);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.prizeAwarded).toBe(250);
@@ -376,5 +377,159 @@ describe('ECON-2 league milestone prizes', () => {
     for (const source of [scene, panel, workshop, league]) {
       expect(source).not.toMatch(/first place prize|won first place/i);
     }
+  });
+});
+
+describe('LADDER-1E Part 3 — the per-rung results write', () => {
+  test('a District finish writes the District fields and leaves the League fields absent', () => {
+    const result = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4, 'district', 1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.racing).toMatchObject({
+      districtBestFinish: 1,
+      districtCompleted: 1,
+      districtWins: 1,
+    });
+    expect(result.profile.racing?.leagueBestFinish).toBeUndefined();
+    expect(result.profile.racing?.leagueCompleted).toBeUndefined();
+    expect(result.profile.racing?.leagueWins).toBeUndefined();
+  });
+
+  test('a District top-2 defeat still records the best finish (2nd opens the League)', () => {
+    const result = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'defeat', 4, 'district', 2);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.racing).toMatchObject({ districtBestFinish: 2, districtCompleted: 1, districtWins: 0 });
+    expect(result.profile.racing?.wins).toBe(0);
+    expect(result.profile.racing?.losses).toBe(1);
+  });
+
+  test('best finish is min-wins: a later worse finish never moves it, a better one does', () => {
+    let profile = createNewProfile('Circus Career');
+    const finish = (place: number, day: number) => {
+      const result = settleRaceCompletion(profile, 2, 15000, 'defeat', day, 'district', place);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('settlement failed');
+      profile = result.profile;
+    };
+    finish(3, 1);
+    expect(profile.racing?.districtBestFinish).toBe(3);
+    finish(2, 2);
+    expect(profile.racing?.districtBestFinish).toBe(2);
+    finish(3, 3);
+    expect(profile.racing?.districtBestFinish).toBe(2);
+    expect(profile.racing?.districtCompleted).toBe(3);
+  });
+
+  test('a League finish writes the League fields and never touches the District fields', () => {
+    let profile = createNewProfile('Circus Career');
+    const district = settleRaceCompletion(profile, 2, 15000, 'victory', 1, 'district', 1);
+    expect(district.ok).toBe(true);
+    if (!district.ok) return;
+    profile = district.profile;
+    const league = settleRaceCompletion(profile, 2, 14000, 'defeat', 2, 'league', 4);
+    expect(league.ok).toBe(true);
+    if (!league.ok) return;
+    expect(league.profile.racing).toMatchObject({
+      districtBestFinish: 1,
+      districtCompleted: 1,
+      districtWins: 1,
+      leagueBestFinish: 4,
+      leagueCompleted: 1,
+      leagueWins: 0,
+    });
+  });
+
+  test('an unusable finish place still settles the race but writes no best finish', () => {
+    const profile = createNewProfile('Circus Career');
+    for (const place of [0, -1, 2.5, 99, 'first', null, undefined] as unknown[]) {
+      const result = settleRaceCompletion(profile, 2, 15000, 'victory', 4, 'district', place);
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.profile.racing?.districtCompleted).toBe(1);
+      expect(result.profile.racing?.districtWins).toBe(1);
+      expect(result.profile.racing?.districtBestFinish).toBeUndefined();
+    }
+  });
+
+  test('an unknown rung settles as District, never a locked rung', () => {
+    const profile = createNewProfile('Circus Career');
+    for (const rung of ['championship', 'league ', undefined, null, 42] as unknown[]) {
+      const result = settleRaceCompletion(profile, 2, 15000, 'victory', 4, rung, 1);
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.profile.racing?.districtCompleted).toBe(1);
+      expect(result.profile.racing?.leagueCompleted).toBeUndefined();
+    }
+  });
+
+  test('a malformed previous per-rung record is treated as absent, not as evidence', () => {
+    const profile = {
+      ...createNewProfile('Circus Career'),
+      racing: { districtBestFinish: 'first', districtCompleted: 'many', districtWins: -2 },
+    } as unknown as ReturnType<typeof createNewProfile>;
+    const result = settleRaceCompletion(profile, 2, 15000, 'defeat', 4, 'district', 2);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.racing).toMatchObject({ districtBestFinish: 2, districtCompleted: 1, districtWins: 0 });
+  });
+
+  test('a legacy save without per-rung subfields settles to the defaults (GC20)', () => {
+    // A save from before 1E carries no per-rung fields at all: the first
+    // District finish writes them from zero, and the League fields stay
+    // absent until a League race is run.
+    const legacy = { ...createNewProfile('Circus Career'), racing: { bestTimes: { 2: 16000 } } };
+    const result = settleRaceCompletion(legacy, 2, 15000, 'victory', 4, 'district', 1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.profile.racing).toMatchObject({ districtBestFinish: 1, districtCompleted: 1, districtWins: 1 });
+    expect(result.profile.racing?.bestTimes).toEqual({ 2: 15000 });
+    expect(result.profile.racing?.leagueBestFinish).toBeUndefined();
+  });
+
+  test('the settlement reads the NAMED economy table in raceTiers.ts — no drift', () => {
+    // The table in `raceTiers.ts` is the one config; the settlement must pay
+    // exactly what it names for every team and outcome.
+    const economy = RACE_TIERS.district.economy;
+    for (const teamSize of [2, 3, 4] as const) {
+      for (const outcome of ['victory', 'defeat'] as const) {
+        const result = settleRaceCompletion(createNewProfile('Circus Career'), teamSize, 15000, outcome, 4, 'district', 1);
+        expect(result.ok).toBe(true);
+        if (!result.ok) continue;
+        const expectedPurse = economy.basePurse[teamSize] + (outcome === 'victory' ? economy.victoryBonus[teamSize] : 0);
+        expect(result.purseAwarded).toBe(expectedPurse);
+        expect(result.leaguePointsEarned).toBe(outcome === 'victory' ? economy.leaguePoints.win : economy.leaguePoints.other);
+        expect(economy.famePerRace).toBe(0);
+      }
+    }
+    const records = readFileSync(new URL('./raceRecords.ts', import.meta.url), 'utf8');
+    expect(records).toContain("from '../data/raceTiers'");
+    expect(records).toContain('resolveRaceTier');
+  });
+});
+
+describe('LADDER-1E Part 3 — the best-time normalization', () => {
+  test('the measured slot gap is subtracted from the raw elapsed', () => {
+    // The leader crossed at t=10000, the player at t=12500: the gap is 2500.
+    expect(resolveNormalizedRaceTime(180000, 12500, 10000)).toBe(177500);
+  });
+
+  test('a missing clock origin normalizes to the raw elapsed', () => {
+    expect(resolveNormalizedRaceTime(180000, null, 10000)).toBe(180000);
+    expect(resolveNormalizedRaceTime(180000, 12500, null)).toBe(180000);
+  });
+
+  test('a non-positive gap normalizes to the raw elapsed', () => {
+    expect(resolveNormalizedRaceTime(180000, 10000, 10000)).toBe(180000);
+    expect(resolveNormalizedRaceTime(180000, 9000, 10000)).toBe(180000);
+  });
+
+  test('a gap that would erase the race normalizes to the raw elapsed', () => {
+    expect(resolveNormalizedRaceTime(2000, 12500, 10000)).toBe(2000);
+  });
+
+  test('an invalid elapsed passes through untouched (the settlement still rejects it)', () => {
+    expect(resolveNormalizedRaceTime(0, 12500, 10000)).toBe(0);
+    expect(resolveNormalizedRaceTime(Number.NaN, 12500, 10000)).toBeNaN();
   });
 });

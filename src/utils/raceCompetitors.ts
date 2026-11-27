@@ -6,6 +6,7 @@
  * draw-call budget while victories progressively introduce faster factions.
  */
 import type { ChariotFinishKey } from '../data/chariotParts';
+import { RACE_TIERS } from '../data/raceTiers';
 
 export interface RaceCompetitor {
   readonly id: string;
@@ -139,10 +140,14 @@ export function resolveRaceRungId(rung: unknown): RaceRungId {
   return rung === 'league' ? 'league' : 'district';
 }
 
-/** Rivals per field, excluding the player: District is player + 2, League player + 4. */
+/**
+ * Rivals per field, excluding the player: District is player + 2, League
+ * player + 4.  LADDER-1E — read from `raceTiers.ts`, the tier config's source
+ * of truth; the numbers are unchanged, only the owner moved.
+ */
 export const RUNG_FIELD_SIZE: Readonly<Record<RaceRungId, number>> = {
-  district: 2,
-  league: 4,
+  district: RACE_TIERS.district.fieldSize,
+  league: RACE_TIERS.league.fieldSize,
 } as const;
 
 /** District draws rookies only, fastest first. */
@@ -187,7 +192,11 @@ export function resolveRungField(rung: unknown): readonly RaceCompetitor[] {
 // derivation from `lapDurationMs`, never a hand-typed number. A lap-time
 // change re-derives it. The factor is a TARGET-speed cap for the driver
 // (mean speed, far below the movement cap of 13 u/s); it is never a
-// rubber-band — the driver never exceeds it to catch up.
+// rubber-band — the driver never exceeds it to catch up, except for
+// Fortuna's Hand (LADDER-1E, `fortunasHand.ts`), the SINGLE disclosed
+// exception: a bounded ±4%/±2% adjustment of a RIVAL's pace cap by
+// position relative to the player, off on the final lap, printed on the
+// results screen.
 //
 // ASSIGNED — `metaSkill`, `aggression`, `staminaStyle`: the brief's §3 table
 // (rookies wide lines, low aggression; Greens tight; League tighter and

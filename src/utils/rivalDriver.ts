@@ -40,9 +40,14 @@
 //
 // ── The pace ────────────────────────────────────────────────────────────────
 // The target speed is the profile's mean speed (`route length / lap
-// seconds`, the `paceCapFactor` derivation) and the driver NEVER exceeds it
-// — there is no rubber-banding: a rival behind does not speed up to catch
-// up, it simply holds its own pace. The throttle is bang-bang with
+// seconds`, the `paceCapFactor` derivation) and the driver never exceeds it
+// on its own pace — except for Fortuna's Hand (LADDER-1E, `fortunasHand.ts`),
+// the SINGLE disclosed exception: a bounded ±4%/±2% adjustment of a RIVAL's
+// pace cap by position relative to the player, a pure function of
+// (position, lap, rung), off on the final lap, printed on the results
+// screen. There is no other rubber-banding: a rival behind does not speed
+// up to catch up beyond the Hand's disclosed +4%/+2%, it simply holds its
+// own pace. The throttle is bang-bang with
 // hysteresis, which is the correct controller for this physics: the movement
 // module applies NO drag while the throttle is positive (only throttle == 0
 // coasts, at 3 u/s²), so any positive throttle accelerates and a steady
@@ -87,7 +92,9 @@
 // Each driver carries a stamina pool (`raceStamina.ts`), stepped once per
 // tick in `driveRival` from its own speed, pace cap, zone, and lap — the
 // same module and rates as the player. The target speed is the pace cap ×
-// the style fraction × the stamina multiplier × the warning fraction:
+// the style fraction × the stamina multiplier × the warning fraction × the
+// Hand multiplier (LADDER-1E — rivals only, off on the final lap;
+// `fortunasHand.ts`):
 // frontrunner 1.00 (all-out early), metronome 0.85 (press-band), closer
 // 0.85 (press-band) until the final third of the race, then 1.00 (all-out).
 // (Option A — brief Build record: the design's 0.70 / 0.65 fractions
@@ -126,7 +133,9 @@ import { getTeamWidth } from './chariotTeamFormation';
 import type { ChariotTeamSize } from '../types/game';
 import { RIG_BODY_RADIUS } from './raceRigCollision';
 import {
+  resolveRaceRungId,
   resolveRivalDriverProfile,
+  type RaceRungId,
   type RivalDriverProfile,
 } from './raceCompetitors';
 import {
@@ -135,6 +144,8 @@ import {
   stepRaceStamina,
   type RaceStaminaState,
 } from './raceStamina';
+import { fortunasHandMultiplier } from './fortunasHand';
+import { rungStaminaDrainMultiplier } from '../data/raceTiers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tuning — the driver's own constants (the movement module's are untouched)
@@ -548,8 +559,13 @@ export function projectToRoute(
 /**
  * The driver's target speed: the profile's mean speed, `route length / lap
  * seconds` — the `paceCapFactor` derivation, so a lap-time change re-derives
- * it. The driver never commands above this, and never speeds up to catch a
- * rival: there is no rubber-banding anywhere in this module.
+ * it. The driver never commands above this on its own pace, and never speeds
+ * up to catch a rival — except for Fortuna's Hand (LADDER-1E,
+ * `fortunasHand.ts`), the SINGLE disclosed exception: a bounded ±4%/±2%
+ * adjustment of a RIVAL's pace cap, a pure function of (position relative
+ * to the player, lap, rung), applied per-tick at the target computation —
+ * never at this cap itself, never to the player. There is no other
+ * rubber-banding anywhere in this module.
  */
 export function resolveDriverPaceCap(profile: RivalDriverProfile): number {
   const reference = RACE_ROUTE_LENGTH / 58;
@@ -768,12 +784,27 @@ export interface RivalDriverState {
   /** LADDER-1D: the race length in laps (1 = a single-lap race). The closer's
    * "final third" is the last third of this many laps. */
   totalLaps: number;
+  /** LADDER-1E: the rung this race is run on — Fortuna's Hand reads its
+   * rates from it (District +4%/−3%, League +2%/−1.5%). Set at creation,
+   * never changed mid-race. */
+  rung: RaceRungId;
   /** The seeded line jitter (±0.1), drawn once at creation. */
   lineJitter: number;
   /** The driver's own unwrapped route distance. */
   totalS: number;
   /** Completed laps. */
   lap: number;
+  /** LADDER-1E: ticks on which Fortuna's Hand applied a multiplier other
+   * than 1.0. The scene reads it at the finish for the results line; the
+   * soak never increments it (no player snapshot there), so the soak pins
+   * hold exactly. */
+  handTicks: number;
+  /** LADDER-1E: the target speed the driver throttled around on the last
+   * tick, after the corner limit and the follow cap. Test observability:
+   * the exact composition (pace cap × style × stamina × Hand) is readable
+   * here, so a test can prove the Hand's percentage instead of inferring
+   * it from the throttle's hysteresis window. */
+  lastTarget: number;
   /** The last projected sample index (the next projection's hint). */
   sampleIndex: number;
   /** The last projected lateral offset, in inside units. */
@@ -810,6 +841,10 @@ export interface RivalDriverOptions {
   /** LADDER-1D: the race length in laps, for the closer's "final third"
    * (defaults to 1 — a single-lap race). */
   laps?: number;
+  /** LADDER-1E: the rung this race is run on, for Fortuna's Hand
+   * (defaults to 'district' — the always-open rung — via
+   * `resolveRaceRungId`). */
+  rung?: RaceRungId;
   /** The seed for the line jitter (defaults to 0). */
   seed?: number;
   /** An injected RNG (the tests inject one, so the jitter is deterministic). */
@@ -827,15 +862,19 @@ export function createRivalDriver(options: RivalDriverOptions): RivalDriverState
   const rng = options.rng ?? mulberry32(options.seed ?? 0);
   const lineJitter = (rng() - 0.5) * 0.2;
   const width = getTeamWidth(options.teamSize ?? 2);
+  const paceTarget = resolveDriverPaceCap(profile);
   const projection = projectToRoute(analysis, options.x, options.z, 0, 0);
   return {
     profile,
     side: options.side,
     analysis,
-    paceTarget: resolveDriverPaceCap(profile),
+    paceTarget,
     width,
     stamina: createRaceStamina(),
     totalLaps: options.laps ?? 1,
+    rung: resolveRaceRungId(options.rung),
+    handTicks: 0,
+    lastTarget: paceTarget,
     lineJitter,
     totalS: projection.s,
     lap: 0,
@@ -1003,6 +1042,10 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   // player. Rivals are Biga with stock loadout (no team size or loadout
   // data exists for rivals), so those factors read 1.0 here. The step runs
   // only while racing: the early return above owns the roll phase.
+  // LADDER-1E Part 5: the rung drain multiplier, from the driver's own
+  // rung (resolved at creation, fail-closed to District) — the District
+  // field drains at 0.8×, the League at 1.0×. The rung is the driver's,
+  // never the player's: a rival's drain follows the race it is in.
   stepRaceStamina(state.stamina, {
     speed: tick.speed,
     paceCap: state.paceTarget,
@@ -1012,6 +1055,7 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
     finishId: 'finish_stock',
     zone,
     lap: state.lap,
+    drainMultiplier: rungStaminaDrainMultiplier(state.rung),
   });
 
   // 4. The overtake, as follower: a pass needs a pace advantage and an open
@@ -1136,7 +1180,12 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   //    LADDER-1D: the pace cap is the style fraction × the stamina
   //    multiplier × the warning fraction. A tired rig's target eases down
   //    smoothly (1.0 above 40 stamina, 0.88 at 0) — the same helper the
-  //    player uses, so the physics never forks. The follow cap below still
+  //    player uses, so the physics never forks. LADDER-1E: Fortuna's Hand
+  //    multiplies the same product (rivals only, off on the final lap —
+  //    `fortunasHand.ts`): the Hand is a *rubber-band*, the stamina
+  //    multiplier is a *tiredness* effect — different helpers, different
+  //    modules, and the two compose here as paceCap × style × stamina ×
+  //    Hand, never one hiding the other. The follow cap below still
   //    reads the leader's RAW paceTarget (not its effective pace): a tired
   //    leader lowers the follower's cap through its actual speed, and the
   //    raw cap stays the upper bound — that interaction is the follow cap
@@ -1154,8 +1203,24 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   const cornerLimit = rivalSpeedLimitAt(analysis, s);
   const styleFraction = rivalStyleTargetFraction(state, zone);
   const staminaMultiplier = paceCapMultiplierFor(state.stamina.pool);
+  // LADDER-1E: Fortuna's Hand — the player's unwrapped route distance
+  // (lap × length + s) against this rig's own (`state.totalS`). Both
+  // flanks share one length (`raceRival.ts`: both flanks share one
+  // length), so the totals compare across sides: a rival on the other
+  // flank is still ahead of or behind the player in the race. No player
+  // snapshot (the soak harness, a unit test with no player) fails closed
+  // to 1.0 — the Hand never fires there, so the soak pins hold exactly.
+  const player = tick.others.find((o) => o.id === 'player') ?? null;
+  const handMultiplier = fortunasHandMultiplier({
+    playerTotal: player === null ? null : player.lap * length + player.s,
+    myTotal: state.totalS,
+    lap: state.lap,
+    totalLaps: state.totalLaps,
+    rung: state.rung,
+  });
+  if (handMultiplier !== 1) state.handTicks += 1;
   let target = Math.min(
-    state.paceTarget * paceFraction * styleFraction * staminaMultiplier,
+    state.paceTarget * paceFraction * styleFraction * staminaMultiplier * handMultiplier,
     cornerLimit,
   );
   let followBrake = false;
@@ -1169,6 +1234,10 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
     target = Math.min(target, ahead.paceTarget, ahead.speed + RIVAL_PACE_ADVANTAGE_MARGIN);
     if (tick.speed > ahead.speed + 0.5) followBrake = true;
   }
+  // LADDER-1E: the target the driver throttles around, after the corner
+  // limit and the follow cap — readable here so a test can prove the exact
+  // composition (pace cap × style × stamina × Hand).
+  state.lastTarget = target;
   let throttle: number;
   if (followBrake) throttle = -1;
   else if (tick.speed < target - RIVAL_DRIVER_SPEED_HYSTERESIS) throttle = 1;

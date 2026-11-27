@@ -19,6 +19,7 @@ import {
   resolveRivalDriverProfile,
   resolveRungField,
   type RaceCompetitor,
+  type RaceRungId,
 } from './raceCompetitors';
 import {
   RIVAL_CORNER_WINDOW,
@@ -60,18 +61,31 @@ const LINE_Z = 42.5;
 const RUFUS: RaceCompetitor = RACE_COMPETITORS[0];
 
 // A driver at a route distance, on its lane, at its pace — the standard
-// rig for the unit tests (no other rigs unless the test adds them).
+// rig for the unit tests (no other rigs unless the test adds them). Mirrors
+// `driverAt` in `fortunasHand.test.ts`, plus the rung/laps the Hand and the
+// stamina drain read.
 function driverAt(
   competitor: RaceCompetitor,
   side: 1 | -1,
   s: number,
   seed = 11,
+  opts: { rung?: RaceRungId; laps?: number } = {},
 ): { driver: RivalDriverState; motion: ReturnType<typeof createChariotMotion> } {
   const analysis = analyzeRivalRoute(side);
   const point = routePointAt(analysis, s);
   const motion = createChariotMotion(point[0], point[1], routeHeadingAt(analysis, s));
   motion.speed = resolveDriverPaceCap(resolveRivalDriverProfile(competitor));
-  const driver = createRivalDriver({ competitor, side, x: point[0], z: point[1], heading: motion.heading, speed: motion.speed, seed });
+  const driver = createRivalDriver({
+    competitor,
+    side,
+    x: point[0],
+    z: point[1],
+    heading: motion.heading,
+    speed: motion.speed,
+    seed,
+    ...(opts.rung !== undefined ? { rung: opts.rung } : {}),
+    ...(opts.laps !== undefined ? { laps: opts.laps } : {}),
+  });
   // Seed the driver's route position at s (the creation projection is at
   // the line, s = 0, and the arc window would reject a mid-route pose).
   // The scene never does this — it always creates drivers at the
@@ -435,7 +449,7 @@ interface SoakResult {
   finalPools: { id: string; pool: number; lowestPool: number; timeAllOutMs: number; poolAtLapEnd: number[] }[];
 }
 
-function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimSeconds: number, laps = 1): SoakResult {
+function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimSeconds: number, laps = 1, rung: RaceRungId = 'district'): SoakResult {
   const slots = resolveFormationSlots(field.length);
   const rigs: SoakRig[] = field.map((competitor, i) => {
     const slot = slots[i];
@@ -493,6 +507,7 @@ function runSoakRace(field: readonly RaceCompetitor[], seedBase: number, maxSimS
             heading: 0,
             speed: ROLL_SPEED,
             laps,
+            rung,
             seed: seedBase + rig.row * 7 + (rig.side === 1 ? 3 : 0),
           });
           rig.crossingTime = simTime;
@@ -669,7 +684,12 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
     const allLapTimes: { id: string; profile: number; driven: number }[] = [];
     for (let race = 0; race < 20; race++) {
       const field = race % 2 === 0 ? district : league;
-      const result = runSoakRace(field, 11 + race, 300);
+      // LADDER-1E Part 5 — the soak runs the shipped rung's drain: the
+      // District races drain at 0.8×, the League races at 1.0×. In a
+      // 1-lap race every pool stays above 40, so no rig eases its cap and
+      // the 1B2 pins (band, passes, CPU) hold exactly as measured in 1D.
+      const rung: RaceRungId = race % 2 === 0 ? 'district' : 'league';
+      const result = runSoakRace(field, 11 + race, 300, 1, rung);
       for (const pass of result.passes) {
         const key = `${pass.follower}>${pass.leader}`;
         passCounts.set(key, (passCounts.get(key) ?? 0) + 1);
@@ -779,7 +799,7 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
     // zero outline violations) and the soak test's band, pass-count, and
     // driver-CPU assertions are UNTOUCHED.
     const league = resolveRungField('league');
-    const result = runSoakRace(league, 11, 900, 3);
+    const result = runSoakRace(league, 11, 900, 3, 'league');
     const finished = result.lapTimes.filter((lt) => lt.driven.length >= 3);
     expect(finished.length).toBe(league.length);
     for (const lt of finished) {
@@ -814,8 +834,11 @@ describe('rivalDriver — LADDER-1D: stamina drain in the full field (§3)', () 
     // The §3 target, proven in the full field with traffic — not
     // single-rig: the District field is three rookie metronomes, and every
     // one of them must end above 40, so no rig ever eases its cap.
+    // LADDER-1E Part 5 — the District race drains at 0.8×, so the pools
+    // end HIGHER than the 1D measurement (48.6/47.2 at 1.0×): the target
+    // holds with more margin, and the log prints the new numbers.
     const district = resolveRungField('district');
-    const result = runSoakRace(district, 11, 900, 3);
+    const result = runSoakRace(district, 11, 900, 3, 'district');
     console.log(`[1D drain] 3-lap District: ${result.finalPools.map((p) => `${p.id}=${p.pool.toFixed(1)} (laps ${p.poolAtLapEnd.map((q) => q.toFixed(1)).join('/')})`).join(' ')}`);
     for (const pool of result.finalPools) {
       expect(pool.pool, `${pool.id} ends above 40`).toBeGreaterThan(40);
@@ -825,9 +848,10 @@ describe('rivalDriver — LADDER-1D: stamina drain in the full field (§3)', () 
   test('a frontrunner fades below 40 in the final lap of a 3-lap League race', () => {
     // The §3 target: tiberius (the sole frontrunner) is still above 40 at
     // the end of lap 2 and below 40 at the end of lap 3 — the fade lands
-    // in the final lap, not before it.
+    // in the final lap, not before it. LADDER-1E Part 5 — the League race
+    // drains at 1.0×, so these numbers are the 1D numbers (75.0/52.5/29.6).
     const league = resolveRungField('league');
-    const result = runSoakRace(league, 11, 900, 3);
+    const result = runSoakRace(league, 11, 900, 3, 'league');
     const tiberius = result.finalPools.find((p) => p.id === 'tiberius_russata');
     expect(tiberius).toBeDefined();
     expect(tiberius!.poolAtLapEnd.length).toBe(3);
@@ -841,9 +865,10 @@ describe('rivalDriver — LADDER-1D: stamina drain in the full field (§3)', () 
     // The §3 target, adapted to the shipped 5-lap League race (the
     // design's 7-lap version is Championship, Update 1): albata (closer)
     // ends above tiberius (frontrunner) — the late pace is unspent
-    // stamina, not a boost.
+    // stamina, not a boost. LADDER-1E Part 5 — the League race drains at
+    // 1.0×, so this gap is the 1D gap (7.8 vs 0.0).
     const league = resolveRungField('league');
-    const result = runSoakRace(league, 11, 1500, 5);
+    const result = runSoakRace(league, 11, 1500, 5, 'league');
     const albata = result.finalPools.find((p) => p.id === 'albata_champion');
     const tiberius = result.finalPools.find((p) => p.id === 'tiberius_russata');
     console.log(`[1D drain] 5-lap League: ${result.finalPools.map((p) => `${p.id}=${p.pool.toFixed(1)} (laps ${p.poolAtLapEnd.map((q) => q.toFixed(1)).join('/')})`).join(' ')}`);
@@ -851,6 +876,34 @@ describe('rivalDriver — LADDER-1D: stamina drain in the full field (§3)', () 
     expect(tiberius).toBeDefined();
     expect(albata!.pool, `closer ${albata!.pool.toFixed(1)} ends above frontrunner ${tiberius!.pool.toFixed(1)}`).toBeGreaterThan(tiberius!.pool);
   }, 180_000);
+
+  test('the rung drain multiplier is wired: a District driver drains at 0.8× a League driver, same rig, same ticks', () => {
+    // LADDER-1E Part 5 — the wiring proof, below the soak: two drivers
+    // for the same rig (tiberius, the frontrunner — style fraction 1.00
+    // in every zone and every lap, so no style factor to account for),
+    // same seed, same route position, same ticks, no other rigs (so the
+    // Hand never fires). Above 40 both pace caps are un-eased, so the two
+    // drivers take identical ticks — the ONLY difference is the rung
+    // drain multiplier, and the drained amounts must stand in exactly
+    // the 0.8 ratio. A driver created without a rung drains at the
+    // District rate (the creation default), never less than the League's.
+    const tiberius = LEAGUE_POOL[2];
+    const district = driverAt(tiberius, -1, 20, 11, { rung: 'district', laps: 3 });
+    const league = driverAt(tiberius, -1, 20, 11, { rung: 'league', laps: 3 });
+    const unset = driverAt(tiberius, -1, 20, 11, { laps: 3 });
+    driveFor(district.driver, district.motion, 600);
+    driveFor(league.driver, league.motion, 600);
+    driveFor(unset.driver, unset.motion, 600);
+    const districtDrained = 100 - district.driver.stamina.pool;
+    const leagueDrained = 100 - league.driver.stamina.pool;
+    const unsetDrained = 100 - unset.driver.stamina.pool;
+    expect(leagueDrained, 'the League driver spent stamina').toBeGreaterThan(0);
+    expect(districtDrained).toBeCloseTo(leagueDrained * 0.8, 6);
+    expect(district.driver.stamina.pool).toBeGreaterThan(league.driver.stamina.pool);
+    expect(unsetDrained).toBeCloseTo(districtDrained, 9);
+    expect(unset.driver.stamina.pool).toBeGreaterThan(40);
+    expect(league.driver.stamina.pool).toBeGreaterThan(40);
+  });
 });
 
 describe('rivalDriver — the pace-cap gate (§6): a faster profile passes a slower one', () => {

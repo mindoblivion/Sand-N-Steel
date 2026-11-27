@@ -15,8 +15,11 @@ import {
   GRID_ROW_GAP,
   GRID_SAND_SOUTH_EDGE_Z,
   GRID_SLOT_LATERAL_SPACING,
+  formatRacePlace,
+  resolveFormationRoll,
   resolveGridFit,
   resolveGridSlots,
+  resolveQualifyingSlot,
   resolveRungLockState,
   resolveStartGrid,
 } from './raceGrid';
@@ -249,6 +252,25 @@ describe('LADDER-1A §E — the lock state: District open, League locked until a
     expect(resolveRungLockState(withResult(undefined)).leagueOpen).toBe(false);
   });
 
+  test('a real settleRaceCompletion District top-2 opens the League; a 3rd+ does not', () => {
+    // LADDER-1E — the lock test becomes meaningful: the write, not a
+    // hand-built field, is what opens the rung.
+    const topTwo = settleRaceCompletion(createNewProfile('Ladder Racer'), 2, 15000, 'defeat', 1, 'district', 2);
+    expect(topTwo.ok).toBe(true);
+    if (!topTwo.ok) return;
+    expect(resolveRungLockState(topTwo.profile).leagueOpen).toBe(true);
+    const third = settleRaceCompletion(createNewProfile('Ladder Racer'), 2, 15000, 'defeat', 1, 'district', 3);
+    expect(third.ok).toBe(true);
+    if (!third.ok) return;
+    expect(resolveRungLockState(third.profile).leagueOpen).toBe(false);
+    // …and a League finish never re-locks the rung it opened.
+    const league = settleRaceCompletion(topTwo.profile, 2, 14000, 'defeat', 2, 'league', 4);
+    expect(league.ok).toBe(true);
+    if (!league.ok) return;
+    expect(resolveRungLockState(league.profile).leagueOpen).toBe(true);
+    expect(league.profile.racing?.leagueBestFinish).toBe(4);
+  });
+
   test('a missing or malformed profile never throws, and stays locked', () => {
     for (const profile of [null, undefined]) {
       const state = resolveRungLockState(profile);
@@ -258,15 +280,115 @@ describe('LADDER-1A §E — the lock state: District open, League locked until a
   });
 });
 
+describe('LADDER-1E Part 5 §G — qualifying: the best finish earns the grid slot', () => {
+  test('1st → front row, 2nd → second row, 3rd → third row, on the left flank', () => {
+    // A 5-rig League field has three rows; the player takes the LEFT slot
+    // of the earned row — the flank the player stands on today in both
+    // shipped field sizes — so qualifying moves the ROW, never the flank.
+    expect(resolveQualifyingSlot(1, 5)).toBe(0);
+    expect(resolveQualifyingSlot(2, 5)).toBe(2);
+    expect(resolveQualifyingSlot(3, 5)).toBe(4);
+    expect(resolveStartGrid(5, 1, resolveQualifyingSlot(1, 5)).slots[0].side).toBe(-1);
+    expect(resolveStartGrid(5, 1, resolveQualifyingSlot(2, 5)).slots[2].side).toBe(-1);
+    expect(resolveStartGrid(5, 1, resolveQualifyingSlot(3, 5)).slots[4].side).toBe(-1);
+    // A 3-rig District field has two rows: 1st is the front row, 2nd the last.
+    expect(resolveQualifyingSlot(1, 3)).toBe(0);
+    expect(resolveQualifyingSlot(2, 3)).toBe(2);
+  });
+
+  test('no best finish — or a malformed one — defaults to the last slot, exactly as today', () => {
+    for (const bestFinish of [undefined, null, 0, -1, 1.5, Number.NaN, 'first', {}, []]) {
+      expect(resolveQualifyingSlot(bestFinish, 5)).toBe(4);
+      expect(resolveQualifyingSlot(bestFinish, 3)).toBe(2);
+    }
+    // The default is the grid's own default: an omitted player slot.
+    expect(resolveStartGrid(5, 1).playerSlot).toBe(4);
+    expect(resolveStartGrid(3, 1).playerSlot).toBe(2);
+  });
+
+  test('a finish deeper than the field has rows clamps to the last row', () => {
+    // A 3-rig field has two rows: a 3rd-place finish and no finish both
+    // stand last. A 5-rig field has three rows: 4th and 5th clamp to it.
+    expect(resolveQualifyingSlot(3, 3)).toBe(2);
+    expect(resolveQualifyingSlot(9, 3)).toBe(2);
+    expect(resolveQualifyingSlot(4, 5)).toBe(4);
+    expect(resolveQualifyingSlot(5, 5)).toBe(4);
+    expect(resolveQualifyingSlot(99, 5)).toBe(4);
+  });
+
+  test('the grid takes the qualifying slot as an input: the player stands there, the rivals fill the rest', () => {
+    const grid = resolveStartGrid(5, 1, 0);
+    expect(grid.playerSlot).toBe(0);
+    expect(grid.slots[0].occupant).toBe('player');
+    // The first rival still takes the front-row slot on its flank when it
+    // is free — here slot 1, the front-right — and the rest fill front
+    // to back around the player.
+    expect(grid.rivalSlots).toEqual([1, 2, 3, 4]);
+    expect(grid.slots.filter((slot) => slot.occupant === 'rival')).toHaveLength(4);
+    // A malformed slot fails closed to last, never out of the field.
+    for (const slot of [undefined, null, -1, 5, 1.5, Number.NaN, 'first']) {
+      expect(resolveStartGrid(5, 1, slot).playerSlot).toBe(4);
+    }
+    // The 2-rig fallback still holds when the player earned the front
+    // row: the rival takes the other front slot.
+    expect(resolveStartGrid(2, 1, 0).playerSlot).toBe(0);
+    expect(resolveStartGrid(2, 1, 0).rivalSlots).toEqual([1]);
+  });
+
+  test('the roll paths are unchanged by qualifying: the path is per-slot, not per-occupant', () => {
+    // The same field, the player qualified front row vs the default last:
+    // every slot's path is identical — qualifying changes WHO rolls which
+    // path, never the paths themselves. The player's crossing moves with
+    // the slot (front row crosses first), and the leader's crossing — the
+    // clock origin — does not move at all.
+    const qualified = resolveFormationRoll(5, 1, 0);
+    const def = resolveFormationRoll(5, 1);
+    expect(qualified.paths).toEqual(def.paths);
+    expect(qualified.slots).toEqual(def.slots.map((slot) => ({
+      ...slot,
+      occupant: slot.slot === 0 ? 'player' : slot.slot === 4 ? 'rival' : slot.occupant,
+    })));
+    expect(qualified.playerSlot).toBe(0);
+    expect(def.playerSlot).toBe(4);
+    expect(qualified.leaderCrossingMs).toBe(def.leaderCrossingMs);
+    expect(qualified.playerCrossingMs).toBeLessThan(def.playerCrossingMs);
+    expect(qualified.playerCrossingMs).toBe(qualified.paths[0].crossingMs);
+    // And a qualified second row sits between them.
+    const secondRow = resolveFormationRoll(5, 1, 2);
+    expect(secondRow.playerSlot).toBe(2);
+    expect(secondRow.paths).toEqual(def.paths);
+    expect(secondRow.playerCrossingMs).toBeGreaterThan(qualified.playerCrossingMs);
+    expect(secondRow.playerCrossingMs).toBeLessThan(def.playerCrossingMs);
+  });
+
+  test('places read as ordinals, with the 11/12/13 rule', () => {
+    expect(formatRacePlace(1)).toBe('1st');
+    expect(formatRacePlace(2)).toBe('2nd');
+    expect(formatRacePlace(3)).toBe('3rd');
+    expect(formatRacePlace(4)).toBe('4th');
+    expect(formatRacePlace(5)).toBe('5th');
+    expect(formatRacePlace(11)).toBe('11th');
+    expect(formatRacePlace(12)).toBe('12th');
+    expect(formatRacePlace(13)).toBe('13th');
+    expect(formatRacePlace(21)).toBe('21st');
+    expect(formatRacePlace(22)).toBe('22nd');
+    expect(formatRacePlace(23)).toBe('23rd');
+    expect(formatRacePlace(111)).toBe('111th');
+    for (const place of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(formatRacePlace(place)).toBe('—');
+    }
+  });
+});
+
 describe('LADDER-1A §F — regression: 1A touches nothing about settlement', () => {
   test('a Biga victory still pays the ECON-1 purse and accrues ECON-2 points, prize on the second win', () => {
-    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 1);
+    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 1, 'district', 1);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.purseAwarded).toBe(100);
     expect(first.prizeAwarded).toBe(0);
     expect(first.leaguePointsEarned).toBe(50);
-    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 2);
+    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 2, 'district', 1);
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.prizeAwarded).toBe(250);

@@ -286,7 +286,19 @@ describe('§D the Rival Schools gate requires an earned rival victory', () => {
 
   test('D3 — racing catalogue/completion data cannot satisfy the Rival Schools gate', () => {
     const code = codeOf(moduleSource);
-    expect(code).not.toMatch(/racing|raceResults|racesFinished|finishRace|placements/);
+    // LADDER-1E — the two race gates (Ch 3/Ch 4) read racing evidence now, so
+    // the blanket ban on the word in this module is retired: what this pin
+    // guards is the Rival Schools gate itself. Its `met` reads
+    // `evidence.rivalSchoolsWon` — the dedicated rival challenge — and that
+    // evidence is `isRivalSchoolChallengeWon`, duel-only; no racing term
+    // appears in either line.
+    const gate = code.match(
+      /id: 'rival-schools-first'[\s\S]*?met: \(evidence\) => evidence\.rivalSchoolsWon,/
+    )?.[0];
+    expect(gate).toBeDefined();
+    expect(gate).not.toMatch(/racing|raceResults|racesFinished|finishRace|placements/);
+    const evidenceLine = code.match(/rivalSchoolsWon: isRivalSchoolChallengeWon\(profile\),/)?.[0];
+    expect(evidenceLine).toBeDefined();
     expect(code).not.toMatch(/from '\.\/racingProgression'/);
     const racer = {
       ...inChapterTwo(),

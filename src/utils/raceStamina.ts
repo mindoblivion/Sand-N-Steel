@@ -222,6 +222,15 @@ export interface RaceStaminaTickInput {
   zone: RivalRouteZone;
   /** Completed laps — the recovery cap resets when this changes. */
   lap: number;
+  /**
+   * LADDER-1E Part 5 — the rung's stamina drain multiplier (District 0.8,
+   * League 1.0, from `rungStaminaDrainMultiplier` in `raceTiers.ts`).
+   * Multiplies the DRAIN only — recovery is never scaled.  Absent, or
+   * non-finite, or non-positive, it reads 1.0: an unknown rung drains at
+   * the full League rate, never less.  The single consumption point is
+   * the drain computation in `stepRaceStamina` below.
+   */
+  drainMultiplier?: number;
 }
 
 /**
@@ -230,9 +239,13 @@ export interface RaceStaminaTickInput {
  * - Cruise band on a straight RECOVERS at `recoveryPerSecond`, capped so a
  *   full lap of cruising cannot refill more than `recoveryCapPerLap` — only
  *   the pool actually regained counts toward the cap, and the cap resets
- *   when the lap changes.
+ *   when the lap changes.  Recovery is NEVER scaled by the rung drain
+ *   multiplier: the multiplier is a drain-rate multiplier, not a recovery
+ *   one, and the recovery cap is a per-lap budget, not a rate.
  * - Every other band/section DRAINS at the band rate × team-size factor ×
- *   loadout factor (Reinforced wheels help on turns only; finishes never).
+ *   loadout factor (Reinforced wheels help on turns only; finishes never)
+ *   × the rung drain multiplier (District 0.8, League 1.0 — the single
+ *   consumption point for the tier config's `staminaDrainMultiplier`).
  * - The pool clamps to 0–100. `lowestPool` and `timeAllOutMs` are tracked
  *   for the results screen. A non-positive timestep is a no-op.
  */
@@ -261,10 +274,21 @@ export function stepRaceStamina(
     state.recoveredThisLap += newPool - state.pool;
     state.pool = newPool;
   } else {
+    // LADDER-1E Part 5 — the rung drain multiplier, resolved by the caller
+    // from the tier config.  Absent, non-finite, or non-positive reads 1.0
+    // (the full League rate): an unknown rung never drains less.  The
+    // multiplier scales the drain only — recovery above never sees it.
+    const drainMultiplier =
+      typeof input.drainMultiplier === 'number'
+      && Number.isFinite(input.drainMultiplier)
+      && input.drainMultiplier > 0
+        ? input.drainMultiplier
+        : 1;
     const drain =
       RACE_STAMINA_CONFIG.drainPerSecond[band] *
       teamSizeDrainFactor(input.teamSize) *
       loadoutDrainFactor(input.wheelsId, input.finishId, input.zone) *
+      drainMultiplier *
       dt;
     state.pool = Math.max(0, state.pool - drain);
   }

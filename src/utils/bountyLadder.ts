@@ -208,12 +208,12 @@ export function isBountyLadderOpen(
 /**
  * The campaign chapter the gate reads (STORY-1's resolver, never a stored field).
  *
- * The `chapterOverride` is the SAME seam STORY-4a's `mercyOfferFor` carries, and for
- * the same reason: `resolveStoryState` holds the campaign at Chapter 2 until Stage 2
- * lands its race-results write, so no live record can reach Chapter 3 yet. The
- * ladder is therefore DORMANT exactly as 4a's mercy is — the panel renders, the
- * board is shut — and a suite drives the open ladder through this argument. The
- * panel and `App` always pass the real reading.
+ * The `chapterOverride` is the SAME seam STORY-4a's `mercyOfferFor` carries:
+ * a suite drives the open ladder through this argument, and the panel and
+ * `App` always pass the real reading. CORRECTED LADDER-1E: Chapter 3 is
+ * reachable on duel evidence today — the Chapter 2 race exception is retired,
+ * so the ladder is NOT dormant; it opens at Chapter 3 on the real reading.
+ * 1E does not unblock the ladder; it corrects this comment.
  */
 function chapterOf(profile: PlayerProfile | null | undefined, chapterOverride?: number): number {
   if (typeof chapterOverride === 'number' && Number.isFinite(chapterOverride)) {
