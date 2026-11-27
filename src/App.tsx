@@ -1122,15 +1122,20 @@ export function App() {
   /**
    * A validated finish settles best time, career record and (when eligible)
    * the day's completion purse in one save transaction. Abort never calls it.
+   * LADDER-1E — `elapsedMs` arrives NORMALIZED (the scene subtracts the
+   * measured formation gap before calling); `rungId` and `finishPlace` are
+   * threaded through to the per-rung results write.
    */
   const handleRecordRaceCompletion = (
     teamSize: ChariotTeamSize,
     elapsedMs: number,
     outcome: RaceCompletionOutcome,
+    rungId: RaceRungId,
+    finishPlace: number | null,
   ): RaceCompletionResult | null => {
     const current = profileRef.current ?? profile;
     if (!current) return null;
-    const result = settleRaceCompletion(current, teamSize, elapsedMs, outcome, resolveTimeState(current).day);
+    const result = settleRaceCompletion(current, teamSize, elapsedMs, outcome, resolveTimeState(current).day, rungId, finishPlace);
     if (!result.ok || !saveProfile(result.profile)) return null;
     profileRef.current = result.profile;
     setProfile(result.profile);
@@ -2779,6 +2784,11 @@ export function App() {
               teamSize={profile ? resolveRacingState(profile).horses : 2}
               chariotLoadout={resolveChariotLoadout(profile).equipped}
               rung={raceRung}
+              bestFinishAtRung={
+                raceRung === 'league'
+                  ? profile?.racing?.leagueBestFinish
+                  : profile?.racing?.districtBestFinish
+              }
               onRecordRaceCompletion={handleRecordRaceCompletion}
             />
           </React.Suspense>
