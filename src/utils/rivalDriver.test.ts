@@ -746,14 +746,29 @@ describe('rivalDriver — the soak (20 simulated full races)', () => {
         }
       }
     }
-    // Lap times are reported. The band is [profile − 1, profile + 25].
+    // Lap times are reported. The band is [profile − 1, profile + 25] in
+    // THIS soak — a no-steward 1-lap bound. The per-lap bands (BAND-REPIN
+    // Part 2, measured on the fixed tree, seeds 11–30, steward live) are
+    // pinned in bandRepinMeasurement.test.ts, not here: District 17/15/15;
+    // League 3-lap 22/18/19; League 5-lap 22/18/20/26/21, X = ceil(max
+    // overage for that lap, across all rigs and seeds), no added margin.
+    // The split is deliberate, not a gap: this soak's runner, runSoakRace
+    // (1B2), predates the steward (warning 'none', no steward step), and
+    // its laps run ~8 s slower than the steward-live measurement (albata
+    // lap 1: +15.4 steward-live vs +23.9 no-steward, same rig, same seed)
+    // — widening the steward-live bands to fit this runner would rebase
+    // the pin. A harness-unification follow-up (wire the steward into
+    // runSoakRace) would let this test use the per-lap bands too.
+    // The bands are NOT monotonic lap by lap, and that is the measured
+    // shape, not a defect: lap 1 carries the hook queue (the 1.5-unit
+    // window, roughly 20 s, plus up to 3 s from formation spacing) and
+    // laps 3–4 carry stamina drain (1D, designed, drain targets hold —
+    // lap 4 is systematically slow, all rigs +16 to +25). The 58–67 s
+    // brief band remains the design aspiration, named here not pinned:
+    // lap 3's fastest rigs already reach it, and a hook redesign or
+    // faster traversal remains a separate follow-up, not a silent pass.
     // Important: cornerSpeedForCurvature clamps at 0.8 u/s; the older 0.2
-    // figure in this comment was impossible under the shipped solver. The
-    // 1.5-unit window still creates a measurable hook queue (the historical
-    // soak note estimates roughly 20 s on the first lap, plus up to 3 s from
-    // formation spacing). The 58–67 s brief band is therefore NOT met exactly
-    // for a five-rig field. Keep the measured tradeoff visible; a hook redesign
-    // or faster traversal remains a separate follow-up, not a silent pass.
+    // figure in this comment was impossible under the shipped solver.
     for (const lt of allLapTimes) {
       expect(lt.driven).toBeGreaterThan(lt.profile - 1);
       expect(lt.driven).toBeLessThan(lt.profile + 25);
