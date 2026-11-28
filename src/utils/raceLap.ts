@@ -143,23 +143,20 @@ export function advanceRaceLap(
   // LADDER-1E — a finish crossing on a non-final lap counts the lap and
   // resets the per-lap checkpoints, but `finishedNow` fires ONLY on the
   // final lap: the scene's finish transition reads it, so an earlier
-  // crossing must never settle the race. The south hairpin swaps flanks
-  // after the line — the chariot rounds it onto the opposite flank and
-  // heads north on it — so the next lap's opening side is the opposite of
-  // the finished lap's, and it is flipped here (the geometry forces it)
-  // instead of re-captured on the finish straight, where the chariot is
-  // still on the old flank. `lastZ` / `lastSide` carry over so the hairpin
-  // crossing itself fires no checkpoint: the north turn needs the far bend,
-  // the south turn needs the north turn first.
+  // crossing must never settle the race. The south hairpin is BEFORE the
+  // line — the cubic ends at finishApproachZ, 0.1 units before it — so the
+  // chariot crosses the line and heads north on the SAME flank it started
+  // on; the opening side does not change across the line, and it is carried
+  // over unchanged here. The flank swap happens at the north turn, as on
+  // lap 1. `lastZ` / `lastSide` carry over so the line crossing itself
+  // fires no checkpoint: the north turn needs the far bend, the south turn
+  // needs the north turn first.
   if (finishedNow && tracker.lap + 1 < tracker.totalLaps) {
-    const nextStartSide: RaceTrackSide | null = tracker.startSide === null
-      ? null
-      : tracker.startSide === 1 ? -1 : 1;
     const next: RaceLapTracker = {
       lastZ: z,
       farthestZ: Math.min(tracker.farthestZ, z),
       lastSide: side ?? tracker.lastSide,
-      startSide: nextStartSide,
+      startSide: tracker.startSide,
       northTurnCompleted: false,
       southTurnCompleted: false,
       finished: false,
