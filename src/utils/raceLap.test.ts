@@ -11,6 +11,7 @@ import {
   RACE_TURN_LANE_OFFSET,
   getRaceLapStage,
 } from './raceLap';
+import { getRivalRoute } from './raceRival';
 
 const axis = 52.34;
 const sample = (x: number, z: number) => ({ x, z });
@@ -145,25 +146,25 @@ describe('full oval lap checkpoints', () => {
 describe('multi-lap counting (LADDER-1E)', () => {
   /**
    * Drive one full lap AFTER a finish-line crossing, from the line itself.
-   * `side` is the flank the chariot crossed the finish line on. The route
-   * rounds the south hairpin onto the opposite flank, heads north on it,
-   * changes back at the north curve, returns south, changes back at the
-   * south curve, and stops just short of the line — the caller supplies
-   * the crossing sample, so the test controls exactly when the lap ends.
+   * `side` is the flank the chariot crossed the finish line on. The south
+   * hairpin is BEFORE the line, so the route heads north on the SAME flank
+   * after it: it stays on `side` up the straight, changes flank at the
+   * north curve, returns south, changes back at the south curve, and stops
+   * just short of the line — the caller supplies the crossing sample, so
+   * the test controls exactly when the lap ends.
    */
   const driveLapAfterFinish = (tracker: ReturnType<typeof createRaceLapTracker>, side: -1 | 1) => {
     const opposite = -side as -1 | 1;
     for (const position of [
       sample(axis + side * 9, RACE_FINISH_LINE_Z + 1),
-      sample(axis + opposite * 9, RACE_FINISH_LINE_Z + 2),
-      sample(axis + opposite * 9, 20),
-      sample(axis + opposite * 9, RACE_NORTH_TURN_Z - 1),
+      sample(axis + side * 9, 20),
       sample(axis + side * 9, RACE_NORTH_TURN_Z - 1),
-      sample(axis + side * 9, -5),
-      sample(axis + side * 9, 15),
-      sample(axis + side * 9, RACE_SOUTH_TURN_Z + 1),
+      sample(axis + opposite * 9, RACE_NORTH_TURN_Z - 1),
+      sample(axis + opposite * 9, -5),
+      sample(axis + opposite * 9, 15),
       sample(axis + opposite * 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis + opposite * 9, RACE_FINISH_LINE_Z - 0.1),
+      sample(axis + side * 9, RACE_SOUTH_TURN_Z + 1),
+      sample(axis + side * 9, RACE_FINISH_LINE_Z - 0.1),
     ]) tracker = advanceRaceLap(tracker, position).tracker;
     return tracker;
   };
@@ -185,20 +186,21 @@ describe('multi-lap counting (LADDER-1E)', () => {
     expect(getRaceLapStage(lap1.tracker)).toBe('north-turn');
     tracker = lap1.tracker;
 
-    // Lap 2: the hairpin flips the opening flank to side -1; the lap
-    // finishes on side -1 and still does not fire.
+    // Lap 2: the opening flank stays side 1 — the south hairpin is before
+    // the line, so the rig heads north on the same flank; the lap finishes
+    // on side 1 and still does not fire.
     tracker = driveLapAfterFinish(tracker, 1);
     expect(tracker.northTurnCompleted).toBe(true);
     expect(tracker.southTurnCompleted).toBe(true);
-    expect(tracker.startSide).toBe(-1);
-    const lap2 = advanceRaceLap(tracker, sample(axis - 9, RACE_FINISH_LINE_Z + 0.1));
+    expect(tracker.startSide).toBe(1);
+    const lap2 = advanceRaceLap(tracker, sample(axis + 9, RACE_FINISH_LINE_Z + 0.1));
     expect(lap2.finishedNow).toBe(false);
     expect(lap2.tracker.finished).toBe(false);
     expect(lap2.tracker.lap).toBe(2);
     tracker = lap2.tracker;
 
-    // Lap 3: the opening flank flips back to side 1; the crossing fires.
-    tracker = driveLapAfterFinish(tracker, -1);
+    // Lap 3: the opening flank is still side 1; the crossing fires.
+    tracker = driveLapAfterFinish(tracker, 1);
     expect(tracker.startSide).toBe(1);
     const lap3 = advanceRaceLap(tracker, sample(axis + 9, RACE_FINISH_LINE_Z + 0.1));
     expect(lap3.finishedNow).toBe(true);
@@ -211,19 +213,52 @@ describe('multi-lap counting (LADDER-1E)', () => {
   test('a 5-lap tracker counts every lap and fires only on the fifth', () => {
     let tracker = createRaceLapTracker(RACE_FINISH_LINE_Z, 5);
     for (const position of validRoute(1)) tracker = advanceRaceLap(tracker, position).tracker;
-    let side: -1 | 1 = 1;
+    // The opening flank never changes across the line: the south hairpin is
+    // before it, so every lap is driven (and finished) on side 1.
+    const side = 1 as const;
     for (let lap = 1; lap <= 4; lap++) {
       const crossing = advanceRaceLap(tracker, sample(axis + side * 9, RACE_FINISH_LINE_Z + 0.1));
       expect(crossing.finishedNow).toBe(false);
       expect(crossing.tracker.lap).toBe(lap);
+      expect(crossing.tracker.startSide).toBe(1);
       tracker = crossing.tracker;
       tracker = driveLapAfterFinish(tracker, side);
-      side = -side as -1 | 1;
     }
     const final = advanceRaceLap(tracker, sample(axis + side * 9, RACE_FINISH_LINE_Z + 0.1));
     expect(final.finishedNow).toBe(true);
     expect(final.tracker.finished).toBe(true);
     expect(final.tracker.lap).toBe(4);
+  });
+
+  test('the shipped route finishes exactly once, on the final lap, on both flanks', () => {
+    // LAP-FINISH FIX — the guard 1E was missing. The synthetic sequences
+    // above encode a geometry; this test walks the ACTUAL route
+    // (getRivalRoute) through the tracker, so a future geometry change
+    // that moves the hairpin across the line fails loudly here instead of
+    // silently. One walk of the sampled points is one lap.
+    for (const startSide of [1, -1] as const) {
+      for (const totalLaps of [3, 5] as const) {
+        const route = getRivalRoute(startSide);
+        let tracker = createRaceLapTracker(RACE_FINISH_LINE_Z, totalLaps);
+        let fires = 0;
+        let firedLap = -1;
+        for (let lap = 0; lap < totalLaps; lap++) {
+          for (const [x, z] of route.points) {
+            const update = advanceRaceLap(tracker, { x, z });
+            tracker = update.tracker;
+            if (update.finishedNow) {
+              fires += 1;
+              firedLap = tracker.lap;
+            }
+          }
+          expect(tracker.lap).toBe(Math.min(lap + 1, totalLaps - 1));
+        }
+        expect(fires).toBe(1);
+        expect(firedLap).toBe(totalLaps - 1);
+        expect(tracker.finished).toBe(true);
+        expect(tracker.startSide).toBe(startSide);
+      }
+    }
   });
 
   test('the lap readout is 1-based and the total is the race length', () => {
