@@ -173,6 +173,94 @@ export const RIVAL_PACE_ADVANTAGE_MARGIN = 0.02;
 export const RIVAL_DRIVER_SPEED_HYSTERESIS = 0.05;
 /** How far above the corner limit the speed must be before the driver brakes. */
 export const RIVAL_DRIVER_BRAKE_MARGIN = 0.5;
+/** STALL Part 2 — the stuck-rig re-seed: a rig whose unwrapped route
+ * distance has advanced less than this far is not racing, it is pinned
+ * or circling. 0.5 units: far below what the 0.8 u/s corner floor
+ * guarantees even through the slowest hook (1.6 units in the 2 s
+ * window), so a legitimately slow rig — the hook crawl, the follow
+ * queue — always clears it. The check is on route progress, not on
+ * throttle: a circling rig can be at full speed while making no route
+ * progress (it orbits the line point at 2.7 u/s and advances ~0.07
+ * units of arc per second), so a throttle condition would miss it. */
+export const RIVAL_DRIVER_STUCK_ADVANCE = 0.5;
+/** STALL Part 2 — how long the rig must make no route progress (advance
+ * below the threshold above) before the projection hint is re-seeded
+ * from the nearest physical point. 2 s: long enough that no legitimate
+ * slowdown (the hook queue, a tangle's drag) can trip it — a rig at the
+ * 0.8 floor advances 1.6 units in the window, far above the 0.5
+ * threshold — short enough that a stalled lap costs ~2 s against the
+ * +25 envelope. */
+export const RIVAL_DRIVER_STUCK_SECONDS = 2;
+/** STALL Part 2 — recovery speed: the target while a rig is recovering
+ * (flagged by the re-seed). 0.8 u/s, the corner floor — the slowest the
+ * driver ever commands, and the slowest the solver ever allows through
+ * the hook — so a recovering rig costs a few seconds, not a lap. At 0.8
+ * the turn radius (~1.4) is far smaller than the rig's distance to its
+ * line, so pure pursuit converges onto the line instead of orbiting
+ * around it; at full pace (2.7) the turn radius (~4.5) is comparable
+ * to the error, and the rig circles. The cap applies ONLY while
+ * recovering, which is set only by the re-seed firing after 2 s of no
+ * route progress — never in a healthy race. (The first attempt capped
+ * on the lateral error instead; that signal is blind to the orbit —
+ * the projection re-pins to the diagonal as the rig orbits, so the
+ * error stays under its threshold while circling — and it fired in
+ * healthy racing, flipping the ordering pin. Removed.) */
+export const RIVAL_DRIVER_RECOVERY_SPEED = 0.8;
+/** STALL Part 2 — recovery clear: how far a recovering rig must advance
+ * along the route, from the totalS at the re-seed firing, before the
+ * recovery ends and the speed cap lifts. 2 units: the orbit swings
+ * totalS by ±0.5, so a 0.5-unit progress clear is inside the orbit's
+ * own noise and would clear mid-orbit on a forward swing; 2 units is
+ * 4× above that noise while still clearing within ~2.5 s at the 0.8
+ * recovery pace. */
+export const RIVAL_DRIVER_RECOVERY_CLEAR_ADVANCE = 2;
+/** STALL Part 2 — stale-reference bound, in route units. If totalS sits
+ * this far BEHIND the progress checkpoint, the checkpoint is stale (a
+ * driver seeded mid-route), not a stall — re-sync it instead of counting
+ * no-progress. 10 units: far above any genuine backward drift (the
+ * projection wobbles inside its ±6 arc window; the terminal pin drifted
+ * −3.3 over 641 s) and far below the ~137-unit gap a seeded reference
+ * starts with. */
+export const RIVAL_DRIVER_STUCK_STALE = 10;
+/** STALL Part 2 — line-point clamp radius, in route units. Near the line
+ * point the straight and the diagonal coincide, so the geometric
+ * nearest is ambiguous by construction; within this distance of the
+ * line point the re-seed resolves the ambiguity toward the straight
+ * (the lap the rig is actually on) instead of whichever side of the
+ * joint is nearer. 2.5 units: the first attempt at 4.0 proved too wide
+ * — the seed-30 3-lap trace shows the 4.0 radius snapping tiberius to
+ * the straight at 3.11 and 3.47 units from the line point while it was
+ * still 3.1–3.5 units short of the line (totalS 154.5/311.7 against the
+ * line at 157.6/315.2); the rig then drifted into the wall and pinned
+ * at v=0.00, and the re-seed no-ops there (nearest is the diagonal,
+ * 4.40 from the line). The orbit firings that need the clamp all sit
+ * at ≤2.1 units from the line point, so 2.5 keeps the orbit covered
+ * with margin while excluding the not-crossed snaps. A stuck rig near
+ * the line point has already crossed it — the straight is its lap's
+ * branch; the diagonal belongs to the lap it has left. Trade-off:
+ * the closest-lap rule may credit the lap for a rig that was a few
+ * units short of the line — the lesser evil for a rescued rig, and the
+ * lap time still carries the recovery cost. */
+export const RIVAL_DRIVER_LINE_POINT_CLAMP = 2.5;
+/** STALL Part 2 — recovery lookahead, in route units. A rig the re-seed
+ * flagged as pinned or circling steers toward a point this far ahead
+ * instead of the 2-unit lookahead. Pure pursuit orbits when the target
+ * is 2 units ahead and ~7 to the side (the angle to it is ~90°, so the
+ * rig turns in a circle); a target 10 units ahead sits mostly forward
+ * of the rig, so it drives toward it and rejoins instead of orbiting.
+ * 10 is long enough to pull the target clear of the rig's orbit and
+ * short enough that the target stays on the route the rig is rejoining
+ * (the straight is 65 units; the diagonal is ~8). It applies only while
+ * recovering — and it is NOT clamped at the line: an earlier version
+ * clamped it (min(s+10, length)), which created the near target that
+ * orbits — the clamped target is the line point itself, ~2.3 units
+ * away, inside the 1.90-unit turn circle at the 0.8 recovery pace, so
+ * the rig traced a ~3.6-unit loop without closing. Letting the
+ * lookahead wrap naturally (routePointAt wraps modulo the length)
+ * puts the target on the straight ~10 units ahead of the rig, OUTSIDE
+ * the turn circle, so the rig turns toward it and closes instead of
+ * orbiting a near target. */
+export const RIVAL_DRIVER_RECOVERY_LOOKAHEAD = 10;
 /** The forward route-arc window used to estimate corner curvature. Kept separate from the 2-unit steering target; the resulting speed limit is clamped to a minimum of 0.8 u/s. The 1.5-unit value is retained because it lets the rival complete the tight south hook without leaving the driveable outline, but it creates a measurable full-field queue. Re-evaluate only with the multi-rig soak and device profiler. */
 export const RIVAL_CORNER_WINDOW = 1.5;
 /** The warned initiator's clearance: this far outside its lane, at this pace fraction. */
@@ -552,6 +640,50 @@ export function projectToRoute(
   return { s, index: best, lateral };
 }
 
+/**
+ * STALL Part 2 — the pure-geometric nearest route point: the segment
+ * whose closest point is physically nearest the pose, with no arc
+ * penalty, no stickiness, and no hint window. Used ONLY by the stuck-rig
+ * re-seed, so it runs only when a rig is already pinned — never on the
+ * hot path. The plain projection cannot serve here: at the line point
+ * its arc penalty and stickiness keep the hint on the diagonal while the
+ * rig is physically on the straight, which is the deadlock itself. The
+ * degenerate closing segment is excluded, as in `projectToRoute`.
+ */
+export function nearestRoutePoint(
+  analysis: RivalRouteAnalysis,
+  x: number,
+  z: number,
+): { s: number; index: number } {
+  const n = analysis.points.length;
+  const segCount = n - 1;
+  let best = 0;
+  let bestDistSq = Infinity;
+  let bestT = 0;
+  for (let i = 0; i < segCount; i++) {
+    const a = analysis.points[i];
+    const b = analysis.points[i + 1];
+    const ex = b[0] - a[0];
+    const ez = b[1] - a[1];
+    const lenSq = ex * ex + ez * ez;
+    let t = lenSq > 0 ? ((x - a[0]) * ex + (z - a[1]) * ez) / lenSq : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const qx = a[0] + ex * t;
+    const qz = a[1] + ez * t;
+    const dx = x - qx;
+    const dz = z - qz;
+    const distSq = dx * dx + dz * dz;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = i;
+      bestT = t;
+    }
+  }
+  const d0 = analysis.cumulativeDistances[best];
+  const d1 = analysis.cumulativeDistances[best + 1];
+  return { s: d0 + (d1 - d0) * bestT, index: best };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The pace cap — a target speed, never a rubber-band
 // ─────────────────────────────────────────────────────────────────────────────
@@ -750,6 +882,14 @@ export interface RivalRigSnapshot {
   x: number;
   z: number;
   heading: number;
+  /** STALL Part 2 — whether the rig completed its laps (set by the
+   * caller, which owns the race length). Absent means racing. The
+   * follow cap reads this, NOT the lap count: the driver does not know
+   * the race length — the soak runner creates drivers without `laps`,
+   * so totalLaps=1 there even in a 3-lap race, and a lap-1 leader would
+   * read as finished. Only the caller, which counts the laps, can say
+   * a rig is finished. */
+  finished?: boolean;
 }
 
 export type RivalWarning = 'none' | 'initiator' | 'innocent';
@@ -813,6 +953,37 @@ export interface RivalDriverState {
   offset: number;
   /** The last throttle, for the hysteresis hold. */
   lastThrottle: number;
+  /** STALL Part 2 — the stuck-rig re-seed: the totalS at the last
+   * progress checkpoint, and the seconds since then without progress
+   * while racing. */
+  stuckRefTotalS: number;
+  stuckTimeS: number;
+  /** STALL Part 2 — the totalS at the re-seed firing that set
+   * `recovering`. The recovery clears only once the rig has advanced
+   * RIVAL_DRIVER_RECOVERY_CLEAR_ADVANCE from this point — a separate
+   * reference from `stuckRefTotalS`, which the 0.5-unit progress
+   * checkpoint keeps resetting. */
+  recoveringRefTotalS: number;
+  /** STALL Part 2 — recovery: true once the re-seed has fired (the rig
+   * made no route progress for RIVAL_DRIVER_STUCK_SECONDS), cleared
+   * only after RIVAL_DRIVER_RECOVERY_CLEAR_ADVANCE of sustained route
+   * progress since the firing. While true the driver caps its target
+   * at the corner floor (step 9), so a rig knocked off its line slows
+   * enough to turn onto it instead of orbiting it at full pace. The
+   * re-seed alone cannot break the circling — it corrects the
+   * projection, but the rig's motion is the problem — so the re-seed
+   * sets this flag and the speed cap does the breaking. */
+  recovering: boolean;
+  /** STALL Part 2 — whether the stuck-rig re-seed may fire for this
+   * driver. True exactly for a multi-lap race: the live scene passes
+   * the real race length, so a District/League driver gets this true,
+   * and runSoakRace (rivalDriver.test.ts) passes `laps` too, so its
+   * multi-lap drivers get it. runIncidentSoakRace does NOT pass `laps`,
+   * so its drivers keep totalLaps=1 and the re-seed never fires there
+   * — that is why the 1C soak pins hold exactly. A test harness that
+   * drives multi-lap races without passing `laps` sets it for those
+   * races (stallTrace.test.ts). */
+  reseedEnabled: boolean;
   defense: {
     /** The straight the last defense move happened on, or null. */
     lastStraight: number | null;
@@ -882,6 +1053,11 @@ export function createRivalDriver(options: RivalDriverOptions): RivalDriverState
     lateral: projection.lateral,
     offset: 0,
     lastThrottle: 0,
+    stuckRefTotalS: projection.s,
+    stuckTimeS: 0,
+    recoveringRefTotalS: projection.s,
+    recovering: false,
+    reseedEnabled: (options.laps ?? 1) > 1,
     defense: { lastStraight: null, targetOffset: null, followerId: null },
     overtake: { targetId: null, offset: 0 },
   };
@@ -972,6 +1148,127 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   const analysis = state.analysis;
   const length = analysis.length;
   const dt = Number.isFinite(tick.dt) && (tick.dt ?? 0) > 0 ? (tick.dt as number) : 1 / 60;
+
+  // 0. STALL Part 2 — the stuck-rig re-seed. A rig whose throttle is being
+  //    eaten by the wall clamp (nose clearance 0.00, speed 0.00, throttle
+  //    1) makes no route progress, and the projection's hint keeps it on
+  //    the diagonal while it is physically on the straight — the lookahead
+  //    then wraps to a point behind the rig and the driver keeps facing
+  //    the wall. The same no-progress signature covers the scattered
+  //    circling that precedes the pin: a rig knocked off its line orbits
+  //    the line point at full speed while advancing ~0.07 units of arc
+  //    per second, because the projection holds it 7+ arc units behind
+  //    where it physically is and the lookahead target sits behind it.
+  //    Nothing in the projection can break either loop from inside it
+  //    (the hint IS the loop), so the recovery comes from outside it:
+  //    when the rig has made no route progress for
+  //    RIVAL_DRIVER_STUCK_SECONDS, re-seed the hint from the nearest
+  //    physical point and let the next projection run from there. The
+  //    check is on route progress, not on throttle — a circling rig is at
+  //    full speed — and it runs only while racing, and only when the
+  //    re-seed is enabled for this driver (a multi-lap race). A one-lap
+  //    race keeps the exact behaviour the 1C soak pins were measured
+  //    with: the re-seed stays out of one-lap races entirely (laps=1
+  //    leaves reseedEnabled false — runIncidentSoakRace does not pass
+  //    `laps`, so its drivers keep totalLaps=1; runSoakRace DOES pass
+  //    `laps`, so its multi-lap drivers have the re-seed live). The live
+  //    scene passes the real race length (3 or 5 laps), so the re-seed
+  //    is live wherever the stall can cost a lap. A rig crawling through
+  //    the hook at the 0.8 floor advances 1.6 units in the window, far
+  //    above the threshold, and a false firing is a no-op or a
+  //    correction: the nearest physical point is where the rig already
+  //    is, unless the projection was wrong, in which case the re-seed
+  //    corrects it. A re-seed is idempotent: if the rig is still turning
+  //    away from the wall, the nearest point is the same one, so a
+  //    second firing changes nothing.
+  if (tick.racing && state.reseedEnabled) {
+    if (state.totalS - state.stuckRefTotalS >= RIVAL_DRIVER_STUCK_ADVANCE) {
+      state.stuckRefTotalS = state.totalS;
+      state.stuckTimeS = 0;
+      // STALL Part 2 — the rig is making route progress again, but the
+      // recovery ends only on SUSTAINED progress: the orbit swings
+      // totalS by ±0.5, so the 0.5-unit checkpoint above is inside the
+      // orbit's own noise and would clear the recovery mid-orbit on a
+      // forward swing (mode B: it cleared on a 0.51-unit blip, 0.07 s
+      // before the next re-seed would have fired). Require
+      // RIVAL_DRIVER_RECOVERY_CLEAR_ADVANCE from the firing point.
+      if (
+        state.recovering &&
+        state.totalS - state.recoveringRefTotalS >= RIVAL_DRIVER_RECOVERY_CLEAR_ADVANCE
+      ) {
+        state.recovering = false;
+      }
+    } else if (state.stuckRefTotalS - state.totalS > RIVAL_DRIVER_STUCK_STALE) {
+      // STALL Part 2 — stale reference, not a stall: totalS sits far
+      // behind the checkpoint, which means the checkpoint was set from
+      // a projection the rig has since left behind. The creation
+      // projection is hinted at the line, so a driver seeded mid-route
+      // (test scaffolding: driverAt seeds totalS=20 while the creation
+      // projection, its arc window rejecting the mid-route pose, returns
+      // the route's far end) starts with its reference ~a lap ahead of
+      // the rig — the rig is advancing, the reference is wrong, and
+      // counting that as no-progress would fire a spurious re-seed and
+      // cap a healthy rig. Re-sync the reference instead. A genuine
+      // stall drifts backward only a few units (the projection wobbles
+      // inside its ±6 arc window; the terminal pin drifted −3.3 over
+      // 641 s), far inside this threshold, so a real pin still trips
+      // the re-seed below.
+      state.stuckRefTotalS = state.totalS;
+      state.stuckTimeS = 0;
+      if (state.recovering) state.recoveringRefTotalS = state.totalS;
+    } else {
+      state.stuckTimeS += dt;
+      if (state.stuckTimeS >= RIVAL_DRIVER_STUCK_SECONDS) {
+        let nearest = nearestRoutePoint(analysis, tick.x, tick.z);
+        // STALL Part 2 — the line-point clamp (mode B): near the line
+        // point the straight and the diagonal coincide, so the geometric
+        // nearest is ambiguous by construction — a rig that has drifted
+        // south of the line while turning is nearer the diagonal even
+        // though it is on the next lap's straight (mode B: the middle
+        // three firings re-seeded to s=156.81/155.21/151.12, and after a
+        // diagonal re-seed the straight sits 58 segments from the hint,
+        // outside the projection's ±40 window, so it is invisible).
+        // Within RIVAL_DRIVER_LINE_POINT_CLAMP of the line point
+        // (analysis.points[0], s=0), resolve the ambiguity toward the
+        // lap the rig is actually on: re-seed to the straight (segment
+        // 0) rather than whichever side of the joint is nearer.
+        const linePoint = analysis.points[0];
+        const lineDx = tick.x - linePoint[0];
+        const lineDz = tick.z - linePoint[1];
+        if (
+          lineDx * lineDx + lineDz * lineDz <=
+          RIVAL_DRIVER_LINE_POINT_CLAMP * RIVAL_DRIVER_LINE_POINT_CLAMP
+        ) {
+          const a = analysis.points[0];
+          const b = analysis.points[1];
+          const ex = b[0] - a[0];
+          const ez = b[1] - a[1];
+          const lenSq = ex * ex + ez * ez;
+          let t = lenSq > 0 ? ((tick.x - a[0]) * ex + (tick.z - a[1]) * ez) / lenSq : 0;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const d0 = analysis.cumulativeDistances[0];
+          const d1 = analysis.cumulativeDistances[1];
+          nearest = { s: d0 + (d1 - d0) * t, index: 0 };
+        }
+        // The lap the re-seeded s belongs to: the one that keeps totalS
+        // closest to where it is (the rig has already crossed the line,
+        // so this is the lap it is on, not the one the pinned s claims).
+        const lap = Math.round((state.totalS - nearest.s) / length);
+        state.totalS = lap * length + nearest.s;
+        state.lap = Math.floor(state.totalS / length);
+        state.sampleIndex = nearest.index;
+        state.stuckRefTotalS = state.totalS;
+        state.stuckTimeS = 0;
+        // STALL Part 2 — the re-seed fired, so the rig is pinned or
+        // circling: mark it recovering so step 9 caps its target at the
+        // corner floor until it makes sustained route progress again.
+        // The re-seed corrects the projection; the cap breaks the
+        // circling.
+        state.recovering = true;
+        state.recoveringRefTotalS = state.totalS;
+      }
+    }
+  }
 
   // 1. Project the pose onto the route and unwrap the distance. The hint
   //    s is the rig's own current s (its totalS, wrapped) — the projection
@@ -1163,8 +1460,26 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
   //    the rig is at the hook's end — a long lookahead wraps the target
   //    onto the next lap while the rig is still on the diagonal, and the
   //    rig turns north early and misses its lane.
-  const targetPoint = routePointAt(analysis, lookS);
-  const normal = routeInsideNormalAt(analysis, lookS);
+  //    STALL Part 2 — a recovering rig (flagged by the re-seed) steers
+  //    toward a point RIVAL_DRIVER_RECOVERY_LOOKAHEAD ahead instead:
+  //    the 2-unit target sits ~90° to the side of a rig knocked off its
+  //    line, so pure pursuit orbits it; the 10-unit target sits mostly
+  //    forward, so the rig drives toward it and rejoins. The offset
+  //    blend above still reads the 2-unit lookahead, so only the
+  //    steering target moves. The recovery lookahead is NOT clamped at
+  //    the line: it wraps naturally (routePointAt wraps modulo the
+  //    length) onto the next lap's straight, ~10 units ahead of the rig
+  //    and outside its turn circle. An earlier version clamped it at
+  //    the line, which made the target the line point itself — ~2.3
+  //    units away, inside the 1.90-unit turn circle at the 0.8 recovery
+  //    pace — and the rig traced a ~3.6-unit loop without closing
+  //    (the orbit). The clamp created the near target; removing it is
+  //    the fix.
+  const steerLookS = state.recovering
+    ? s + RIVAL_DRIVER_RECOVERY_LOOKAHEAD
+    : lookS;
+  const targetPoint = routePointAt(analysis, steerLookS);
+  const normal = routeInsideNormalAt(analysis, steerLookS);
   const tx = targetPoint[0] + normal[0] * state.offset;
   const tz = targetPoint[1] + normal[1] * state.offset;
   const desiredHeading = Math.atan2(-(tx - tick.x), -(tz - tick.z));
@@ -1224,7 +1539,25 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
     cornerLimit,
   );
   let followBrake = false;
-  if (ahead !== null && state.overtake.targetId === null && aheadGap <= RIVAL_FOLLOW_DISTANCE) {
+  // STALL Part 2 — a finished leader does not cap the follower. A rig
+  // that completed its laps freezes at speed 0 on the track (the soak
+  // harness stops stepping it), and the cap below reads ahead.speed +
+  // 0.02 — so a follower a lap behind, inside the follow distance, is
+  // capped to 0.02 forever and can never finish. Seed 30 3-lap, tiberius
+  // behind the finished albata: target 0.02, throttle 0, speed 0.00 for
+  // the remaining 682.8 s, clear of any wall (body 3.29, nose 5.08), no
+  // steward. The signal is the caller's `finished` flag, NOT the lap
+  // count: the driver does not know the race length (the soak runner
+  // creates drivers without `laps`, so totalLaps=1 there even in a
+  // 3-lap race — a lap comparison would lift the cap behind every
+  // leader that completed one lap, and the field would stop holding
+  // spacing). A racing leader stopped at speed 0 (mid-incident,
+  // mid-recovery) has `finished` unset, so the cap still holds the
+  // field behind it at the hook, and only a parked rig is passed. The
+  // overtake window above still sees the finished rig, so a faster
+  // follower passes it on a window; a slower one drives its line past
+  // it and the separation resolver keeps them apart.
+  if (ahead !== null && ahead.finished !== true && state.overtake.targetId === null && aheadGap <= RIVAL_FOLLOW_DISTANCE) {
     // Capped by BOTH the leader's pace and its actual speed: the pace
     // stops the creep (the leader's actual speed oscillates ±0.05 above
     // its mean, so capping on the actual speed alone lets the follower
@@ -1233,6 +1566,20 @@ export function driveRival(state: RivalDriverState, tick: RivalDriverTick): Char
     // is 0.83 — capping on the pace alone drives the follower into it).
     target = Math.min(target, ahead.paceTarget, ahead.speed + RIVAL_PACE_ADVANTAGE_MARGIN);
     if (tick.speed > ahead.speed + 0.5) followBrake = true;
+  }
+  // STALL Part 2 — recovery speed cap: while recovering (set only by
+  // the re-seed firing after 2 s of no route progress), cap the target
+  // at the corner floor so the rig turns at a tight radius toward its
+  // target instead of orbiting at full pace. The cap sits here, after
+  // the follow cap, so it is the final word on the target in every
+  // case. It is gated on `recovering`, never on the lateral error and
+  // never on reseedEnabled alone: the lateral-error signal is blind
+  // to the orbit (the projection re-pins to the diagonal as the rig
+  // orbits, so |lateral − offset| stays 0.01–2.64 during the fast
+  // circling, under its threshold) and it fired in healthy racing,
+  // flipping the ordering pin.
+  if (state.recovering) {
+    target = Math.min(target, RIVAL_DRIVER_RECOVERY_SPEED);
   }
   // LADDER-1E: the target the driver throttles around, after the corner
   // limit and the follow cap — readable here so a test can prove the exact
